@@ -7,7 +7,12 @@ from typing import Any
 
 from ...schemas import Container, Item, Placement
 from ...metrics import packing_tiebreak_metrics
-from .extreme_point_ffd import SearchStats, candidate_subsets, container_orders, pack_order
+from .extreme_point_core import (
+    SearchStats,
+    candidate_subsets,
+    container_orders,
+    pack_order_first_fit,
+)
 
 
 @dataclass
@@ -109,7 +114,7 @@ def repack_neighbor(
     for subset in subsets:
         for order in container_orders(subset):
             stats.repacking_attempts += 1
-            candidate = pack_order(item_order, order, tolerance, SearchStats())
+            candidate = pack_order_first_fit(item_order, order, tolerance, SearchStats())
             if candidate is not None:
                 return candidate
     return None
