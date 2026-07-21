@@ -12,6 +12,9 @@ SCENE_SCHEMA_VERSION = "1.0"
 LEVEL_01_WARNING = (
     "Level 1 geometry/payload solution; rotation, support, stacking, and physical stability are not modeled."
 )
+LEVEL_01_WARNING_VI = (
+    "Nghiệm Level 1 chỉ hợp lệ về hình học và tải trọng; chưa mô hình hóa xoay, bề mặt đỡ, chồng kiện và ổn định vật lý."
+)
 
 
 class SceneValidationError(ValueError):
@@ -73,6 +76,10 @@ def build_scene(
         "algorithm": algorithm_id,
         "validation_status": validation_status,
         "warning": LEVEL_01_WARNING if level_id == "level_01" else "Refer to the active level contract.",
+        "warnings": {
+            "vi": LEVEL_01_WARNING_VI if level_id == "level_01" else "Xem contract của level đang hoạt động.",
+            "en": LEVEL_01_WARNING if level_id == "level_01" else "Refer to the active level contract.",
+        },
         "containers": scene_containers,
     }
     validate_scene(scene)

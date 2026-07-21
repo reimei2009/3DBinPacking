@@ -53,8 +53,15 @@ def create_figure(
     container_id: str | None = None,
     show_labels: bool = False,
     show_boundaries: bool = True,
+    language: str = "en",
 ) -> go.Figure:
     validate_scene(scene)
+    if language not in {"vi", "en"}:
+        raise ValueError(f"Unsupported visualization language: {language!r}")
+    labels = {
+        "vi": {"container": "Container", "position": "Tọa độ", "size": "Kích thước", "weight": "Khối lượng", "volume": "thể tích", "payload": "tải trọng"},
+        "en": {"container": "Container", "position": "Position", "size": "Size", "weight": "Weight", "volume": "volume", "payload": "payload"},
+    }[language]
     containers = scene["containers"]
     if container_id is not None:
         containers = [value for value in containers if value["container_id"] == container_id]
@@ -87,10 +94,10 @@ def create_figure(
             )
             xs, ys, zs = zip(*item_vertices)
             hover = (
-                f"<b>{item['item_id']}</b><br>Container: {container['container_id']}"
-                f"<br>Position: ({position['x']:g}, {position['y']:g}, {position['z']:g}) mm"
-                f"<br>Size: {item_dimensions['length']:g} × {item_dimensions['width']:g} × {item_dimensions['height']:g} mm"
-                f"<br>Weight: {item.get('weight_kg', 0):g} kg"
+                f"<b>{item['item_id']}</b><br>{labels['container']}: {container['container_id']}"
+                f"<br>{labels['position']}: ({position['x']:g}, {position['y']:g}, {position['z']:g}) mm"
+                f"<br>{labels['size']}: {item_dimensions['length']:g} × {item_dimensions['width']:g} × {item_dimensions['height']:g} mm"
+                f"<br>{labels['weight']}: {item.get('weight_kg', 0):g} kg"
             )
             figure.add_trace(go.Mesh3d(
                 x=xs, y=ys, z=zs,
@@ -110,7 +117,7 @@ def create_figure(
         volume_pct = float(utilization.get("volume_pct", 0.0))
         payload_pct = float(utilization.get("weight_pct", 0.0))
         figure.add_annotation(
-            x=offset_x + length / 2, y=0, text=f"{container['container_id']} · volume {volume_pct:.1f}% · payload {payload_pct:.1f}%",
+            x=offset_x + length / 2, y=0, text=f"{container['container_id']} · {labels['volume']} {volume_pct:.1f}% · {labels['payload']} {payload_pct:.1f}%",
             showarrow=False, yshift=-18,
         )
         gap = max(250.0, length * 0.08)

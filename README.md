@@ -13,7 +13,7 @@ pip install -e .
 python scripts\run_web_app.py
 ```
 
-Mở URL Streamlit in trong terminal, thường là `http://localhost:8501`. UI cho phép chọn level, thuật toán, số item, số container, seed và tham số thuật toán; đồng thời hiển thị objective, biến, ràng buộc, validation, utilization và mô hình Plotly 3D. Xem [hướng dẫn web](docs/guides/running_web_app.md) và [kiến trúc tái sử dụng](docs/design/visualization_web_architecture.md).
+Mở URL Streamlit in trong terminal, thường là `http://localhost:8501`. UI mặc định dùng tiếng Việt và có thể chuyển sang English. Giao diện cho phép chọn level, thuật toán, số item, số container, seed và tham số thuật toán; đồng thời dùng LaTeX để hiển thị ký hiệu, biến, hàm mục tiêu, ràng buộc, code mapping, validation, utilization và mô hình Plotly 3D. Xem [hướng dẫn web](docs/guides/running_web_app.md) và [kiến trúc tái sử dụng](docs/design/visualization_web_architecture.md).
 
 Quy trình branch/worktree của dự án được mô tả tại `docs/design/git_workflow.md`: `main` ổn định, `develop` tích hợp, và branch ngắn hạn theo scope như `experiment/level-01/<task>`.
 

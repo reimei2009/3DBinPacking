@@ -17,12 +17,14 @@ Presentation adapter (Streamlit now; FastAPI/React later)
 ## Stable boundaries
 
 - `ExperimentRequest` is the input contract.
-- `LevelContract` describes the problem, objective, variables, active constraints, inactive features, assumptions, and limitations.
+- `LevelContract` describes the problem, notation, LaTeX objective, variables, active constraints, inactive features, assumptions, limitations, translations, and source-code mappings.
 - `visualization/scene.json` is the backend-neutral geometry contract.
 - `manifest.json` identifies the level, algorithm, inputs, source version, and validation status.
 - `application/service.py` validates interactive requests and exposes isolated run history.
 
 No Streamlit object is passed into algorithms, pipelines, validators, reporting, or scene generation. Replacing Streamlit with FastAPI and React therefore changes the presentation adapter, not the optimization core.
+
+Vietnamese and English text lives in structured contracts or the small UI translation catalog. Mathematical LaTeX is language-neutral. The UI never maintains a second copy of the formulas.
 
 ## Level 1 visualization semantics
 

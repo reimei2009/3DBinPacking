@@ -23,11 +23,16 @@ def test_registry_only_exposes_runnable_implementations():
         "extreme_point_simulated_annealing",
     )
     contract = get_level("level_01").contract
-    assert contract.objective[0].startswith("Primary")
+    assert contract.title.resolve("vi").startswith("Level 1")
+    assert contract.objective.latex == r"\min\; B\sum_{k\in K}u_k+\sum_{k\in K}c_k u_k"
+    assert contract.objective.code_mapping.endswith("(objective)")
     assert {value.constraint_id for value in contract.active_constraints} == {
-        "exact_assignment", "container_activation", "boundaries", "pairwise_non_overlap", "payload",
+        "exact_assignment", "container_activation", "boundaries", "payload",
+        "direction_linking", "separation_activation", "pairwise_non_overlap",
     }
-    assert "stability" in contract.inactive_constraints
+    assert any(value.en == "stability" for value in contract.inactive_constraints)
+    assert all(value.latex and value.code_mapping for value in contract.variables)
+    assert all(value.latex and value.code_mapping for value in contract.active_constraints)
 
 
 def test_shared_interactive_inputs_are_not_level_specific():

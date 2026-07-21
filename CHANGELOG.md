@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.0 - 2026-07-21
+
+- Added Vietnamese-first UI text with an English language switch.
+- Added localized Level contracts containing LaTeX notation, decision variables, objective, and every MILP constraint family.
+- Added explicit code mappings from each mathematical expression to the canonical Level 1 implementation.
+- Localized Plotly hover text, utilization labels, and Level 1 visualization warnings.
+
 ## 0.8.0 - 2026-07-21
 
 - Added a versioned, backend-neutral `scene.json` contract and reusable Plotly 3D renderer.

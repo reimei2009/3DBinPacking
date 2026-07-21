@@ -29,6 +29,7 @@ def test_scene_contains_versioned_geometry_and_utilization(tmp_path):
     assert container["utilization"]["item_count"] == 1
     assert container["utilization"]["weight_pct"] == pytest.approx(10)
     assert container["utilization"]["volume_pct"] == pytest.approx(5)
+    assert scene["warnings"]["vi"].startswith("Nghiệm Level 1")
     path = tmp_path / "scene.json"
     path.write_text(json.dumps(scene), encoding="utf-8")
     assert load_scene(path) == scene
@@ -50,6 +51,8 @@ def test_plotly_renderer_is_deterministic_and_exports_views(tmp_path):
     paths = write_html_views(scene, tmp_path)
     assert [value.name for value in paths] == ["combined_scene.html", "container_C01.html"]
     assert all(value.stat().st_size > 1000 for value in paths)
+    vietnamese = create_figure(scene, language="vi")
+    assert any("Khối lượng" in str(trace.text) for trace in vietnamese.data if trace.type == "mesh3d")
 
 
 def test_plotly_renderer_rejects_unknown_container():

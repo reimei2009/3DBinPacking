@@ -13,6 +13,8 @@ python scripts\run_web_app.py
 
 Open the local URL printed by Streamlit, normally `http://localhost:8501`.
 
+The default language is Vietnamese. Use **Ngôn ngữ / Language** in the sidebar to switch to English. The **Mô hình toán học** tab renders the active level's notation, variables, objective, and constraints with LaTeX and shows the canonical source-code mapping for each expression.
+
 ## Linux
 
 ```bash
