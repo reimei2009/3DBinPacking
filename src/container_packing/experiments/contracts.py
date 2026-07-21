@@ -30,6 +30,34 @@ class AlgorithmDefinition:
 
 
 @dataclass(frozen=True)
+class VariableDefinition:
+    symbol: str
+    variable_type: str
+    indices: str
+    meaning: str
+
+
+@dataclass(frozen=True)
+class ConstraintDefinition:
+    constraint_id: str
+    name: str
+    meaning: str
+
+
+@dataclass(frozen=True)
+class LevelContract:
+    title: str
+    problem: str
+    objective: tuple[str, ...]
+    variables: tuple[VariableDefinition, ...]
+    active_constraints: tuple[ConstraintDefinition, ...]
+    inactive_constraints: tuple[str, ...]
+    assumptions: tuple[str, ...]
+    limitations: tuple[str, ...]
+    solution_claim: str
+
+
+@dataclass(frozen=True)
 class LevelDefinition:
     level_id: str
     description: str
@@ -38,3 +66,4 @@ class LevelDefinition:
     run: Callable[[ExperimentRequest], Any]
     prepare: Callable[[ExperimentRequest], dict[str, Any]]
     validate_run: Callable[[Path], Any]
+    contract: LevelContract

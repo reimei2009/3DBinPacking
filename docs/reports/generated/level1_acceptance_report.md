@@ -13,7 +13,7 @@ Generated 2026-07-21 in the project virtual environment.
 
 - Data preparation: 20 items, 5 containers, 24.210313 m3, 6228.728 kg.
 - Model: 5865 variables, 18475 constraints, CSR sparse matrix, 48505 nonzero coefficients.
-- Pytest: 58 passed, 0 failed.
+- Pytest: 66 passed, 0 failed.
 - Clean and executed notebooks pass `nbformat.validate`; executed notebook prints `VALID LEVEL-1 SOLUTION`.
 
 ## Solver and independent validation
@@ -76,3 +76,11 @@ The solution has no boundary, overlap, payload, identity, dimension, or weight v
 - Run: `outputs/level_01/runs/20260721T052238580594Z__level_01__extreme_point_ffd__i50_c8__seed42`.
 - Hill Climbing rerun: FEASIBLE/VALID, same three containers and objective, 1.060 seconds; the FFD solution was already a local optimum for configured neighborhoods.
 - Hill run: `outputs/level_01/runs/20260721T055515082242Z__level_01__extreme_point_hill_climbing__i50_c8__seed42`.
+
+## Reusable web and 3D visualization evidence
+
+- Streamlit AppTest changed the interactive instance to 10 items and 3 containers, executed the shared Extreme-Point FFD pipeline, and rendered one Plotly chart.
+- Status: FEASIBLE; independent validation: valid, 0 issues; used containers: 1.
+- Scene contract: schema 1.0, lower-left-back coordinates in millimeters, stable item IDs, container utilization, and an explicit Level 1 physical-stability warning.
+- Derived views: `visualization/combined_scene.html` and one `visualization/container_<id>.html` per used container.
+- The core package, application boundary, and scene builder have no dependency on Streamlit; the UI can be replaced without rewriting optimization or validation logic.

@@ -7,3 +7,5 @@ nbclient>=0.10,<1
 matplotlib>=3.8,<4
 pytest>=8,<10
 PyYAML>=6,<7
+plotly>=6,<7
+streamlit>=1.46,<2

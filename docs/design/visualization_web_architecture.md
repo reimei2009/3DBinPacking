@@ -1,0 +1,31 @@
+# Visualization and web architecture
+
+The research UI is an adapter, not an optimization implementation. CLI, notebooks, Streamlit, and a future HTTP API all call the same registry-driven application boundary.
+
+```text
+Presentation adapter (Streamlit now; FastAPI/React later)
+    -> application/service.py
+    -> level and algorithm registries
+    -> level pipeline
+    -> solver or heuristic
+    -> independent validator
+    -> versioned run artifacts
+    -> visualization/scene.json
+    -> Plotly renderer or another frontend
+```
+
+## Stable boundaries
+
+- `ExperimentRequest` is the input contract.
+- `LevelContract` describes the problem, objective, variables, active constraints, inactive features, assumptions, and limitations.
+- `visualization/scene.json` is the backend-neutral geometry contract.
+- `manifest.json` identifies the level, algorithm, inputs, source version, and validation status.
+- `application/service.py` validates interactive requests and exposes isolated run history.
+
+No Streamlit object is passed into algorithms, pipelines, validators, reporting, or scene generation. Replacing Streamlit with FastAPI and React therefore changes the presentation adapter, not the optimization core.
+
+## Level 1 visualization semantics
+
+The renderer shows fixed-orientation item cuboids and container boundaries. It visualizes only a solution that has passed the independent Level 1 validator. It does not simulate gravity, support, stacking, stability, loading order, or unloading order.
+
+Combined scenes offset containers along the X axis for visual comparison. Item coordinates stored in `scene.json` remain local to their assigned container; the display offset is never written back to the solution.

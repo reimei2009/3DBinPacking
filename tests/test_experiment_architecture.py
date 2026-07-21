@@ -22,6 +22,12 @@ def test_registry_only_exposes_runnable_implementations():
         "milp_big_m", "extreme_point_ffd", "extreme_point_hill_climbing",
         "extreme_point_simulated_annealing",
     )
+    contract = get_level("level_01").contract
+    assert contract.objective[0].startswith("Primary")
+    assert {value.constraint_id for value in contract.active_constraints} == {
+        "exact_assignment", "container_activation", "boundaries", "pairwise_non_overlap", "payload",
+    }
+    assert "stability" in contract.inactive_constraints
 
 
 def test_shared_interactive_inputs_are_not_level_specific():
@@ -76,7 +82,9 @@ def test_two_runs_are_isolated_and_complete(root: Path, tmp_path: Path):
         assert (run_dir / "solution/placements.csv").is_file()
         assert (run_dir / "validation/validation_report.json").is_file()
         assert (run_dir / "visualization/scene.json").is_file()
+        assert (run_dir / "visualization/combined_scene.html").is_file()
         manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
+        scene = json.loads((run_dir / "visualization/scene.json").read_text(encoding="utf-8"))
         solver = json.loads((run_dir / "solver/solver_summary.json").read_text(encoding="utf-8"))
         log_event = json.loads((run_dir / "logs/run.log").read_text(encoding="utf-8").splitlines()[0])
         assert manifest["schema_version"] == "1.0"
@@ -84,6 +92,10 @@ def test_two_runs_are_isolated_and_complete(root: Path, tmp_path: Path):
         assert len(manifest["source_tree_sha256"]) == 64
         assert len(manifest["resolved_config_checksum"]) == 64
         assert manifest["artifacts"]["canonical"]
+        for container in scene["containers"]:
+            view = f"visualization/container_{container['container_id']}.html"
+            assert (run_dir / view).is_file()
+            assert view in manifest["artifacts"]["derived"]
         assert solver["schema_version"] == "1.0"
         assert "run_dir" not in solver
         assert log_event["event"] == "experiment_completed"

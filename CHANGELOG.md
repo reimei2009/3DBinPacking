@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.0 - 2026-07-21
+
+- Added a versioned, backend-neutral `scene.json` contract and reusable Plotly 3D renderer.
+- Added structured level contracts for objectives, variables, constraints, assumptions, and limitations.
+- Added a thin Streamlit R&D interface over the existing application pipeline and isolated run history.
+- Added generated combined/per-container HTML views without moving optimization logic into the UI.
+
 ## 0.7.0 - 2026-07-21
 
 - Added config-driven, multi-seed parameter sweeps with immutable source experiment runs.
