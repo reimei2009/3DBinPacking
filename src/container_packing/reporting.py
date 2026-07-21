@@ -73,7 +73,7 @@ def solver_payload(metadata: dict[str, Any]) -> dict[str, Any]:
         "n_items", "n_containers", "n_pairs", "n_variables", "n_constraints",
         "constraint_nnz", "big_m", "objective_priority_constant",
         "algorithm_kind", "optimality_proven", "item_ordering", "point_ordering",
-        "container_selection_strategy", "subset_enumeration_limit",
+        "container_selection_strategy", "candidate_scoring", "subset_enumeration_limit",
         "candidate_subsets_evaluated", "packing_attempts", "extreme_points_evaluated",
         "initial_algorithm", "neighborhoods", "acceptance", "max_iterations", "max_neighbors",
           "subset_candidate_limit", "hill_climbing_iterations", "neighbors_evaluated",

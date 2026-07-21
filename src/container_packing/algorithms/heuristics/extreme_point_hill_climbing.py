@@ -9,7 +9,8 @@ from scipy.optimize import OptimizeResult
 
 from ..contracts import AlgorithmOutcome
 from ...schemas import Container, Item, SolveResult
-from .extreme_point_ffd import item_sort_key, solve_level1 as solve_extreme_point_ffd
+from .extreme_point_core import item_sort_key
+from .extreme_point_ffd import solve_level1 as solve_extreme_point_ffd
 from .extreme_point_neighborhood import (
     RepackingStats,
     generate_neighbor_orders,

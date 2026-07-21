@@ -20,7 +20,7 @@ _LEVELS = {
         description="Fixed orientation; boundary, pairwise non-overlap, and payload constraints",
         default_config=Path("config/level_01/default.yaml"),
         supported_algorithms=(
-            "milp_big_m", "extreme_point_ffd", "extreme_point_hill_climbing",
+            "milp_big_m", "extreme_point_best_fit", "extreme_point_ffd", "extreme_point_hill_climbing",
             "extreme_point_simulated_annealing",
         ),
         run=level_01.run,

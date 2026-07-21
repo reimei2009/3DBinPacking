@@ -13,7 +13,7 @@ Generated 2026-07-21 in the project virtual environment.
 
 - Data preparation: 20 items, 5 containers, 24.210313 m3, 6228.728 kg.
 - Model: 5865 variables, 18475 constraints, CSR sparse matrix, 48505 nonzero coefficients.
-- Pytest: 71 passed, 0 failed.
+- Pytest: 76 passed, 0 failed.
 - Clean and executed notebooks pass `nbformat.validate`; executed notebook prints `VALID LEVEL-1 SOLUTION`.
 
 ## Solver and independent validation
@@ -27,6 +27,18 @@ Generated 2026-07-21 in the project virtual environment.
 - Independent validation: valid, 0 issues
 
 The solution has no boundary, overlap, payload, identity, dimension, or weight violations. Physical support/stability is intentionally not evaluated at Level 1.
+
+## Extreme-Point Best Fit acceptance evidence
+
+- Algorithm: `extreme_point_best_fit`, deterministic and CPU-only.
+- Standalone 20-item/5-container run: `outputs/level_01/runs/20260721T103352569442Z__level_01__extreme_point_best_fit__i20_c5__seed42`.
+- Status: FEASIBLE; independent validation: valid, 0 issues; selected containers: C2+C4; objective: 10992.
+- Exact comparison matrix: 5 algorithms × 2 item counts × 2 container counts = 20 successful, independently validated cases.
+- Aggregate run: `outputs/level_01/runs/20260721T103401385475Z__level_01__benchmark__seed42`.
+- On 20 items/5 containers, Best Fit matched the MILP-optimal count/cost objective and reduced occupied bounding volume from FFD's 35,517,519,000 to 31,209,130,000 mm3 (12.13% lower); runtime was 0.001800 versus 0.000831 seconds.
+- On 50 items/8 containers, Best Fit and FFD both used three containers with objective 31403 and identical geometry; Best Fit took 0.093771 versus 0.040758 seconds. Simulated Annealing found a better two-container solution on this instance, so Best Fit is retained as a constructive baseline rather than described as uniformly superior.
+- Large-heuristic aggregate run: `outputs/level_01/runs/20260721T103436191047Z__level_01__benchmark__seed42`; all four heuristic solutions were independently valid.
+- The refactored FFD 50-item placements CSV has the same SHA-256 as the pre-refactor accepted run, confirming unchanged canonical geometry.
 
 ## Exact, greedy, local-search, and metaheuristic benchmark
 

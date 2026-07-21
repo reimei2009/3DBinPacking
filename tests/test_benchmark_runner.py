@@ -20,7 +20,7 @@ def test_benchmark_creates_isolated_aggregate_and_source_runs(root: Path, tmp_pa
 
     result = run_benchmark(
         level_id="level_01", algorithm_ids=[
-            "milp_big_m", "extreme_point_ffd", "extreme_point_hill_climbing",
+            "milp_big_m", "extreme_point_best_fit", "extreme_point_ffd", "extreme_point_hill_climbing",
             "extreme_point_simulated_annealing",
         ], item_counts=[1],
         container_counts=[2], repeats=1, config_path=config_path, project_root=root,
@@ -34,12 +34,12 @@ def test_benchmark_creates_isolated_aggregate_and_source_runs(root: Path, tmp_pa
     assert (result.run_dir / "logs/run.log").is_file()
     manifest = json.loads((result.run_dir / "manifest.json").read_text(encoding="utf-8"))
     assert manifest["run_type"] == "benchmark"
-    assert manifest["case_count"] == 4
-    assert manifest["successful_case_count"] == 4
-    assert len(manifest["source_runs"]) == 4
-    assert len(set(result.results["experiment_run_id"])) == 4
+    assert manifest["case_count"] == 5
+    assert manifest["successful_case_count"] == 5
+    assert len(manifest["source_runs"]) == 5
+    assert len(set(result.results["experiment_run_id"])) == 5
     assert set(result.summary["algorithm"]) == {
-        "milp_big_m", "extreme_point_ffd", "extreme_point_hill_climbing",
+        "milp_big_m", "extreme_point_best_fit", "extreme_point_ffd", "extreme_point_hill_climbing",
         "extreme_point_simulated_annealing",
     }
     assert set(result.summary["run_count"]) == {1}
