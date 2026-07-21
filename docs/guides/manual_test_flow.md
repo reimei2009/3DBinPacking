@@ -15,7 +15,7 @@ By default, 20 placements are displayed. Use `--preview-limit 5`, `--preview-lim
 Run a repeatable benchmark after the single-run smoke test:
 
 ```powershell
-python scripts\run_benchmark.py --level level_01 --algorithms extreme_point_ffd extreme_point_hill_climbing extreme_point_simulated_annealing --item-counts 10 20 --container-counts 3 5 --seeds 7 11 19 --repeats 2
+python scripts\run_benchmark.py --level level_01 --algorithms extreme_point_best_fit extreme_point_ffd extreme_point_hill_climbing extreme_point_simulated_annealing --item-counts 10 20 --container-counts 3 5 --seeds 7 11 19 --repeats 2
 ```
 
 The total number of cases is `algorithms × item counts × container counts × seeds × repeats`. Inspect `benchmark/results.csv` for every seed/repeat and `benchmark/summary.csv` for grouped runtime, quality variation, compactness, distinct solutions, and success rate.

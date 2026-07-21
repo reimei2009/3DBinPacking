@@ -5,6 +5,18 @@ from __future__ import annotations
 from ..experiments.contracts import AlgorithmDefinition, LocalizedText
 
 _ALGORITHMS = {
+    "extreme_point_best_fit": AlgorithmDefinition(
+        algorithm_id="extreme_point_best_fit",
+        family="constructive_heuristic",
+        description="Deterministic objective-aware fixed-orientation Extreme-Point Best Fit Decreasing",
+        supported_levels=("level_01",),
+        local_friendly=True,
+        display_name=LocalizedText(vi="Extreme Point — Best Fit Decreasing", en="Extreme Point — Best Fit Decreasing"),
+        localized_description=LocalizedText(
+            vi="Heuristic tham lam xét toàn bộ extreme point khả thi và chọn ứng viên tốt nhất theo điểm số mục tiêu.",
+            en="Greedy heuristic that evaluates all feasible extreme points and chooses the best objective-aware candidate.",
+        ),
+    ),
     "extreme_point_ffd": AlgorithmDefinition(
         algorithm_id="extreme_point_ffd",
         family="constructive_heuristic",

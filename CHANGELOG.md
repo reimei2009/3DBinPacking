@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.11.0 - 2026-07-21
+
+- Added deterministic objective-aware Extreme-Point Best Fit Decreasing for Level 1.
+- Extracted shared Extreme-Point geometry, capacity checks, subset search, and construction primitives without changing FFD behavior.
+- Registered Best Fit across config, CLI, notebook discovery, Streamlit, benchmark reporting, and independent validation.
+- Added deterministic, compactness, payload, failure-semantics, integration, and benchmark tests.
+
 ## 0.10.0 - 2026-07-21
 
 - Raised default item opacity from 0.72 to 0.92 for clearer solid geometry.

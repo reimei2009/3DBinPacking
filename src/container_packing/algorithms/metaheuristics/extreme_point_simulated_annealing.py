@@ -10,7 +10,8 @@ from typing import Any
 from scipy.optimize import OptimizeResult
 
 from ..contracts import AlgorithmOutcome
-from ..heuristics.extreme_point_ffd import item_sort_key, solve_level1 as solve_extreme_point_ffd
+from ..heuristics.extreme_point_core import item_sort_key
+from ..heuristics.extreme_point_ffd import solve_level1 as solve_extreme_point_ffd
 from ..heuristics.extreme_point_neighborhood import (
     RepackingStats,
     generate_neighbor_orders,
