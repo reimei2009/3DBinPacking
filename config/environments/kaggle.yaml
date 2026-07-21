@@ -1,0 +1,5 @@
+environment: kaggle
+accelerator: gpu_optional
+workspace_root: /kaggle/working/3d-container-packing
+recommended_families: [traditional_ml, hyper_heuristics, pointer_networks, drl, gan, diffusion]
+install_command: pip install -e .

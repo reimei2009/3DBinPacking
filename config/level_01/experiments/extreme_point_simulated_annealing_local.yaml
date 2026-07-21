@@ -1,0 +1,4 @@
+extends: ../default.yaml
+project:
+  algorithm_id: extreme_point_simulated_annealing
+environment: local

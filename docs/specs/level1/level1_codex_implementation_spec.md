@@ -1,0 +1,3 @@
+# Corrected Level 1 implementation specification
+
+This UTF-8 document supersedes the historical specification archived at `docs/archive/level1/CODEX_IMPLEMENTATION_SPEC_LEVEL1.md` while preserving its mathematical scope. The repository itself is the project root. Every experiment and benchmark writes an immutable run below `outputs/level_01/runs/<run_id>/`; no compatibility aliases are written directly under `outputs/`. Source data is recorded under `data/raw`, processed instances are generated, and the canonical implementation is `src/container_packing`. Scripts and notebooks are clients of that package.

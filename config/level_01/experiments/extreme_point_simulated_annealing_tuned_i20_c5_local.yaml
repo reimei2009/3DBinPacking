@@ -1,0 +1,14 @@
+extends: ../default.yaml
+project:
+  algorithm_id: extreme_point_simulated_annealing
+algorithms:
+  extreme_point_simulated_annealing:
+    initial_temperature: 0.05
+    cooling_rate: 0.95
+    max_iterations: 200
+environment: local
+tuning:
+  scope: level_01_20items_5containers
+  seeds: [7, 11, 19]
+  parameter_set_id: p002_1b6f7403
+  source_sweep: outputs/level_01/runs/20260721T075038981227Z__level_01__parameter_sweep__extreme_point_simulated_annealing__seeds3_10be15e3
