@@ -1,6 +1,6 @@
 # 3D Container Packing
 
-Project thử nghiệm đa level/đa thuật toán. `level_01` hiện chạy được `milp_big_m` (exact), `extreme_point_ffd` và `extreme_point_best_fit` (greedy constructive), `extreme_point_hill_climbing` (local search) và `extreme_point_simulated_annealing` (metaheuristic). Tất cả giữ orientation cố định, kiểm tra biên, non-overlap và payload. Level 1 không mô hình hóa rotation, support, stacking hay stability.
+Project thử nghiệm đa level/đa thuật toán. `level_01` hiện chạy được `milp_big_m` (exact), các constructive heuristic `extreme_point_ffd`, `extreme_point_best_fit`, `maximal_space_best_fit`, `extreme_point_hill_climbing` (local search) và `extreme_point_simulated_annealing` (metaheuristic). Tất cả giữ orientation cố định, kiểm tra biên, non-overlap và payload. Level 1 không mô hình hóa rotation, support, stacking hay stability.
 
 ## Web 3D R&D
 
@@ -51,6 +51,12 @@ python scripts\run_experiment.py --level level_01 --algorithm extreme_point_best
 
 `FEASIBLE` nghĩa là heuristic đã tìm thấy nghiệm qua validator, không phải bằng chứng tối ưu toàn cục.
 
+Chạy Maximal Empty Spaces — biểu diễn phần trống bằng các khối hộp cực đại và chọn vị trí Best Fit:
+
+```powershell
+python scripts\run_experiment.py --level level_01 --algorithm maximal_space_best_fit --items-count 50 --containers-count 8 --environment local --non-interactive
+```
+
 Chạy Hill Climbing:
 
 ```powershell
@@ -74,10 +80,10 @@ Output đầy đủ nằm tại `outputs/<level_id>/runs/<run_id>/`. Xem hướn
 Chạy một ma trận benchmark có thể tái lập:
 
 ```powershell
-python scripts\run_benchmark.py --level level_01 --algorithms extreme_point_best_fit extreme_point_ffd extreme_point_hill_climbing extreme_point_simulated_annealing --item-counts 10 20 --container-counts 3 5 --seeds 7 11 19 23 29 --repeats 2
+python scripts\run_benchmark.py --level level_01 --algorithms extreme_point_best_fit extreme_point_ffd maximal_space_best_fit extreme_point_hill_climbing extreme_point_simulated_annealing --item-counts 10 20 --container-counts 3 5 --seeds 7 11 19 23 29 --repeats 2
 ```
 
-`--seeds` là các seed thí nghiệm khác nhau; `--repeats` là số lần đo lại cho từng seed. Ví dụ trên chạy `3 thuật toán × 2 item counts × 2 container counts × 5 seeds × 2 repeats = 120` case. Mỗi case tạo experiment run riêng. Bảng tổng hợp được lưu trong một benchmark run riêng dưới `outputs/level_01/runs/<benchmark_id>/benchmark/`.
+`--seeds` là các seed thí nghiệm khác nhau; `--repeats` là số lần đo lại cho từng seed. Ví dụ trên chạy `5 thuật toán × 2 item counts × 2 container counts × 5 seeds × 2 repeats = 200` case. Mỗi case tạo experiment run riêng. Bảng tổng hợp được lưu trong một benchmark run riêng dưới `outputs/level_01/runs/<benchmark_id>/benchmark/`.
 
 ## Parameter sweep
 

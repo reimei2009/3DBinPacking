@@ -53,6 +53,21 @@ _ALGORITHMS = {
             en="Seeded metaheuristic that can temporarily accept worse solutions using Metropolis probability.",
         ),
     ),
+    "maximal_space_best_fit": AlgorithmDefinition(
+        algorithm_id="maximal_space_best_fit",
+        family="constructive_heuristic",
+        description="Deterministic fixed-orientation Maximal Empty Spaces Best Fit Decreasing",
+        supported_levels=("level_01",),
+        local_friendly=True,
+        display_name=LocalizedText(
+            vi="Maximal Empty Spaces — Best Fit Decreasing",
+            en="Maximal Empty Spaces — Best Fit Decreasing",
+        ),
+        localized_description=LocalizedText(
+            vi="Heuristic tham lam duy trì các vùng trống cực đại bằng phép cắt sáu hướng và chọn space tốt nhất.",
+            en="Greedy heuristic that maintains maximal empty spaces through six-way splitting and selects the best space.",
+        ),
+    ),
     "milp_big_m": AlgorithmDefinition(
         algorithm_id="milp_big_m",
         family="exact_milp",

@@ -15,7 +15,9 @@
 - `algorithms/extreme_point_best_fit.md`: objective-aware Best-Fit candidate scoring and limitations.
 - `algorithms/extreme_point_hill_climbing.md`: deterministic local-search neighborhoods and acceptance.
 - `algorithms/extreme_point_simulated_annealing.md`: seeded Metropolis search, cooling, and limitations.
+- `algorithms/maximal_space_best_fit.md`: maximal-empty-space representation, splitting, pruning, and scoring.
 - `decisions/ADR-0007-add-benchmark-seed-sweeps.md`: seed propagation and cross-seed statistics.
 - `decisions/ADR-0008-add-config-driven-parameter-sweeps.md`: persisted overrides and reusable sweep architecture.
 - `decisions/ADR-0009-thin-streamlit-plotly-adapter.md`: why the R&D UI remains replaceable.
 - `decisions/ADR-0010-add-extreme-point-best-fit.md`: why Best Fit is the next constructive baseline.
+- `decisions/ADR-0011-add-maximal-empty-spaces.md`: why EMS is the next geometric heuristic family.
