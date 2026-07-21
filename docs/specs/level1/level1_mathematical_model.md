@@ -1,11 +1,65 @@
-# Level 1 exact MILP mathematical model
+# Mô hình MILP chính xác Level 1
 
-Sets: items `I`, containers `K`, pairs `P={(i,j):i<j}`, and six separation directions `D`.
+Tập chỉ số:
 
-Variables are binary use `u[k]`, binary assignment `a[i,k]`, continuous nonnegative `x[i],y[i],z[i]`, and binary `delta[i,j,k,d]`. With `B=1+sum(cost)`, minimize `B*sum(u)+sum(cost*u)`.
+$$
+I=\{1,\ldots,n\},\quad K=\{1,\ldots,m\},\quad
+P=\{(i,j)\in I^2:i<j\},\quad D=\{L,R,F,B,Dn,Up\}.
+$$
 
-Constraints enforce: `sum_k a[i,k]=1`; `a[i,k]<=u[k]`; three fixed-orientation boundary inequalities activated by assignment; payload capacity; each delta implies both assignments; co-located pairs activate at least one of six directions; and each direction activates its corresponding Big-M separation inequality. `Mx=max L`, `My=max W`, `Mz=max H`. The implementation uses CSR sparse matrices.
+Biến quyết định:
 
-For 20 items and 5 containers: 5 use + 100 assignment + 60 coordinate + 5700 delta = 5865 variables; 18475 constraints.
+$$
+u_k\in\{0,1\},\quad a_{ik}\in\{0,1\},\quad
+x_i,y_i,z_i\ge0,\quad \delta_{ijkd}\in\{0,1\}.
+$$
 
-This formulation is implemented by `milp_big_m`. FFD, Hill Climbing, and Simulated Annealing do not build these variables or constraints; they construct candidate placements and send the final solution through the same independent Level 1 validator.
+Với:
+
+$$
+M_x=\max_k L_k,\quad M_y=\max_k W_k,\quad M_z=\max_k H_k,
+\qquad B=1+\sum_k c_k,
+$$
+
+hàm mục tiêu là:
+
+$$
+\min\;B\sum_{k\in K}u_k+\sum_{k\in K}c_k u_k.
+$$
+
+Các nhóm ràng buộc:
+
+$$
+\sum_{k\in K}a_{ik}=1\quad\forall i\in I,
+\qquad a_{ik}\le u_k\quad\forall i,k.
+$$
+
+$$
+\begin{aligned}
+x_i+\ell_i&\le L_k+M_x(1-a_{ik}),\\
+y_i+w_i&\le W_k+M_y(1-a_{ik}),\\
+z_i+h_i&\le H_k+M_z(1-a_{ik}).
+\end{aligned}
+$$
+
+$$
+\sum_{i\in I}q_i a_{ik}\le Q_k u_k\quad\forall k\in K.
+$$
+
+$$
+\delta_{ijkd}\le a_{ik},\quad\delta_{ijkd}\le a_{jk},
+\qquad
+\sum_{d\in D}\delta_{ijkd}\ge a_{ik}+a_{jk}-1.
+$$
+
+Mỗi hướng trong $D$ kích hoạt một bất đẳng thức Big-M. Ví dụ hướng trái:
+
+$$
+x_i+\ell_i\le x_j+M_x(1-\delta_{ijkL}).
+$$
+
+Năm hướng còn lại được xây dựng đối xứng cho phải, trước, sau, dưới và trên. Implementation canonical nằm tại `src/container_packing/models/level_01/milp_model.py::build_level1_model`; mapping chỉ số biến nằm tại `model_indices.py`.
+
+Với 20 kiện và 5 container: 5 biến sử dụng + 100 biến gán + 60 tọa độ + 5700 biến phân tách = 5865 biến và 18475 ràng buộc.
+
+Các công thức trên áp dụng cho `milp_big_m`. FFD, Hill Climbing và Simulated Annealing không dựng toàn bộ hệ biến/ràng buộc MILP; chúng xây nghiệm ứng viên và gửi nghiệm cuối qua cùng validator Level 1 độc lập.

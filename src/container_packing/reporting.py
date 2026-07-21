@@ -15,6 +15,8 @@ import yaml
 from .provenance import runtime_metadata, sha256_file
 from .runtime.structured_logging import append_event
 from .schemas import Container, Placement, ValidationResult
+from .visualization.plotly_3d import write_html_views
+from .visualization.scene_schema import build_scene
 
 OUTPUT_SCHEMA_VERSION = "1.0"
 
@@ -104,24 +106,6 @@ def metrics_payload(metadata: dict[str, Any], validation_valid: bool | None) -> 
     }
 
 
-def _scene(placements: list[Placement], containers: list[Container], level_id: str) -> dict:
-    return {
-        "schema_version": OUTPUT_SCHEMA_VERSION,
-        "level": level_id,
-        "warning": "Level 1 geometry/payload solution; physical stability is not modeled.",
-        "containers": [{
-            "container_id": container.container_id,
-            "dimensions_mm": {"length": container.length_mm, "width": container.width_mm, "height": container.height_mm},
-            "items": [{
-                "item_id": item.item_id,
-                "position_mm": {"x": item.x_mm, "y": item.y_mm, "z": item.z_mm},
-                "dimensions_mm": {"length": item.length_mm, "width": item.width_mm, "height": item.height_mm},
-                "orientation": "fixed",
-            } for item in placements if item.container_id == container.container_id],
-        } for container in containers if any(item.container_id == container.container_id for item in placements)],
-    }
-
-
 def _initialize_run(
     run_dir: Path, metadata: dict[str, Any], config: dict[str, Any],
     items_path: Path, containers_path: Path, project_root: Path,
@@ -205,7 +189,9 @@ def write_run_outputs(
     manifest["artifacts"]["exports"].extend([
         "solution/placements.csv", "solution/containers.csv", "validation/violations.csv",
     ])
-    manifest["artifacts"]["derived"].extend(["reports/summary.md", "visualization/scene.json"])
+    manifest["artifacts"]["derived"].extend([
+        "reports/summary.md", "visualization/scene.json", "visualization/combined_scene.html",
+    ])
     summary = container_summary(placements, containers)
     validation_data = validation_payload(validation)
     write_placements(run_dir / "solution" / "placements.csv", placements)
@@ -222,7 +208,18 @@ def write_run_outputs(
         run_dir / "validation" / "violations.csv", index=False
     )
     write_json(run_dir / "metrics" / "metrics.json", metrics_payload(metadata, validation.valid))
-    write_json(run_dir / "visualization" / "scene.json", _scene(placements, containers, metadata["level_id"]))
+    scene = build_scene(
+        placements,
+        containers,
+        level_id=metadata["level_id"],
+        algorithm_id=metadata["algorithm_id"],
+        validation_status="VALID" if validation.valid else "INVALID",
+    )
+    write_json(run_dir / "visualization" / "scene.json", scene)
+    html_views = write_html_views(scene, run_dir / "visualization")
+    manifest["artifacts"]["derived"].extend(
+        path.relative_to(run_dir).as_posix() for path in html_views[1:]
+    )
     append_event(
         run_dir / "logs" / "run.log", "experiment_completed",
         run_id=metadata["run_id"], level=metadata["level_id"], algorithm=metadata["algorithm_id"],

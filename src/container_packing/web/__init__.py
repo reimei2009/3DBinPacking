@@ -1,0 +1,1 @@
+"""Optional web presentation adapters."""

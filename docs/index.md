@@ -9,8 +9,11 @@
 - `design/benchmark_design.md`: benchmark isolation and aggregation contract.
 - `design/parameter_sweep_design.md`: parameter grids, source runs, statistics, and ranking contract.
 - `design/git_workflow.md`: protected branches, short-lived scope branches, and worktree lifecycle.
+- `design/visualization_web_architecture.md`: reusable scene contract, application boundary, and UI adapters.
+- `guides/running_web_app.md`: launching and using the local Streamlit 3D app.
 - `algorithms/extreme_point_ffd.md`: first local heuristic baseline and limitations.
 - `algorithms/extreme_point_hill_climbing.md`: deterministic local-search neighborhoods and acceptance.
 - `algorithms/extreme_point_simulated_annealing.md`: seeded Metropolis search, cooling, and limitations.
 - `decisions/ADR-0007-add-benchmark-seed-sweeps.md`: seed propagation and cross-seed statistics.
 - `decisions/ADR-0008-add-config-driven-parameter-sweeps.md`: persisted overrides and reusable sweep architecture.
+- `decisions/ADR-0009-thin-streamlit-plotly-adapter.md`: why the R&D UI remains replaceable.
