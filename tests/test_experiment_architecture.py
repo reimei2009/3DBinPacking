@@ -15,12 +15,12 @@ def test_registry_only_exposes_runnable_implementations():
     assert [value.level_id for value in list_levels()] == ["level_01"]
     assert [value.algorithm_id for value in list_algorithms(level_id="level_01")] == [
         "extreme_point_best_fit", "extreme_point_ffd", "extreme_point_hill_climbing",
-        "extreme_point_simulated_annealing", "milp_big_m",
+        "extreme_point_simulated_annealing", "maximal_space_best_fit", "milp_big_m",
     ]
     assert get_algorithm("milp_big_m").family == "exact_milp"
     assert get_level("level_01").supported_algorithms == (
         "milp_big_m", "extreme_point_best_fit", "extreme_point_ffd", "extreme_point_hill_climbing",
-        "extreme_point_simulated_annealing",
+        "extreme_point_simulated_annealing", "maximal_space_best_fit",
     )
     contract = get_level("level_01").contract
     assert contract.title.resolve("vi").startswith("Level 1")
@@ -53,6 +53,9 @@ def test_config_inheritance(root):
     best_fit = load_config(root / "config/level_01/experiments/extreme_point_best_fit_local.yaml")
     assert best_fit["project"]["algorithm_id"] == "extreme_point_best_fit"
     assert best_fit["algorithms"]["extreme_point_best_fit"]["subset_enumeration_limit"] == 12
+    maximal_space = load_config(root / "config/level_01/experiments/maximal_space_best_fit_local.yaml")
+    assert maximal_space["project"]["algorithm_id"] == "maximal_space_best_fit"
+    assert maximal_space["algorithms"]["maximal_space_best_fit"]["subset_enumeration_limit"] == 12
     hill = load_config(root / "config/level_01/experiments/extreme_point_hill_climbing_local.yaml")
     assert hill["project"]["algorithm_id"] == "extreme_point_hill_climbing"
     assert hill["algorithms"]["extreme_point_hill_climbing"]["max_neighbors"] == 24

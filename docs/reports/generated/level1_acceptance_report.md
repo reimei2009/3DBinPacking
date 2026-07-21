@@ -13,8 +13,8 @@ Generated 2026-07-21 in the project virtual environment.
 
 - Data preparation: 20 items, 5 containers, 24.210313 m3, 6228.728 kg.
 - Model: 5865 variables, 18475 constraints, CSR sparse matrix, 48505 nonzero coefficients.
-- Pytest: 76 passed, 0 failed.
-- Clean and executed notebooks pass `nbformat.validate`; executed notebook prints `VALID LEVEL-1 SOLUTION`.
+- Pytest: 85 passed, 0 failed.
+- The reference notebook passes `nbformat.validate` and a clean in-memory execution reports `OPTIMAL` with `validation_valid: true`.
 
 ## Solver and independent validation
 
@@ -27,6 +27,19 @@ Generated 2026-07-21 in the project virtual environment.
 - Independent validation: valid, 0 issues
 
 The solution has no boundary, overlap, payload, identity, dimension, or weight violations. Physical support/stability is intentionally not evaluated at Level 1.
+
+## Maximal Empty Spaces Best Fit acceptance evidence
+
+- Algorithm: `maximal_space_best_fit`, deterministic and CPU-only.
+- Standalone 20-item/5-container run: `outputs/level_01/runs/20260721T110527949807Z__level_01__maximal_space_best_fit__i20_c5__seed42`.
+- Status: FEASIBLE; independent validation: valid, 0 issues; selected containers: C2+C4; objective: 10992.
+- Exact comparison matrix: 6 algorithms × 2 item counts × 2 container counts = 24 successful, independently validated cases.
+- Aggregate run: `outputs/level_01/runs/20260721T110543282257Z__level_01__benchmark__seed42`.
+- On 20 items/5 containers, EMS matched the MILP-optimal count/cost objective in 0.001230 seconds; MILP took 4.521602 seconds. The status remains FEASIBLE because EMS does not prove optimality.
+- A deterministic differentiating fixture is covered by regression test: EMS packs five fixed-orientation items into one 10×10×10 container while the current Extreme-Point Best Fit candidate set returns `INFEASIBLE_HEURISTIC`.
+- Larger constructive matrix: 3 algorithms × item counts 50/100 × container counts 8/15 = 12 valid cases; aggregate run `outputs/level_01/runs/20260721T110613445743Z__level_01__benchmark__seed42`.
+- EMS runtime ranged from 0.003475 to 0.108548 seconds in that matrix. The 100-item/15-container case used four containers while both Extreme-Point baselines used three, so EMS is retained as a complementary geometric baseline rather than described as uniformly superior.
+- The EMS 100-item/15-container source run was revalidated separately: valid, 0 issues. Its diagnostics recorded 4,107 empty spaces evaluated, 1,375 generated, 809 pruned, and at most 30 active spaces.
 
 ## Extreme-Point Best Fit acceptance evidence
 

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.12.0 - 2026-07-21
+
+- Added deterministic Maximal Empty Spaces — Best Fit Decreasing for Level 1.
+- Added six-way empty-space splitting, duplicate/containment pruning, and objective-aware candidate scoring.
+- Extracted shared constructive item ordering and container subset utilities without changing Extreme-Point behavior.
+- Registered EMS across config, CLI, notebook discovery, Streamlit, benchmark reporting, and independent validation.
+- Added geometry, determinism, payload, failure-semantics, differentiating-fixture, integration, and benchmark tests.
+
 ## 0.11.0 - 2026-07-21
 
 - Added deterministic objective-aware Extreme-Point Best Fit Decreasing for Level 1.

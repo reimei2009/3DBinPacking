@@ -32,6 +32,8 @@ solver:
   presolve: true
   display: false
 algorithms:
+  maximal_space_best_fit:
+    subset_enumeration_limit: 12
   extreme_point_best_fit:
     subset_enumeration_limit: 12
   extreme_point_ffd:
