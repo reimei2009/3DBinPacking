@@ -1,0 +1,9 @@
+numpy>=1.26,<3
+scipy>=1.11,<2
+pandas>=2.2,<3
+jupyterlab>=4,<5
+nbformat>=5.10,<6
+nbclient>=0.10,<1
+matplotlib>=3.8,<4
+pytest>=8,<10
+PyYAML>=6,<7

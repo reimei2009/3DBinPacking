@@ -1,0 +1,53 @@
+project:
+  name: 3d-container-packing
+  level_id: level_01
+  algorithm_id: milp_big_m
+  random_seed: 42
+instance:
+  item_count: 20
+  container_count: 5
+paths:
+  raw_items_csv: data/raw/dataset_small_items_original.csv
+  processed_dir: data/processed/level_01
+  manifest_json: data/processed/level_01/latest_manifest.json
+  output_root: outputs
+containers:
+  - {container_id: C1, length_mm: 3000, width_mm: 2200, height_mm: 2200, max_weight_kg: 1500, cost: 650, availability: 1}
+  - {container_id: C2, length_mm: 3600, width_mm: 2300, height_mm: 2300, max_weight_kg: 2200, cost: 760, availability: 1}
+  - {container_id: C3, length_mm: 4200, width_mm: 2400, height_mm: 2400, max_weight_kg: 3000, cost: 880, availability: 1}
+  - {container_id: C4, length_mm: 5000, width_mm: 2450, height_mm: 2600, max_weight_kg: 4200, cost: 1050, availability: 1}
+  - {container_id: C5, length_mm: 6000, width_mm: 2500, height_mm: 2800, max_weight_kg: 5500, cost: 1250, availability: 1}
+model:
+  allow_rotation: false
+  enforce_stability: false
+  enforce_stackability: false
+  require_all_items: true
+  objective:
+    primary: minimize_container_count
+    secondary: minimize_container_cost
+solver:
+  backend: scipy_highs
+  time_limit_seconds: 600
+  mip_rel_gap: 0.0
+  presolve: true
+  display: false
+algorithms:
+  extreme_point_ffd:
+    subset_enumeration_limit: 12
+  extreme_point_hill_climbing:
+    subset_enumeration_limit: 12
+    subset_candidate_limit: 48
+    max_iterations: 10
+    max_neighbors: 24
+  extreme_point_simulated_annealing:
+    subset_enumeration_limit: 12
+    subset_candidate_limit: 48
+    max_iterations: 200
+    max_neighbors: 48
+    neighbors_per_iteration: 3
+    initial_temperature: 0.25
+    cooling_rate: 0.97
+    minimum_temperature: 0.0001
+validation:
+  coordinate_tolerance_mm: 0.0001
+  weight_tolerance_kg: 0.000001

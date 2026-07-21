@@ -1,0 +1,4 @@
+environment: local
+accelerator: cpu
+recommended_families: [exact_milp, heuristics, traditional_ml]
+install_command: pip install -e .
