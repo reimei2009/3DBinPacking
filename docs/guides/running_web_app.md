@@ -36,6 +36,18 @@ python scripts/run_web_app.py
 6. Inspect the combined scene or one used container.
 7. Open previous immutable runs from **Run history**.
 
+## 3D display controls
+
+- The default view opens the first used container rather than the combined scene.
+- **Rõ khối / Solid** uses opacity `0.92` and is the default.
+- **Cân bằng / Balanced** uses opacity `0.75`.
+- **X-Ray** uses opacity `0.30`.
+- The opacity slider supports manual values from `0.20` to `1.00`.
+- Selecting an item renders it at opacity `1.00`, dims other visible items to `0.20`, adds a dark outline, and shows its position, dimensions, and weight.
+- **Ẩn các kiện / Hide items** temporarily removes selected items from the view.
+
+These controls change presentation only. They never modify `scene.json`, placements, validation, metrics, or solver output.
+
 Every execution uses the same pipeline as the CLI and writes to a new directory under `outputs/<level>/runs/<run_id>/`. The UI never overwrites an earlier run.
 
 ## Important Level 1 limitation

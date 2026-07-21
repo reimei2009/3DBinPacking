@@ -13,7 +13,7 @@ Generated 2026-07-21 in the project virtual environment.
 
 - Data preparation: 20 items, 5 containers, 24.210313 m3, 6228.728 kg.
 - Model: 5865 variables, 18475 constraints, CSR sparse matrix, 48505 nonzero coefficients.
-- Pytest: 67 passed, 0 failed.
+- Pytest: 71 passed, 0 failed.
 - Clean and executed notebooks pass `nbformat.validate`; executed notebook prints `VALID LEVEL-1 SOLUTION`.
 
 ## Solver and independent validation
@@ -85,3 +85,4 @@ The solution has no boundary, overlap, payload, identity, dimension, or weight v
 - Derived views: `visualization/combined_scene.html` and one `visualization/container_<id>.html` per used container.
 - The core package, application boundary, and scene builder have no dependency on Streamlit; the UI can be replaced without rewriting optimization or validation logic.
 - Vietnamese is the default UI language with an English switch. Streamlit AppTest rendered 15 LaTeX blocks covering notation, constants, four variable groups, the objective, and seven constraint families; every expression retains a canonical code mapping.
+- The default 3D view opens one used container with solid items at opacity 0.92. Streamlit AppTest exercised item selection details and item hiding; renderer tests independently verified the Solid/Balanced/X-Ray opacity values, opacity 1.0 for the selected item, 0.20 for dimmed peers, and omission of hidden meshes.

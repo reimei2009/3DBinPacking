@@ -27,6 +27,21 @@ def test_streamlit_app_runs_valid_experiment_and_renders_3d(root: Path):
     assert metrics["Kiểm định"] == "VALID"
     assert metrics["Số kiện"] == "10"
     assert len(page.get("plotly_chart")) == 1
+    selects = {value.label: value for value in page.selectbox}
+    assert selects["Chế độ xem 3D"].value == "C3"
+    assert selects["Chế độ hiển thị"].options == ["Rõ khối", "Cân bằng", "X-Ray"]
+    sliders = {value.label: value for value in page.slider}
+    assert sliders["Độ đục của kiện"].value == 0.92
+    assert {value.label for value in page.multiselect} >= {"Ẩn các kiện"}
+    item_selector = next(value for value in page.selectbox if "I0006" in value.options)
+    item_selector.set_value("I0006").run()
+    assert not page.exception
+    assert any(value.value == "I0006" for value in page.metric)
+
+    hidden_items = next(value for value in page.multiselect if "I0007" in value.options)
+    hidden_items.set_value(["I0007"]).run()
+    assert not page.exception
+    assert len(page.get("plotly_chart")) == 1
 
 
 def test_streamlit_contract_renders_latex_and_switches_to_english(root: Path):
