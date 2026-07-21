@@ -7,6 +7,7 @@ from container_packing.algorithms.exact.milp_big_m import extract_placements, so
 from container_packing.levels.level_01_validation import validate_solution
 from container_packing.algorithms.heuristics.extreme_point_best_fit import solve_level1 as solve_extreme_point_best_fit
 from container_packing.algorithms.heuristics.extreme_point_ffd import solve_level1 as solve_extreme_point_ffd
+from container_packing.algorithms.heuristics.maximal_space_best_fit import solve_level1 as solve_maximal_space_best_fit
 
 
 def test_reference_model_shape(level1_items, level1_containers):
@@ -58,6 +59,17 @@ def test_reference_instance_extreme_point_baseline(level1_items, level1_containe
 
 def test_reference_instance_extreme_point_best_fit(level1_items, level1_containers):
     outcome = solve_extreme_point_best_fit(level1_items, level1_containers)
+    validation = validate_solution(level1_items, level1_containers, outcome.placements)
+    assert outcome.solve.status == "FEASIBLE"
+    assert validation.valid
+    assert len(outcome.placements) == 20
+    assert {value.container_id for value in outcome.placements} == {"C2", "C4"}
+    assert outcome.solve.objective_value == pytest.approx(10992)
+    assert outcome.metadata["optimality_proven"] is False
+
+
+def test_reference_instance_maximal_space_best_fit(level1_items, level1_containers):
+    outcome = solve_maximal_space_best_fit(level1_items, level1_containers)
     validation = validate_solution(level1_items, level1_containers, outcome.placements)
     assert outcome.solve.status == "FEASIBLE"
     assert validation.valid

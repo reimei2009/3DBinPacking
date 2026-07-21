@@ -13,7 +13,8 @@ def test_streamlit_app_runs_valid_experiment_and_renders_3d(root: Path):
     assert selects["Thuật toán"].options == [
         "Extreme Point — Best Fit Decreasing", "Extreme Point — First Fit Decreasing",
         "Extreme Point — Hill Climbing",
-        "Extreme Point — Simulated Annealing", "MILP Big-M chính xác",
+        "Extreme Point — Simulated Annealing", "Maximal Empty Spaces — Best Fit Decreasing",
+        "MILP Big-M chính xác",
     ]
     numbers = {value.label: value for value in page.number_input}
     numbers["Số lượng kiện"].set_value(10)

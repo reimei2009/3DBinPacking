@@ -62,4 +62,4 @@ Năm hướng còn lại được xây dựng đối xứng cho phải, trước
 
 Với 20 kiện và 5 container: 5 biến sử dụng + 100 biến gán + 60 tọa độ + 5700 biến phân tách = 5865 biến và 18475 ràng buộc.
 
-Các công thức trên áp dụng cho `milp_big_m`. FFD, Best Fit, Hill Climbing và Simulated Annealing không dựng toàn bộ hệ biến/ràng buộc MILP; chúng xây nghiệm ứng viên và gửi nghiệm cuối qua cùng validator Level 1 độc lập. Best Fit không bổ sung biến hoặc ràng buộc Level 1; nó chỉ thay quy tắc chọn trong tập các vị trí đã thỏa biên, payload và non-overlap.
+Các công thức trên áp dụng cho `milp_big_m`. FFD, Extreme-Point Best Fit, Maximal Empty Spaces Best Fit, Hill Climbing và Simulated Annealing không dựng toàn bộ hệ biến/ràng buộc MILP; chúng xây nghiệm ứng viên và gửi nghiệm cuối qua cùng validator Level 1 độc lập. EMS không bổ sung biến quyết định hoặc ràng buộc Level 1: các khối trống chỉ là trạng thái nội bộ của thuật toán, được cập nhật sau mỗi placement. Mọi ứng viên vẫn phải thỏa biên, payload và non-overlap trước khi nghiệm hoàn chỉnh được validator độc lập tính lại.

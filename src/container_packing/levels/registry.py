@@ -21,7 +21,7 @@ _LEVELS = {
         default_config=Path("config/level_01/default.yaml"),
         supported_algorithms=(
             "milp_big_m", "extreme_point_best_fit", "extreme_point_ffd", "extreme_point_hill_climbing",
-            "extreme_point_simulated_annealing",
+            "extreme_point_simulated_annealing", "maximal_space_best_fit",
         ),
         run=level_01.run,
         prepare=level_01.prepare,

@@ -1,0 +1,4 @@
+extends: ../default.yaml
+project:
+  algorithm_id: maximal_space_best_fit
+environment: local
