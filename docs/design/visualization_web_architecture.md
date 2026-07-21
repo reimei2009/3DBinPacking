@@ -31,3 +31,5 @@ Vietnamese and English text lives in structured contracts or the small UI transl
 The renderer shows fixed-orientation item cuboids and container boundaries. It visualizes only a solution that has passed the independent Level 1 validator. It does not simulate gravity, support, stacking, stability, loading order, or unloading order.
 
 Combined scenes offset containers along the X axis for visual comparison. Item coordinates stored in `scene.json` remain local to their assigned container; the display offset is never written back to the solution.
+
+Opacity presets, item selection, highlighting, and hidden-item lists are transient presentation state. The Plotly adapter accepts them as rendering parameters. They are deliberately excluded from canonical solution and scene data so future Streamlit, FastAPI/React, notebook, or desktop frontends can implement their own controls over the same scene.

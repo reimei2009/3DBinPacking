@@ -20,9 +20,15 @@ from container_packing.application.service import (
 from container_packing.data_loader import load_config
 from container_packing.levels.registry import get_level, list_levels
 from container_packing.runtime.project import find_project_root
-from container_packing.visualization.plotly_3d import create_figure
+from container_packing.visualization.plotly_3d import (
+    DEFAULT_DIMMED_OPACITY,
+    DEFAULT_ITEM_OPACITY,
+    create_figure,
+)
 from container_packing.visualization.scene_schema import load_scene
 from container_packing.web.i18n import algorithm_family, text as t
+
+OPACITY_PRESETS = {"solid": DEFAULT_ITEM_OPACITY, "balanced": 0.75, "xray": 0.30}
 
 
 def _read_json(path: Path) -> dict[str, Any]:
@@ -48,6 +54,30 @@ def _localized_frame(frame: pd.DataFrame, language: str, kind: str) -> pd.DataFr
         },
     }
     return frame.rename(columns=mappings[kind])
+
+
+def _scene_items(scene: dict[str, Any], container_id: str | None) -> list[tuple[str, dict[str, Any]]]:
+    return [
+        (container["container_id"], item)
+        for container in scene["containers"]
+        if container_id is None or container["container_id"] == container_id
+        for item in container["items"]
+    ]
+
+
+def _render_selected_item(container_id: str, item: dict[str, Any], language: str) -> None:
+    st.markdown(f"**{t('selected_details', language)}**")
+    position = item["position_mm"]
+    dimensions = item["dimensions_mm"]
+    values = (
+        (t("items_metric", language), item["item_id"]),
+        ("Container", container_id),
+        (t("position", language), f"({position['x']:g}, {position['y']:g}, {position['z']:g}) mm"),
+        (t("dimensions", language), f"{dimensions['length']:g} × {dimensions['width']:g} × {dimensions['height']:g} mm"),
+        (t("weight", language), f"{item.get('weight_kg', 0):g} kg"),
+    )
+    for column, (label, value) in zip(st.columns(len(values)), values):
+        column.metric(label, value)
 
 
 def _algorithm_parameters(algorithm_id: str, defaults: dict[str, Any], language: str) -> dict[str, Any]:
@@ -161,18 +191,61 @@ def _render_run(run_dir: Path, language: str) -> None:
     st.warning(scene.get("warnings", {}).get(language, scene["warning"]))
     container_ids = [value["container_id"] for value in scene["containers"]]
     all_containers = t("all_containers", language)
-    selected = st.selectbox(t("view", language), [all_containers, *container_ids], key=f"view-{run_dir.name}")
-    options = st.columns(2)
-    labels = options[0].checkbox(t("show_labels", language), value=False, key=f"labels-{run_dir.name}")
-    boundaries = options[1].checkbox(t("show_boundaries", language), value=True, key=f"bounds-{run_dir.name}")
+    mode_key = f"display-mode-{run_dir.name}"
+    opacity_key = f"item-opacity-{run_dir.name}"
+
+    def apply_opacity_preset() -> None:
+        st.session_state[opacity_key] = OPACITY_PRESETS[st.session_state[mode_key]]
+
+    if opacity_key not in st.session_state:
+        st.session_state[opacity_key] = DEFAULT_ITEM_OPACITY
+    with st.expander(t("display_controls", language), expanded=True):
+        primary = st.columns(3)
+        selected_view = primary[0].selectbox(
+            t("view", language), [*container_ids, all_containers], key=f"view-{run_dir.name}"
+        )
+        primary[1].selectbox(
+            t("display_mode", language), tuple(OPACITY_PRESETS),
+            format_func=lambda value: t(f"mode_{value}", language), key=mode_key,
+            on_change=apply_opacity_preset,
+        )
+        opacity = primary[2].slider(
+            t("opacity", language), min_value=0.20, max_value=1.00, step=0.01, key=opacity_key,
+        )
+        selected_container = None if selected_view == all_containers else selected_view
+        available_items = _scene_items(scene, selected_container)
+        item_ids = [item["item_id"] for _, item in available_items]
+        secondary = st.columns(2)
+        selected_item_id = secondary[0].selectbox(
+            t("selected_item", language), ["", *item_ids],
+            format_func=lambda value: t("no_selection", language) if value == "" else value,
+            key=f"selected-item-{run_dir.name}",
+        ) or None
+        hidden_item_ids = set(secondary[1].multiselect(
+            t("hidden_items", language), item_ids, key=f"hidden-items-{run_dir.name}",
+        ))
+        visibility = st.columns(2)
+        labels = visibility[0].checkbox(t("show_labels", language), value=False, key=f"labels-{run_dir.name}")
+        boundaries = visibility[1].checkbox(t("show_boundaries", language), value=True, key=f"bounds-{run_dir.name}")
+    if selected_item_id is not None:
+        hidden_item_ids.discard(selected_item_id)
     figure = create_figure(
         scene,
-        container_id=None if selected == all_containers else selected,
+        container_id=selected_container,
         show_labels=labels,
         show_boundaries=boundaries,
         language=language,
+        item_opacity=float(opacity),
+        selected_item_id=selected_item_id,
+        dimmed_opacity=DEFAULT_DIMMED_OPACITY,
+        hidden_item_ids=hidden_item_ids,
     )
     st.plotly_chart(figure, width="stretch", config={"displaylogo": False, "scrollZoom": True})
+    if selected_item_id is not None:
+        selected_container_id, selected_item = next(
+            value for value in available_items if value[1]["item_id"] == selected_item_id
+        )
+        _render_selected_item(selected_container_id, selected_item, language)
     summary_path = run_dir / "solution" / "containers.csv"
     placements_path = run_dir / "solution" / "placements.csv"
     if summary_path.is_file():

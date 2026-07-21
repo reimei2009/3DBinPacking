@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.10.0 - 2026-07-21
+
+- Raised default item opacity from 0.72 to 0.92 for clearer solid geometry.
+- Added Solid, Balanced, and X-Ray display presets plus a manual opacity slider.
+- Added per-item highlighting, dimming, details, and hide/show controls without mutating solution data.
+- Changed the default 3D view from combined containers to the first used container.
+
 ## 0.9.0 - 2026-07-21
 
 - Added Vietnamese-first UI text with an English language switch.
