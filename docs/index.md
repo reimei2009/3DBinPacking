@@ -23,6 +23,7 @@ loại maturity, vai trò và exposure.
 - [Cấu trúc project](design/folder_structure.md)
 - [Luồng solver và dữ liệu](design/solver_design.md)
 - [Thiết kế benchmark](design/benchmark_design.md)
+- [Corpus nghiên cứu Level 1](benchmarks/level1_research_corpus.md)
 - [Parameter sweep](design/parameter_sweep_design.md)
 - [Kiến trúc Streamlit/Plotly](design/visualization_web_architecture.md)
 - [Git workflow](design/git_workflow.md)

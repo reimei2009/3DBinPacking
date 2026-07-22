@@ -5,11 +5,86 @@ import pandas as pd
 import yaml
 import pytest
 
-from container_packing.benchmarks import run_benchmark
+from container_packing.benchmarks import run_benchmark, run_benchmark_corpus
 from container_packing.benchmarks.runner import _aggregate
 from container_packing.benchmarks.suites import BenchmarkScenario, load_benchmark_suite
 from container_packing.data_loader import load_config
 from container_packing.dataset_usage import DatasetExecutionIntent, validate_dataset_usage
+
+
+def test_configured_corpus_keeps_exact_reference_and_infeasibility_semantics(
+    root: Path, tmp_path: Path,
+) -> None:
+    config = load_config(root / "config/level_01/default.yaml")
+    config["paths"]["raw_items_csv"] = str(
+        root / "data/raw/dataset_small_items_original.csv"
+    )
+    config["paths"]["processed_dir"] = str(tmp_path / "processed/level_01")
+    config["paths"]["manifest_json"] = str(
+        tmp_path / "processed/level_01/latest_manifest.json"
+    )
+    config["paths"]["output_root"] = str(tmp_path / "outputs")
+    config_path = tmp_path / "level_01.yaml"
+    config_path.write_text(
+        yaml.safe_dump(config, sort_keys=False), encoding="utf-8",
+    )
+    corpus_path = tmp_path / "corpus.yaml"
+    corpus_path.write_text(yaml.safe_dump({
+        "schema_version": "1.0",
+        "corpus_id": "test_corpus",
+        "level_id": "level_01",
+        "environment": "local",
+        "seeds": [42],
+        "repeats": 1,
+        "default_config": str(config_path),
+        "cases": [
+            {
+                "case_id": "feasible_i1_c1",
+                "group": "small",
+                "difficulty": "easy",
+                "item_count": 1,
+                "container_count": 1,
+                "expected_outcome": "feasible",
+                "algorithms": ["milp_big_m", "extreme_point_ffd"],
+            },
+            {
+                "case_id": "infeasible_i10_c1",
+                "group": "small",
+                "difficulty": "infeasible",
+                "item_count": 10,
+                "container_count": 1,
+                "expected_outcome": "infeasible",
+                "algorithms": ["milp_big_m", "extreme_point_ffd"],
+            },
+        ],
+    }, sort_keys=False), encoding="utf-8")
+
+    result = run_benchmark_corpus(corpus_path, project_root=root)
+
+    assert result.successful
+    assert len(result.results) == 4
+    assert result.results.expectation_met.all()
+    assert set(result.references.reference_kind) == {
+        "proven_optimal", "proven_infeasible",
+    }
+    assert result.results[
+        result.results.case_id == "feasible_i1_c1"
+    ].objective_gap_percent.eq(0).all()
+    assert set(
+        result.ranking[result.ranking.case_id == "feasible_i1_c1"]["rank"]
+    ) == {1, 2}
+    for name in (
+        "case_catalog.csv", "results.csv", "summary.csv", "ranking.csv",
+        "references.csv",
+    ):
+        assert (result.run_dir / "benchmark" / name).is_file()
+    manifest = json.loads(
+        (result.run_dir / "manifest.json").read_text(encoding="utf-8")
+    )
+    assert manifest["run_type"] == "benchmark_corpus"
+    assert manifest["case_count"] == 2
+    assert manifest["execution_count"] == 4
+    assert manifest["successful_execution_count"] == 4
 
 
 def test_level1_gap_fill_screening_suite_has_ten_fair_seeded_profiles(

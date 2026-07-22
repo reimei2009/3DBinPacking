@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Khôi phục corpus benchmark Level 1 có version, reference exact/best-known,
+  quality gap và output cô lập; expose qua CLI, chưa bật Streamlit.
 - Thêm container elimination có giới hạn bằng seeded relocation, support closure
   và partial repack cho inventory-aware Level 1–2.
 - Thay selector partial-repack toàn cục bằng adaptive failure-guided destination

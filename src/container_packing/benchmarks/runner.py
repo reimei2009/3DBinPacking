@@ -170,6 +170,71 @@ def execute_experiment_case(request: ExperimentRequest, repeat_index: int) -> di
     }
 
 
+def annotate_reference_gaps(
+    frame: pd.DataFrame,
+    *,
+    instance_keys: Sequence[str] = ("level", "scenario_id", "input_fingerprint"),
+) -> pd.DataFrame:
+    """Gắn mốc exact/best-known mà không trộn các instance khác input."""
+    if frame.empty:
+        return frame.copy()
+    keys = list(instance_keys)
+    missing = [key for key in keys if key not in frame.columns]
+    if missing:
+        raise ValueError(f"Reference instance keys are missing from results: {missing}")
+
+    references: list[dict[str, Any]] = []
+    for group_values, group in frame.groupby(keys, sort=True, dropna=False):
+        values = group_values if isinstance(group_values, tuple) else (group_values,)
+        successful = group[group["success"].astype(bool) & group["objective_value"].notna()]
+        optimal = successful[successful["status"] == "OPTIMAL"]
+        if not optimal.empty:
+            candidates = optimal
+            reference_kind = "proven_optimal"
+        elif not successful.empty:
+            candidates = successful
+            reference_kind = "best_known"
+        else:
+            candidates = successful
+            reference_kind = (
+                "proven_infeasible"
+                if bool((group["status"] == "INFEASIBLE").any())
+                else "unavailable"
+            )
+
+        reference: dict[str, Any] = dict(zip(keys, values))
+        if candidates.empty:
+            proofs = group[group["status"] == "INFEASIBLE"].sort_values("algorithm")
+            reference.update({
+                "reference_kind": reference_kind,
+                "reference_algorithm": None if proofs.empty else str(proofs.iloc[0]["algorithm"]),
+                "reference_status": None if proofs.empty else str(proofs.iloc[0]["status"]),
+                "reference_objective_value": None,
+            })
+        else:
+            chosen = candidates.sort_values(
+                ["objective_value", "algorithm_runtime_seconds", "algorithm"],
+                na_position="last",
+            ).iloc[0]
+            reference.update({
+                "reference_kind": reference_kind,
+                "reference_algorithm": str(chosen["algorithm"]),
+                "reference_status": str(chosen["status"]),
+                "reference_objective_value": float(chosen["objective_value"]),
+            })
+        references.append(reference)
+
+    annotated = frame.merge(
+        pd.DataFrame(references), on=keys, how="left", validate="many_to_one",
+    )
+    objective = pd.to_numeric(annotated["objective_value"], errors="coerce")
+    reference = pd.to_numeric(annotated["reference_objective_value"], errors="coerce")
+    gap = (objective - reference).clip(lower=0.0)
+    annotated["objective_gap_absolute"] = gap
+    annotated["objective_gap_percent"] = gap / reference.where(reference != 0.0) * 100.0
+    return annotated
+
+
 def aggregate_results(frame: pd.DataFrame, *, extra_group_keys: Sequence[str] = ()) -> pd.DataFrame:
     """Aggregate runtime over repeats and quality over one value per seed."""
     frame = frame.copy()
@@ -196,33 +261,49 @@ def aggregate_results(frame: pd.DataFrame, *, extra_group_keys: Sequence[str] = 
         orientation_profile=("orientation_profile", "first"),
         orientation_candidates_evaluated_mean=("orientation_candidates_evaluated", "mean"),
     )
-    per_seed = frame.groupby([*keys, "random_seed"], sort=True, dropna=False).agg(
-        objective_value=("objective_value", "mean"),
-        used_container_count=("used_container_count", "mean"),
-        total_container_cost=("total_container_cost", "mean"),
-        occupied_bounding_volume_mm3=("occupied_bounding_volume_mm3", "mean"),
-        coordinate_compactness_mm=("coordinate_compactness_mm", "mean"),
-        minimum_exact_support_ratio=("minimum_exact_support_ratio", "min"),
-    )
-    quality = per_seed.groupby(keys, sort=True, dropna=False).agg(
-        objective_mean=("objective_value", "mean"),
-        objective_std=("objective_value", "std"),
-        objective_min=("objective_value", "min"),
-        objective_max=("objective_value", "max"),
-        used_containers_mean=("used_container_count", "mean"),
-        used_containers_std=("used_container_count", "std"),
-        used_containers_min=("used_container_count", "min"),
-        used_containers_max=("used_container_count", "max"),
-        total_cost_mean=("total_container_cost", "mean"),
-        total_cost_std=("total_container_cost", "std"),
-        total_cost_min=("total_container_cost", "min"),
-        total_cost_max=("total_container_cost", "max"),
-        occupied_bounding_volume_mean_mm3=("occupied_bounding_volume_mm3", "mean"),
-        occupied_bounding_volume_std_mm3=("occupied_bounding_volume_mm3", "std"),
-        coordinate_compactness_mean_mm=("coordinate_compactness_mm", "mean"),
-        coordinate_compactness_std_mm=("coordinate_compactness_mm", "std"),
-        minimum_exact_support_ratio_min=("minimum_exact_support_ratio", "min"),
-    )
+    per_seed_aggregations: dict[str, tuple[str, str]] = {
+        "objective_value": ("objective_value", "mean"),
+        "used_container_count": ("used_container_count", "mean"),
+        "total_container_cost": ("total_container_cost", "mean"),
+        "occupied_bounding_volume_mm3": ("occupied_bounding_volume_mm3", "mean"),
+        "coordinate_compactness_mm": ("coordinate_compactness_mm", "mean"),
+        "minimum_exact_support_ratio": ("minimum_exact_support_ratio", "min"),
+    }
+    if "objective_gap_absolute" in frame.columns:
+        per_seed_aggregations.update({
+            "objective_gap_absolute": ("objective_gap_absolute", "mean"),
+            "objective_gap_percent": ("objective_gap_percent", "mean"),
+        })
+    per_seed = frame.groupby(
+        [*keys, "random_seed"], sort=True, dropna=False,
+    ).agg(**per_seed_aggregations)
+
+    quality_aggregations: dict[str, tuple[str, str]] = {
+        "objective_mean": ("objective_value", "mean"),
+        "objective_std": ("objective_value", "std"),
+        "objective_min": ("objective_value", "min"),
+        "objective_max": ("objective_value", "max"),
+        "used_containers_mean": ("used_container_count", "mean"),
+        "used_containers_std": ("used_container_count", "std"),
+        "used_containers_min": ("used_container_count", "min"),
+        "used_containers_max": ("used_container_count", "max"),
+        "total_cost_mean": ("total_container_cost", "mean"),
+        "total_cost_std": ("total_container_cost", "std"),
+        "total_cost_min": ("total_container_cost", "min"),
+        "total_cost_max": ("total_container_cost", "max"),
+        "occupied_bounding_volume_mean_mm3": ("occupied_bounding_volume_mm3", "mean"),
+        "occupied_bounding_volume_std_mm3": ("occupied_bounding_volume_mm3", "std"),
+        "coordinate_compactness_mean_mm": ("coordinate_compactness_mm", "mean"),
+        "coordinate_compactness_std_mm": ("coordinate_compactness_mm", "std"),
+        "minimum_exact_support_ratio_min": ("minimum_exact_support_ratio", "min"),
+    }
+    if "objective_gap_absolute" in per_seed.columns:
+        quality_aggregations.update({
+            "objective_gap_mean_absolute": ("objective_gap_absolute", "mean"),
+            "objective_gap_mean_percent": ("objective_gap_percent", "mean"),
+            "objective_gap_max_percent": ("objective_gap_percent", "max"),
+        })
+    quality = per_seed.groupby(keys, sort=True, dropna=False).agg(**quality_aggregations)
     summary = execution.join(quality).reset_index()
     summary["success_rate"] = summary["success_count"] / summary["run_count"]
     return summary.fillna({
