@@ -4,8 +4,10 @@ import pytest
 
 from container_packing.application.service import (
     build_experiment_request,
+    discover_benchmarks,
     discover_runs,
     get_instance_limits,
+    load_benchmark_tables,
 )
 
 
@@ -53,3 +55,32 @@ def test_run_discovery_is_level_isolated(tmp_path):
     assert len(runs) == 1
     assert runs[0].run_id == "run-1"
     assert runs[0].item_count == 10
+
+
+def test_benchmark_discovery_and_table_loading_are_separate_from_run_history(tmp_path):
+    (tmp_path / "pyproject.toml").write_text("[project]\nname='fixture'\n", encoding="utf-8")
+    (tmp_path / "config").mkdir()
+    run_dir = tmp_path / "outputs/level_01/runs/corpus-1"
+    benchmark_dir = run_dir / "benchmark"
+    benchmark_dir.mkdir(parents=True)
+    (run_dir / "manifest.json").write_text(json.dumps({
+        "run_id": "corpus-1", "run_type": "benchmark_corpus", "level": "level_01",
+        "status": "SUCCESS", "created_at_utc": "2026-01-01T00:00:00Z",
+        "corpus_id": "fixture", "case_count": 2, "execution_count": 4,
+    }), encoding="utf-8")
+    for name in ("results.csv", "summary.csv"):
+        (benchmark_dir / name).write_text("case_id,algorithm\ncase-a,example\n", encoding="utf-8")
+    (benchmark_dir / "ranking.csv").write_text("rank,case_id\n1,case-a\n", encoding="utf-8")
+    (benchmark_dir / "references.csv").write_text(
+        "case_id,reference_kind\ncase-a,proven_optimal\n", encoding="utf-8",
+    )
+
+    assert discover_runs("level_01", root=tmp_path) == ()
+    artifacts = discover_benchmarks("level_01", root=tmp_path)
+    assert len(artifacts) == 1
+    assert artifacts[0].corpus_id == "fixture"
+    assert artifacts[0].execution_count == 4
+    tables = load_benchmark_tables(run_dir, root=tmp_path)
+    assert tables.summary.iloc[0].case_id == "case-a"
+    assert tables.ranking.iloc[0]["rank"] == 1
+    assert tables.references.iloc[0].reference_kind == "proven_optimal"

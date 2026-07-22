@@ -7,14 +7,17 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
+import plotly.express as px
 import streamlit as st
 
 from container_packing.algorithms.registry import get_algorithm, list_algorithms
 from container_packing.application.service import (
     build_experiment_request,
+    discover_benchmarks,
     discover_runs,
     execute_experiment,
     get_instance_limits,
+    load_benchmark_tables,
     resolve_result_run_dir,
 )
 from container_packing.data_loader import load_config
@@ -256,6 +259,62 @@ def _render_run(run_dir: Path, language: str) -> None:
             st.dataframe(_localized_frame(pd.read_csv(placements_path), language, "placements"), hide_index=True, width="stretch")
 
 
+def _render_benchmark(run_dir: Path, language: str) -> None:
+    manifest = _read_json(run_dir / "manifest.json")
+    tables = load_benchmark_tables(run_dir)
+    summary = tables.summary.copy()
+    if "case_id" not in summary:
+        summary["case_id"] = summary.apply(
+            lambda row: f"i{int(row['item_count'])}_c{int(row['container_count'])}", axis=1,
+        )
+    if "objective_gap_mean_percent" not in summary:
+        summary["objective_gap_mean_percent"] = float("nan")
+    st.caption(str(run_dir))
+    metrics = st.columns(4)
+    metrics[0].metric(t("status", language), manifest.get("status", "unknown"))
+    metrics[1].metric(t("benchmark_cases", language), manifest.get("case_count", 0))
+    metrics[2].metric(
+        t("benchmark_executions", language),
+        manifest.get("execution_count", manifest.get("case_count", len(tables.results))),
+    )
+    metrics[3].metric("Corpus", manifest.get("corpus_id", "matrix"))
+    feasible = summary[summary["success_rate"] > 0].copy()
+    if not feasible.empty:
+        quality, runtime = _benchmark_figures(feasible, language)
+        st.markdown(f"**{t('quality_comparison', language)}**")
+        st.plotly_chart(quality, width="stretch", config={"displaylogo": False})
+        st.markdown(f"**{t('runtime_comparison', language)}**")
+        st.plotly_chart(runtime, width="stretch", config={"displaylogo": False})
+    st.dataframe(summary, hide_index=True, width="stretch")
+    if not tables.references.empty:
+        st.markdown(f"**{t('reference_table', language)}**")
+        st.dataframe(tables.references, hide_index=True, width="stretch")
+    if not tables.ranking.empty:
+        st.markdown(f"**{t('ranking_table', language)}**")
+        st.dataframe(tables.ranking, hide_index=True, width="stretch")
+
+
+def _benchmark_figures(summary: pd.DataFrame, language: str) -> tuple[Any, Any]:
+    quality = px.bar(
+        summary,
+        x="case_id",
+        y="objective_gap_mean_percent",
+        color="algorithm",
+        barmode="group",
+        labels={"case_id": "Case", "objective_gap_mean_percent": t("objective_gap", language)},
+    )
+    runtime = px.bar(
+        summary,
+        x="case_id",
+        y="algorithm_runtime_mean_seconds",
+        color="algorithm",
+        barmode="group",
+        log_y=True,
+        labels={"case_id": "Case", "algorithm_runtime_mean_seconds": t("runtime", language)},
+    )
+    return quality, runtime
+
+
 def main() -> None:
     st.set_page_config(page_title="Mô phỏng xếp container 3D", page_icon="📦", layout="wide")
     root = find_project_root(__file__)
@@ -324,8 +383,9 @@ def main() -> None:
         except Exception as exc:
             st.exception(exc)
 
-    experiment_tab, contract_tab, history_tab = st.tabs([
+    experiment_tab, contract_tab, history_tab, benchmark_tab = st.tabs([
         t("result_tab", language), t("contract_tab", language), t("history_tab", language),
+        t("benchmark_tab", language),
     ])
     with experiment_tab:
         selected_run = st.session_state.get("selected_run_dir")
@@ -357,6 +417,21 @@ def main() -> None:
                 t("validation", language): value.validation_status,
                 ("Created" if language == "en" else "Thời điểm tạo"): value.created_at_utc,
             } for value in runs]), hide_index=True, width="stretch")
+    with benchmark_tab:
+        benchmarks = discover_benchmarks(level_id, root=root, limit=25)
+        if not benchmarks:
+            st.info(t("no_benchmarks", language))
+        else:
+            labels = {
+                f"{value.created_at_utc} · {value.corpus_id or value.run_type} · {value.status}": value
+                for value in benchmarks
+            }
+            selected_label = st.selectbox(t("persisted_benchmark", language), list(labels))
+            if st.button(t("open_benchmark", language)):
+                st.session_state["selected_benchmark_dir"] = str(labels[selected_label].run_dir)
+            selected_benchmark = st.session_state.get("selected_benchmark_dir")
+            if selected_benchmark:
+                _render_benchmark(Path(selected_benchmark), language)
 
 
 if __name__ == "__main__":

@@ -77,6 +77,14 @@ Output đầy đủ nằm tại `outputs/<level_id>/runs/<run_id>/`. Xem hướn
 
 ## Benchmark
 
+Chạy corpus R&D Level 1 đã định nghĩa sẵn:
+
+```powershell
+python scripts\run_benchmark_corpus.py --corpus config/level_01/benchmarks/research_corpus.yaml
+```
+
+Corpus gồm case nhỏ có MILP làm mốc tối ưu, case payload-tight, case MILP chứng minh vô nghiệm và các case 50/100 item cho CPU heuristic. Kết quả có `objective_gap_percent`, loại mốc `proven_optimal`/`best_known`/`proven_infeasible`, ranking theo từng case và liên kết tới mọi run đã validate. Trên web, mở tab **So sánh benchmark** và chọn corpus đã lưu để xem bảng cùng biểu đồ chất lượng/runtime.
+
 Chạy một ma trận benchmark có thể tái lập:
 
 ```powershell
@@ -84,6 +92,8 @@ python scripts\run_benchmark.py --level level_01 --algorithms extreme_point_best
 ```
 
 `--seeds` là các seed thí nghiệm khác nhau; `--repeats` là số lần đo lại cho từng seed. Ví dụ trên chạy `5 thuật toán × 2 item counts × 2 container counts × 5 seeds × 2 repeats = 200` case. Mỗi case tạo experiment run riêng. Bảng tổng hợp được lưu trong một benchmark run riêng dưới `outputs/level_01/runs/<benchmark_id>/benchmark/`.
+
+Khi có run `OPTIMAL`, gap được tính với mốc MILP đã chứng minh tối ưu. Nếu không chạy exact solver ở quy mô lớn, mốc được ghi rõ là `best_known`; không được diễn giải thành tối ưu toàn cục. `INFEASIBLE_HEURISTIC` cũng không phải bằng chứng vô nghiệm.
 
 ## Parameter sweep
 

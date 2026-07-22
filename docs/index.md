@@ -7,6 +7,7 @@
 - `reports/generated`: generated acceptance evidence.
 - `guides/manual_test_flow.md`: single-run and benchmark commands.
 - `design/benchmark_design.md`: benchmark isolation and aggregation contract.
+- `benchmarks/level1_research_corpus.md`: declared case catalog, reference semantics, and execution guidance.
 - `design/parameter_sweep_design.md`: parameter grids, source runs, statistics, and ranking contract.
 - `design/git_workflow.md`: protected branches, short-lived scope branches, and worktree lifecycle.
 - `design/visualization_web_architecture.md`: reusable scene contract, application boundary, and UI adapters.
@@ -21,3 +22,4 @@
 - `decisions/ADR-0009-thin-streamlit-plotly-adapter.md`: why the R&D UI remains replaceable.
 - `decisions/ADR-0010-add-extreme-point-best-fit.md`: why Best Fit is the next constructive baseline.
 - `decisions/ADR-0011-add-maximal-empty-spaces.md`: why EMS is the next geometric heuristic family.
+- `decisions/ADR-0012-config-driven-benchmark-corpus.md`: why named cases and explicit reference classes are required.

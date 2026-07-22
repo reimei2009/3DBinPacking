@@ -35,6 +35,7 @@ python scripts/run_web_app.py
 5. Review solver status and independent validation status.
 6. Inspect the combined scene or one used container.
 7. Open previous immutable runs from **Run history**.
+8. Open persisted matrix benchmarks or research corpora from **Benchmark comparison**. The quality and runtime charts read saved CSV artifacts and do not rerun a solver.
 
 ## 3D display controls
 

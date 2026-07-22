@@ -1,12 +1,18 @@
 from pathlib import Path
 
+import pandas as pd
 from streamlit.testing.v1 import AppTest
+
+from container_packing.web.streamlit_app import _benchmark_figures
 
 
 def test_streamlit_app_runs_valid_experiment_and_renders_3d(root: Path):
     app = root / "src/container_packing/web/streamlit_app.py"
     page = AppTest.from_file(str(app), default_timeout=60).run()
     assert not page.exception
+    assert [value.label for value in page.tabs] == [
+        "Kết quả và 3D", "Mô hình toán học", "Lịch sử chạy", "So sánh benchmark",
+    ]
     assert [value.value for value in page.title] == ["Mô phỏng xếp container 3D — Nghiên cứu"]
     selects = {value.label: value for value in page.selectbox}
     assert selects["Cấp độ"].value == "level_01"
@@ -58,3 +64,20 @@ def test_streamlit_contract_renders_latex_and_switches_to_english(root: Path):
     assert not page.exception
     assert [value.value for value in page.title] == ["3D Container Packing — Research Console"]
     assert any("Objective function" in value.value for value in page.markdown)
+
+
+def test_benchmark_dashboard_builds_quality_and_runtime_charts():
+    summary = pd.DataFrame([
+        {
+            "case_id": "small", "algorithm": "milp_big_m",
+            "objective_gap_mean_percent": 0.0, "algorithm_runtime_mean_seconds": 1.0,
+        },
+        {
+            "case_id": "small", "algorithm": "extreme_point_ffd",
+            "objective_gap_mean_percent": 5.0, "algorithm_runtime_mean_seconds": 0.01,
+        },
+    ])
+    quality, runtime = _benchmark_figures(summary, "en")
+    assert quality.layout.yaxis.title.text == "Objective gap to reference (%)"
+    assert runtime.layout.yaxis.type == "log"
+    assert {trace.name for trace in quality.data} == {"milp_big_m", "extreme_point_ffd"}

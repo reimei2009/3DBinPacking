@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.13.0 - 2026-07-22
+
+- Added a config-driven Level 1 research corpus with named small, tight, infeasible, medium, and large cases.
+- Added proven-optimal, proven-infeasible, and best-known reference classification plus objective-gap metrics.
+- Added per-case rankings, case catalog, references, resolved corpus config, manifest, and isolated source runs.
+- Added benchmark discovery and an on-demand Streamlit comparison dashboard with quality and runtime charts.
+- Kept ordinary experiment history separate from benchmark/corpus aggregate runs.
+
 ## 0.12.0 - 2026-07-21
 
 - Added deterministic Maximal Empty Spaces — Best Fit Decreasing for Level 1.

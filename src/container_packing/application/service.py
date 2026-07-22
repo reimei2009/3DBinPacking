@@ -37,6 +37,27 @@ class RunArtifact:
     container_count: int | None
 
 
+@dataclass(frozen=True)
+class BenchmarkArtifact:
+    run_id: str
+    run_dir: Path
+    level_id: str
+    run_type: str
+    status: str
+    created_at_utc: str
+    corpus_id: str | None
+    case_count: int
+    execution_count: int
+
+
+@dataclass(frozen=True)
+class BenchmarkTables:
+    results: pd.DataFrame
+    summary: pd.DataFrame
+    ranking: pd.DataFrame
+    references: pd.DataFrame
+
+
 def _root(root: str | Path | None = None) -> Path:
     return find_project_root(root) if root is not None else find_project_root(__file__)
 
@@ -133,6 +154,8 @@ def discover_runs(
             continue
         if manifest.get("level") != level_id:
             continue
+        if manifest.get("run_type", "experiment") != "experiment":
+            continue
         metrics_path = manifest_path.parent / "metrics" / "metrics.json"
         metrics: dict[str, Any] = {}
         if metrics_path.is_file():
@@ -154,3 +177,79 @@ def discover_runs(
         if len(artifacts) >= limit:
             break
     return tuple(artifacts)
+
+
+def discover_benchmarks(
+    level_id: str,
+    *,
+    root: str | Path | None = None,
+    limit: int = 25,
+) -> tuple[BenchmarkArtifact, ...]:
+    if limit <= 0:
+        raise ValueError("limit must be positive")
+    get_level(level_id)
+    runs_root = (_root(root) / "outputs" / level_id / "runs").resolve()
+    if not runs_root.is_dir():
+        return ()
+    artifacts: list[BenchmarkArtifact] = []
+    manifests = sorted(
+        runs_root.glob("*/manifest.json"), key=lambda value: value.stat().st_mtime, reverse=True,
+    )
+    for manifest_path in manifests:
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        run_type = str(manifest.get("run_type", ""))
+        if manifest.get("level") != level_id or run_type not in {"benchmark", "benchmark_corpus"}:
+            continue
+        artifacts.append(BenchmarkArtifact(
+            run_id=str(manifest.get("run_id", manifest_path.parent.name)),
+            run_dir=manifest_path.parent,
+            level_id=level_id,
+            run_type=run_type,
+            status=str(manifest.get("status", "unknown")),
+            created_at_utc=str(manifest.get("created_at_utc", "")),
+            corpus_id=None if manifest.get("corpus_id") is None else str(manifest["corpus_id"]),
+            case_count=int(manifest.get("case_count", 0)),
+            execution_count=int(manifest.get("execution_count", manifest.get("case_count", 0))),
+        ))
+        if len(artifacts) >= limit:
+            break
+    return tuple(artifacts)
+
+
+def load_benchmark_tables(
+    run_dir: str | Path, *, root: str | Path | None = None,
+) -> BenchmarkTables:
+    directory = _resolve(_root(root), run_dir)
+    manifest_path = directory / "manifest.json"
+    if not manifest_path.is_file():
+        raise ValueError(f"Benchmark manifest does not exist: {manifest_path}")
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"Cannot read benchmark manifest {manifest_path}: {exc}") from exc
+    if manifest.get("run_type") not in {"benchmark", "benchmark_corpus"}:
+        raise ValueError(f"Run directory is not a benchmark: {directory}")
+    benchmark_dir = directory / "benchmark"
+
+    def read_required(name: str) -> pd.DataFrame:
+        path = benchmark_dir / name
+        if not path.is_file():
+            raise ValueError(f"Missing benchmark artifact: {path}")
+        try:
+            return pd.read_csv(path)
+        except (OSError, pd.errors.ParserError) as exc:
+            raise ValueError(f"Cannot read benchmark artifact {path}: {exc}") from exc
+
+    def read_optional(name: str) -> pd.DataFrame:
+        path = benchmark_dir / name
+        return pd.read_csv(path) if path.is_file() else pd.DataFrame()
+
+    return BenchmarkTables(
+        results=read_required("results.csv"),
+        summary=read_required("summary.csv"),
+        ranking=read_optional("ranking.csv"),
+        references=read_optional("references.csv"),
+    )

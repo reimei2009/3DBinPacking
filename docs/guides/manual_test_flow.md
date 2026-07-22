@@ -12,6 +12,14 @@ The interactive command asks for level, algorithm, item count, container count, 
 
 By default, 20 placements are displayed. Use `--preview-limit 5`, `--preview-limit 0`, or `--json-only` when needed. Full artifacts are always stored under `outputs/<level_id>/runs/<run_id>/`.
 
+Run the declared research corpus before comparing or adding another algorithm:
+
+```powershell
+python scripts\run_benchmark_corpus.py --corpus config/level_01/benchmarks/research_corpus.yaml
+```
+
+Inspect `benchmark/case_catalog.csv`, `references.csv`, `summary.csv`, and `ranking.csv`. Open the same persisted corpus in the Streamlit **Benchmark comparison** tab for quality-gap and runtime charts.
+
 Run a repeatable benchmark after the single-run smoke test:
 
 ```powershell

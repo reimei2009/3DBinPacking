@@ -105,6 +105,64 @@ def execute_experiment_case(request: ExperimentRequest, repeat_index: int) -> di
     }
 
 
+def annotate_reference_gaps(
+    frame: pd.DataFrame,
+    *,
+    instance_keys: Sequence[str] = ("level", "item_count", "container_count"),
+) -> pd.DataFrame:
+    """Attach a proven-optimal or best-known objective reference to every row."""
+    if frame.empty:
+        return frame.copy()
+    keys = list(instance_keys)
+    missing = [value for value in keys if value not in frame.columns]
+    if missing:
+        raise ValueError(f"Reference instance keys are missing from results: {missing}")
+    reference_rows: list[dict[str, Any]] = []
+    for group_values, group in frame.groupby(keys, sort=True, dropna=False):
+        values = group_values if isinstance(group_values, tuple) else (group_values,)
+        successful = group[group["success"].astype(bool) & group["objective_value"].notna()]
+        optimal = successful[successful["status"] == "OPTIMAL"]
+        if not optimal.empty:
+            candidates = optimal
+            reference_kind = "proven_optimal"
+        elif not successful.empty:
+            candidates = successful
+            reference_kind = "best_known"
+        else:
+            candidates = successful
+            reference_kind = (
+                "proven_infeasible" if bool((group["status"] == "INFEASIBLE").any()) else "unavailable"
+            )
+        reference: dict[str, Any] = dict(zip(keys, values))
+        if candidates.empty:
+            proof = group[group["status"] == "INFEASIBLE"].sort_values("algorithm")
+            reference.update({
+                "reference_kind": reference_kind,
+                "reference_algorithm": None if proof.empty else str(proof.iloc[0]["algorithm"]),
+                "reference_status": None if proof.empty else str(proof.iloc[0]["status"]),
+                "reference_objective_value": None,
+            })
+        else:
+            chosen = candidates.sort_values(
+                ["objective_value", "algorithm_runtime_seconds", "algorithm"],
+                na_position="last",
+            ).iloc[0]
+            reference.update({
+                "reference_kind": reference_kind,
+                "reference_algorithm": str(chosen["algorithm"]),
+                "reference_status": str(chosen["status"]),
+                "reference_objective_value": float(chosen["objective_value"]),
+            })
+        reference_rows.append(reference)
+    annotated = frame.merge(pd.DataFrame(reference_rows), on=keys, how="left", validate="many_to_one")
+    objective = pd.to_numeric(annotated["objective_value"], errors="coerce")
+    reference = pd.to_numeric(annotated["reference_objective_value"], errors="coerce")
+    gap = (objective - reference).clip(lower=0.0)
+    annotated["objective_gap_absolute"] = gap
+    annotated["objective_gap_percent"] = gap / reference.where(reference != 0.0) * 100.0
+    return annotated
+
+
 def aggregate_results(frame: pd.DataFrame, *, extra_group_keys: Sequence[str] = ()) -> pd.DataFrame:
     """Aggregate runtime over repeats and quality over one value per seed."""
     keys = ["level", "algorithm", "item_count", "container_count", *extra_group_keys]
@@ -120,30 +178,43 @@ def aggregate_results(frame: pd.DataFrame, *, extra_group_keys: Sequence[str] = 
         wall_runtime_mean_seconds=("wall_runtime_seconds", "mean"),
         distinct_solution_count=("placement_signature", "nunique"),
     )
+    per_seed_aggregations: dict[str, tuple[str, str]] = {
+        "objective_value": ("objective_value", "mean"),
+        "used_container_count": ("used_container_count", "mean"),
+        "total_container_cost": ("total_container_cost", "mean"),
+        "occupied_bounding_volume_mm3": ("occupied_bounding_volume_mm3", "mean"),
+        "coordinate_compactness_mm": ("coordinate_compactness_mm", "mean"),
+    }
+    if "objective_gap_absolute" in frame.columns:
+        per_seed_aggregations["objective_gap_absolute"] = ("objective_gap_absolute", "mean")
+        per_seed_aggregations["objective_gap_percent"] = ("objective_gap_percent", "mean")
     per_seed = frame.groupby([*keys, "random_seed"], sort=True, dropna=False).agg(
-        objective_value=("objective_value", "mean"),
-        used_container_count=("used_container_count", "mean"),
-        total_container_cost=("total_container_cost", "mean"),
-        occupied_bounding_volume_mm3=("occupied_bounding_volume_mm3", "mean"),
-        coordinate_compactness_mm=("coordinate_compactness_mm", "mean"),
+        **per_seed_aggregations,
     )
+    quality_aggregations: dict[str, tuple[str, str]] = {
+        "objective_mean": ("objective_value", "mean"),
+        "objective_std": ("objective_value", "std"),
+        "objective_min": ("objective_value", "min"),
+        "objective_max": ("objective_value", "max"),
+        "used_containers_mean": ("used_container_count", "mean"),
+        "used_containers_std": ("used_container_count", "std"),
+        "used_containers_min": ("used_container_count", "min"),
+        "used_containers_max": ("used_container_count", "max"),
+        "total_cost_mean": ("total_container_cost", "mean"),
+        "total_cost_std": ("total_container_cost", "std"),
+        "total_cost_min": ("total_container_cost", "min"),
+        "total_cost_max": ("total_container_cost", "max"),
+        "occupied_bounding_volume_mean_mm3": ("occupied_bounding_volume_mm3", "mean"),
+        "occupied_bounding_volume_std_mm3": ("occupied_bounding_volume_mm3", "std"),
+        "coordinate_compactness_mean_mm": ("coordinate_compactness_mm", "mean"),
+        "coordinate_compactness_std_mm": ("coordinate_compactness_mm", "std"),
+    }
+    if "objective_gap_absolute" in per_seed.columns:
+        quality_aggregations["objective_gap_mean_absolute"] = ("objective_gap_absolute", "mean")
+        quality_aggregations["objective_gap_mean_percent"] = ("objective_gap_percent", "mean")
+        quality_aggregations["objective_gap_max_percent"] = ("objective_gap_percent", "max")
     quality = per_seed.groupby(keys, sort=True, dropna=False).agg(
-        objective_mean=("objective_value", "mean"),
-        objective_std=("objective_value", "std"),
-        objective_min=("objective_value", "min"),
-        objective_max=("objective_value", "max"),
-        used_containers_mean=("used_container_count", "mean"),
-        used_containers_std=("used_container_count", "std"),
-        used_containers_min=("used_container_count", "min"),
-        used_containers_max=("used_container_count", "max"),
-        total_cost_mean=("total_container_cost", "mean"),
-        total_cost_std=("total_container_cost", "std"),
-        total_cost_min=("total_container_cost", "min"),
-        total_cost_max=("total_container_cost", "max"),
-        occupied_bounding_volume_mean_mm3=("occupied_bounding_volume_mm3", "mean"),
-        occupied_bounding_volume_std_mm3=("occupied_bounding_volume_mm3", "std"),
-        coordinate_compactness_mean_mm=("coordinate_compactness_mm", "mean"),
-        coordinate_compactness_std_mm=("coordinate_compactness_mm", "std"),
+        **quality_aggregations,
     )
     summary = execution.join(quality).reset_index()
     summary["success_rate"] = summary["success_count"] / summary["run_count"]
@@ -233,8 +304,18 @@ def run_benchmark(
                         rows.append(row)
                         append_event(log_path, "benchmark_case_completed", **row)
 
-    results = pd.DataFrame(rows)
+    results = annotate_reference_gaps(pd.DataFrame(rows))
     summary = _aggregate(results)
+    references = results[[
+        "level", "item_count", "container_count", "reference_kind", "reference_algorithm",
+        "reference_status", "reference_objective_value",
+    ]].drop_duplicates()
+    summary = summary.merge(
+        references,
+        on=["level", "item_count", "container_count"],
+        how="left",
+        validate="many_to_one",
+    )
     results.to_csv(benchmark_dir / "results.csv", index=False, encoding="utf-8")
     summary.to_csv(benchmark_dir / "summary.csv", index=False, encoding="utf-8")
     write_json(benchmark_dir / "summary.json", {

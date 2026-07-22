@@ -4,8 +4,8 @@ from pathlib import Path
 import yaml
 import pytest
 
-from container_packing.benchmarks import run_benchmark
-from container_packing.benchmarks.runner import _aggregate
+from container_packing.benchmarks import run_benchmark, run_benchmark_corpus
+from container_packing.benchmarks.runner import _aggregate, annotate_reference_gaps
 from container_packing.data_loader import load_config
 
 
@@ -117,3 +117,69 @@ def test_quality_standard_deviation_is_computed_across_seeds_not_repeats():
     assert summary.run_count == 4
     assert summary.seed_count == 2
     assert summary.repeats_per_seed == 2
+
+
+def test_reference_gap_prefers_proven_optimum_over_best_heuristic():
+    import pandas as pd
+
+    frame = pd.DataFrame([
+        {"level": "level_01", "item_count": 5, "container_count": 2, "algorithm": "heuristic",
+         "status": "FEASIBLE", "success": True, "objective_value": 110.0,
+         "algorithm_runtime_seconds": 0.01},
+        {"level": "level_01", "item_count": 5, "container_count": 2, "algorithm": "milp_big_m",
+         "status": "OPTIMAL", "success": True, "objective_value": 100.0,
+         "algorithm_runtime_seconds": 1.0},
+    ])
+    annotated = annotate_reference_gaps(frame)
+    heuristic = annotated[annotated.algorithm == "heuristic"].iloc[0]
+    assert heuristic.reference_kind == "proven_optimal"
+    assert heuristic.reference_algorithm == "milp_big_m"
+    assert heuristic.objective_gap_absolute == pytest.approx(10.0)
+    assert heuristic.objective_gap_percent == pytest.approx(10.0)
+
+
+def test_configured_corpus_handles_feasible_and_proven_infeasible_cases(root: Path, tmp_path: Path):
+    config = load_config(root / "config/level_01/default.yaml")
+    config["paths"]["raw_items_csv"] = str(root / "data/raw/dataset_small_items_original.csv")
+    config["paths"]["processed_dir"] = str(tmp_path / "processed/level_01")
+    config["paths"]["manifest_json"] = str(tmp_path / "processed/level_01/latest_manifest.json")
+    config["paths"]["output_root"] = str(tmp_path / "outputs")
+    config_path = tmp_path / "level_01.yaml"
+    config_path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
+    corpus_path = tmp_path / "corpus.yaml"
+    corpus_path.write_text(yaml.safe_dump({
+        "schema_version": "1.0",
+        "corpus_id": "test_corpus",
+        "level_id": "level_01",
+        "environment": "local",
+        "seeds": [42],
+        "repeats": 1,
+        "default_config": str(config_path),
+        "cases": [
+            {
+                "case_id": "feasible_i1_c1", "group": "small", "difficulty": "easy",
+                "item_count": 1, "container_count": 1, "expected_outcome": "feasible",
+                "algorithms": ["milp_big_m", "extreme_point_ffd"],
+            },
+            {
+                "case_id": "infeasible_i10_c1", "group": "small", "difficulty": "infeasible",
+                "item_count": 10, "container_count": 1, "expected_outcome": "infeasible",
+                "algorithms": ["milp_big_m", "extreme_point_ffd"],
+            },
+        ],
+    }, sort_keys=False), encoding="utf-8")
+
+    result = run_benchmark_corpus(corpus_path, project_root=root)
+    assert result.successful
+    assert len(result.results) == 4
+    assert result.results.expectation_met.all()
+    assert set(result.references.reference_kind) == {"proven_optimal", "proven_infeasible"}
+    assert result.results[result.results.case_id == "feasible_i1_c1"].objective_gap_percent.eq(0).all()
+    assert set(result.ranking[result.ranking.case_id == "feasible_i1_c1"]["rank"]) == {1, 2}
+    for name in ("case_catalog.csv", "results.csv", "summary.csv", "ranking.csv", "references.csv"):
+        assert (result.run_dir / "benchmark" / name).is_file()
+    manifest = json.loads((result.run_dir / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["run_type"] == "benchmark_corpus"
+    assert manifest["case_count"] == 2
+    assert manifest["execution_count"] == 4
+    assert manifest["successful_execution_count"] == 4

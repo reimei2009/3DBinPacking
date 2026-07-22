@@ -51,7 +51,7 @@ def main(argv: list[str] | None = None) -> int:
         "level", "algorithm", "item_count", "container_count", "run_count", "seed_count",
         "success_rate", "objective_mean", "objective_std", "used_containers_mean",
         "used_containers_std", "total_cost_mean", "total_cost_std", "distinct_solution_count",
-        "algorithm_runtime_mean_seconds",
+        "reference_kind", "objective_gap_mean_percent", "algorithm_runtime_mean_seconds",
     ]
     print(result.summary[preview_columns].to_string(index=False))
     print(f"\nBenchmark directory: {result.run_dir}")

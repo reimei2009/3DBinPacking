@@ -13,7 +13,7 @@ Generated 2026-07-21 in the project virtual environment.
 
 - Data preparation: 20 items, 5 containers, 24.210313 m3, 6228.728 kg.
 - Model: 5865 variables, 18475 constraints, CSR sparse matrix, 48505 nonzero coefficients.
-- Pytest: 85 passed, 0 failed.
+- Pytest: 89 passed, 0 failed.
 - The reference notebook passes `nbformat.validate` and a clean in-memory execution reports `OPTIMAL` with `validation_valid: true`.
 
 ## Solver and independent validation
@@ -27,6 +27,18 @@ Generated 2026-07-21 in the project virtual environment.
 - Independent validation: valid, 0 issues
 
 The solution has no boundary, overlap, payload, identity, dimension, or weight violations. Physical support/stability is intentionally not evaluated at Level 1.
+
+## Config-driven research corpus acceptance evidence
+
+- Corpus: `config/level_01/benchmarks/research_corpus.yaml`; five named cases covering small/easy, payload-tight, proven infeasible, medium, and large local-CPU profiles.
+- Aggregate run: `outputs/level_01/runs/20260722T035103835314Z__level_01__benchmark_corpus__level1_research_v1__seed42`.
+- Executions: 26/26 matched the declared expected outcome; every feasible source run passed the independent Level 1 validator.
+- `small_easy_i5_c2` and `small_tight_i10_c2` have MILP `proven_optimal` references. Every tested heuristic matched the exact count/cost objective on both cases.
+- `small_infeasible_i10_c1` has a MILP `proven_infeasible` reference because the first ten items weigh 2,845.128 kg while the only configured C1 container permits 1,500 kg. Heuristic failures remain labelled `INFEASIBLE_HEURISTIC` and are not treated as proofs.
+- `medium_mixed_i50_c8` and `large_scalability_i100_c15` use `best_known` references, not optimality claims. Simulated Annealing supplied the medium reference; FFD and Extreme-Point Best Fit supplied the tied large reference.
+- Representative 5-item MILP, 50-item Simulated Annealing, and 100-item FFD source runs were revalidated separately with zero issues.
+- Streamlit AppTest opened the persisted corpus on demand and rendered two comparison charts without exceptions: objective gap to reference and log-scale algorithm runtime.
+- The corpus writes case catalog, raw results, aggregate summary, per-case ranking, reference table, resolved config, manifest, logs, and source-run links under its isolated Level 1 run directory.
 
 ## Maximal Empty Spaces Best Fit acceptance evidence
 

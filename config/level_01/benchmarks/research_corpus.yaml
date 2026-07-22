@@ -1,0 +1,79 @@
+schema_version: "1.0"
+corpus_id: level1_research_v1
+level_id: level_01
+environment: local
+seeds: [42]
+repeats: 1
+default_config: config/level_01/default.yaml
+
+cases:
+  - case_id: small_easy_i5_c2
+    group: small
+    difficulty: easy
+    item_count: 5
+    container_count: 2
+    expected_outcome: feasible
+    description: Small exact-reference case for fast regression and objective-gap checks.
+    algorithms:
+      - milp_big_m
+      - extreme_point_ffd
+      - extreme_point_best_fit
+      - maximal_space_best_fit
+      - extreme_point_hill_climbing
+      - extreme_point_simulated_annealing
+
+  - case_id: small_tight_i10_c2
+    group: small
+    difficulty: tight
+    item_count: 10
+    container_count: 2
+    expected_outcome: feasible
+    description: Payload-tight feasible case with an exact MILP reference.
+    algorithms:
+      - milp_big_m
+      - extreme_point_ffd
+      - extreme_point_best_fit
+      - maximal_space_best_fit
+      - extreme_point_hill_climbing
+      - extreme_point_simulated_annealing
+
+  - case_id: small_infeasible_i10_c1
+    group: small
+    difficulty: infeasible
+    item_count: 10
+    container_count: 1
+    expected_outcome: infeasible
+    description: Aggregate payload exceeds the only container; MILP must prove infeasibility.
+    algorithms:
+      - milp_big_m
+      - extreme_point_ffd
+      - extreme_point_best_fit
+      - maximal_space_best_fit
+      - extreme_point_hill_climbing
+      - extreme_point_simulated_annealing
+
+  - case_id: medium_mixed_i50_c8
+    group: medium
+    difficulty: mixed
+    item_count: 50
+    container_count: 8
+    expected_outcome: feasible
+    description: Medium CPU comparison; reference is explicitly best-known, not proven optimal.
+    algorithms:
+      - extreme_point_ffd
+      - extreme_point_best_fit
+      - maximal_space_best_fit
+      - extreme_point_hill_climbing
+      - extreme_point_simulated_annealing
+
+  - case_id: large_scalability_i100_c15
+    group: large
+    difficulty: scalability
+    item_count: 100
+    container_count: 15
+    expected_outcome: feasible
+    description: Local-CPU scalability case for deterministic constructive heuristics.
+    algorithms:
+      - extreme_point_ffd
+      - extreme_point_best_fit
+      - maximal_space_best_fit
