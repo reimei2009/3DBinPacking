@@ -50,6 +50,24 @@ These controls change presentation only. They never modify `scene.json`, placeme
 
 Every execution uses the same pipeline as the CLI and writes to a new directory under `outputs/<level>/runs/<run_id>/`. The UI never overwrites an earlier run.
 
+## Same-instance benchmark dashboard
+
+Open **So sánh benchmark**, choose at least two algorithms, then enter one item
+count, one container count, shared seeds, and repetitions. **Chạy benchmark so
+sánh** executes every selected algorithm against exactly that instance and
+selects the new immutable benchmark run automatically.
+
+Read the dashboard in this order:
+
+1. valid-solution rate;
+2. mean containers used (Level 1 primary objective);
+3. container cost for equal container counts (secondary objective);
+4. runtime and runtime-versus-quality trade-off;
+5. Big-M objective only as diagnostic detail.
+
+The runtime axis uses a logarithmic scale because exact, constructive, and
+metaheuristic methods can differ by several orders of magnitude.
+
 ## Important Level 1 limitation
 
 The 3D view is a geometric and payload visualization. It is not evidence of physical stability because Level 1 does not model gravity, support, stacking, fragility, center of gravity, or load/unload order.

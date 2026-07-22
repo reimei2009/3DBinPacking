@@ -7,12 +7,15 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
+import plotly.express as px
 import streamlit as st
 
 from container_packing.algorithms.registry import get_algorithm, list_algorithms
 from container_packing.application.service import (
     build_experiment_request,
+    discover_benchmark_runs,
     discover_runs,
+    execute_benchmark_comparison,
     execute_experiment,
     get_instance_limits,
     resolve_result_run_dir,
@@ -256,6 +259,278 @@ def _render_run(run_dir: Path, language: str) -> None:
             st.dataframe(_localized_frame(pd.read_csv(placements_path), language, "placements"), hide_index=True, width="stretch")
 
 
+def _parse_seed_text(value: str) -> tuple[int, ...]:
+    tokens = value.replace(",", " ").split()
+    if not tokens:
+        raise ValueError("Enter at least one seed")
+    try:
+        seeds = tuple(int(token) for token in tokens)
+    except ValueError as exc:
+        raise ValueError("Seeds must be integers separated by commas or spaces") from exc
+    if any(seed < 0 for seed in seeds):
+        raise ValueError("Seeds must be zero or greater")
+    if len(seeds) != len(set(seeds)):
+        raise ValueError("Seeds must be unique; use repeats to measure timing variation")
+    return seeds
+
+
+def _render_benchmark_dashboard(summary: pd.DataFrame, results: pd.DataFrame, language: str) -> None:
+    frame = summary.copy()
+    frame["algorithm_name"] = frame["algorithm"].map(lambda value: get_algorithm(str(value)).name_for(language))
+    numeric_columns = (
+        "success_rate", "used_containers_mean", "used_containers_std", "total_cost_mean",
+        "total_cost_std", "algorithm_runtime_mean_seconds", "algorithm_runtime_std_seconds",
+    )
+    for column in numeric_columns:
+        if column in frame.columns:
+            frame[column] = pd.to_numeric(frame[column], errors="coerce")
+    successful = frame[frame["success_rate"] > 0].copy()
+    if successful.empty:
+        st.error(t("benchmark_no_valid_solution", language))
+    else:
+        best_container_count = successful["used_containers_mean"].min()
+        quality_ties = successful[successful["used_containers_mean"] == best_container_count]
+        best_cost = quality_ties["total_cost_mean"].min()
+        fastest = successful["algorithm_runtime_mean_seconds"].min()
+        cards = st.columns(4)
+        values = (
+            (t("benchmark_valid_algorithms", language), f"{len(successful)}/{len(frame)}"),
+            (t("benchmark_best_containers", language), f"{best_container_count:g}"),
+            (t("benchmark_best_cost", language), f"{best_cost:g}"),
+            (t("benchmark_fastest", language), f"{fastest:.4f} s"),
+        )
+        for card, (label, value) in zip(cards, values):
+            card.metric(label, value)
+
+    quality_tab, runtime_tab, tradeoff_tab, data_tab = st.tabs([
+        t("benchmark_quality_tab", language),
+        t("benchmark_runtime_tab", language),
+        t("benchmark_tradeoff_tab", language),
+        t("benchmark_data_tab", language),
+    ])
+    common_layout = {"legend_title_text": "", "margin": {"l": 20, "r": 20, "t": 55, "b": 20}}
+    with quality_tab:
+        st.caption(t("benchmark_primary_note", language))
+        quality_chart = px.bar(
+            frame,
+            x="algorithm_name",
+            y="used_containers_mean",
+            error_y="used_containers_std" if "used_containers_std" in frame.columns else None,
+            color="algorithm_name",
+            labels={
+                "algorithm_name": t("algorithm", language),
+                "used_containers_mean": t("containers_used", language),
+            },
+            title=t("benchmark_container_chart", language),
+        )
+        quality_chart.update_layout(**common_layout, showlegend=False)
+        st.plotly_chart(quality_chart, width="stretch", config={"displaylogo": False})
+        cost_chart = px.bar(
+            frame,
+            x="algorithm_name",
+            y="total_cost_mean",
+            error_y="total_cost_std" if "total_cost_std" in frame.columns else None,
+            color="algorithm_name",
+            labels={
+                "algorithm_name": t("algorithm", language),
+                "total_cost_mean": t("benchmark_cost", language),
+            },
+            title=t("benchmark_cost_chart", language),
+        )
+        cost_chart.update_layout(**common_layout, showlegend=False)
+        st.plotly_chart(cost_chart, width="stretch", config={"displaylogo": False})
+    with runtime_tab:
+        runtime_chart = px.bar(
+            frame,
+            x="algorithm_name",
+            y="algorithm_runtime_mean_seconds",
+            error_y="algorithm_runtime_std_seconds" if "algorithm_runtime_std_seconds" in frame.columns else None,
+            color="algorithm_name",
+            log_y=True,
+            labels={
+                "algorithm_name": t("algorithm", language),
+                "algorithm_runtime_mean_seconds": t("runtime", language),
+            },
+            title=t("benchmark_runtime_chart", language),
+        )
+        runtime_chart.update_layout(**common_layout, showlegend=False)
+        st.plotly_chart(runtime_chart, width="stretch", config={"displaylogo": False})
+        success_chart = px.bar(
+            frame,
+            x="algorithm_name",
+            y="success_rate",
+            color="algorithm_name",
+            range_y=[0, 1.05],
+            labels={"algorithm_name": t("algorithm", language), "success_rate": t("benchmark_success_rate", language)},
+            title=t("benchmark_success_chart", language),
+        )
+        success_chart.update_layout(**common_layout, showlegend=False)
+        st.plotly_chart(success_chart, width="stretch", config={"displaylogo": False})
+    with tradeoff_tab:
+        st.caption(t("benchmark_tradeoff_note", language))
+        tradeoff_chart = px.scatter(
+            frame,
+            x="algorithm_runtime_mean_seconds",
+            y="used_containers_mean",
+            color="algorithm_name",
+            size="success_rate",
+            size_max=28,
+            log_x=True,
+            hover_data=["total_cost_mean", "objective_mean", "success_rate"],
+            labels={
+                "algorithm_runtime_mean_seconds": t("runtime", language),
+                "used_containers_mean": t("containers_used", language),
+                "algorithm_name": t("algorithm", language),
+            },
+            title=t("benchmark_tradeoff_chart", language),
+        )
+        tradeoff_chart.update_layout(**common_layout)
+        st.plotly_chart(tradeoff_chart, width="stretch", config={"displaylogo": False})
+    with data_tab:
+        ranking_columns = [
+            "algorithm_name", "success_rate", "used_containers_mean", "used_containers_std",
+            "total_cost_mean", "total_cost_std", "algorithm_runtime_mean_seconds",
+            "algorithm_runtime_std_seconds", "objective_mean", "distinct_solution_count",
+        ]
+        ranking_columns = [value for value in ranking_columns if value in frame.columns]
+        ranking = frame.sort_values(
+            ["success_rate", "used_containers_mean", "total_cost_mean", "algorithm_runtime_mean_seconds"],
+            ascending=[False, True, True, True],
+        )
+        st.dataframe(ranking[ranking_columns], hide_index=True, width="stretch")
+        st.caption(t("benchmark_objective_note", language))
+        with st.expander(t("benchmark_raw_results", language)):
+            st.dataframe(results, hide_index=True, width="stretch")
+
+
+def _render_benchmark_comparison(
+    level_id: str,
+    root: Path,
+    language: str,
+    *,
+    default_item_count: int,
+    default_container_count: int,
+    default_environment: str,
+) -> None:
+    level_algorithms = [value.algorithm_id for value in list_algorithms(level_id=level_id)]
+    default_algorithms = [
+        value for value in ("extreme_point_ffd", "extreme_point_best_fit", "maximal_space_best_fit")
+        if value in level_algorithms
+    ]
+    with st.expander(t("benchmark_create", language), expanded=True):
+        st.caption(t("benchmark_create_note", language))
+        algorithms = st.multiselect(
+            t("benchmark_algorithms", language),
+            level_algorithms,
+            default=default_algorithms,
+            format_func=lambda value: get_algorithm(value).name_for(language),
+            key="benchmark_algorithms",
+        )
+        instance_columns = st.columns(4)
+        benchmark_item_count = int(instance_columns[0].number_input(
+            t("items", language), min_value=1, value=default_item_count, step=1, key="benchmark_item_count",
+        ))
+        benchmark_container_count = int(instance_columns[1].number_input(
+            t("containers", language), min_value=1, value=default_container_count, step=1,
+            key="benchmark_container_count",
+        ))
+        seed_text = instance_columns[2].text_input(
+            t("benchmark_seed_list", language), value="7, 11, 19", key="benchmark_seed_list",
+        )
+        repeats = int(instance_columns[3].number_input(
+            t("benchmark_repeats", language), min_value=1, max_value=20, value=1, step=1,
+            key="benchmark_repeat_count",
+        ))
+        if "milp_big_m" in algorithms:
+            st.warning(t("benchmark_milp_warning", language))
+        run_benchmark_clicked = st.button(
+            t("benchmark_run_button", language), type="primary", key="run_benchmark_comparison",
+        )
+        if run_benchmark_clicked:
+            try:
+                seeds = _parse_seed_text(seed_text)
+                with st.spinner(t("benchmark_running", language)):
+                    benchmark_result = execute_benchmark_comparison(
+                        level_id=level_id,
+                        algorithm_ids=algorithms,
+                        item_count=benchmark_item_count,
+                        container_count=benchmark_container_count,
+                        seeds=seeds,
+                        repeats=repeats,
+                        environment=default_environment,
+                        config_path=get_level(level_id).default_config,
+                        root=root,
+                    )
+                st.session_state["pending_benchmark_run_id"] = benchmark_result.benchmark_id
+                if benchmark_result.successful:
+                    st.success(t("benchmark_run_success", language))
+                else:
+                    st.warning(t("benchmark_run_partial", language))
+            except Exception as exc:
+                st.exception(exc)
+
+    benchmarks = discover_benchmark_runs(level_id, root=root, limit=100)
+    if not benchmarks:
+        st.info(t("no_benchmarks", language))
+        return
+    benchmark_by_id = {value.run_id: value for value in benchmarks}
+    run_ids = list(benchmark_by_id)
+    pending_run_id = st.session_state.pop("pending_benchmark_run_id", None)
+    if pending_run_id in benchmark_by_id:
+        st.session_state["benchmark_run"] = pending_run_id
+    selected_run_id = st.selectbox(
+        t("benchmark_run", language),
+        run_ids,
+        format_func=lambda value: (
+            f"{benchmark_by_id[value].created_at_utc} · {benchmark_by_id[value].status} · "
+            f"{benchmark_by_id[value].successful_case_count}/{benchmark_by_id[value].case_count} cases · {value}"
+        ),
+        key="benchmark_run",
+    )
+    selected = benchmark_by_id[selected_run_id]
+    benchmark_dir = selected.run_dir / "benchmark"
+    summary = pd.read_csv(benchmark_dir / "summary.csv")
+    results = pd.read_csv(benchmark_dir / "results.csv")
+
+    st.caption(str(selected.run_dir))
+    columns = st.columns(5)
+    values = (
+        (t("benchmark_status", language), selected.status),
+        (t("benchmark_cases", language), selected.case_count),
+        (t("benchmark_successful", language), selected.successful_case_count),
+        (t("benchmark_seeds", language), ", ".join(str(value) for value in selected.random_seeds) or "—"),
+        (t("benchmark_repeats", language), selected.repeats_per_seed or "—"),
+    )
+    for column, (label, value) in zip(columns, values):
+        column.metric(label, value)
+
+    st.markdown(f"**{t('benchmark_summary', language)}**")
+    if "scenario_id" in summary.columns:
+        scenario_columns = ["scenario_id"]
+        if "scenario_description" in summary.columns:
+            scenario_columns.append("scenario_description")
+        scenario_frame = summary[scenario_columns].drop_duplicates().fillna("")
+        scenario_labels = {
+            f"{row.scenario_id} — {getattr(row, 'scenario_description', '')}": row.scenario_id
+            for row in scenario_frame.itertuples(index=False)
+        }
+        selected_scenario_label = st.selectbox(
+            "Kịch bản so sánh" if language == "vi" else "Comparable scenario",
+            list(scenario_labels), key="benchmark_scenario",
+        )
+        selected_scenario = scenario_labels[selected_scenario_label]
+        summary = summary[summary["scenario_id"] == selected_scenario].copy()
+        if "scenario_id" in results.columns:
+            results = results[results["scenario_id"] == selected_scenario].copy()
+        if "input_fingerprint" in summary.columns and summary["input_fingerprint"].nunique() != 1:
+            st.warning(
+                "Kịch bản này có nhiều input fingerprint; không nên so sánh các dòng này như cùng một điều kiện."
+                if language == "vi" else
+                "This scenario has multiple input fingerprints; do not treat its rows as one comparable condition."
+            )
+    _render_benchmark_dashboard(summary, results, language)
+
+
 def main() -> None:
     st.set_page_config(page_title="Mô phỏng xếp container 3D", page_icon="📦", layout="wide")
     root = find_project_root(__file__)
@@ -324,8 +599,8 @@ def main() -> None:
         except Exception as exc:
             st.exception(exc)
 
-    experiment_tab, contract_tab, history_tab = st.tabs([
-        t("result_tab", language), t("contract_tab", language), t("history_tab", language),
+    experiment_tab, benchmark_tab, contract_tab, history_tab = st.tabs([
+        t("result_tab", language), t("benchmark_tab", language), t("contract_tab", language), t("history_tab", language),
     ])
     with experiment_tab:
         selected_run = st.session_state.get("selected_run_dir")
@@ -335,6 +610,15 @@ def main() -> None:
             st.info(t("start_hint", language))
     with contract_tab:
         _render_level_contract(level_id, language)
+    with benchmark_tab:
+        _render_benchmark_comparison(
+            level_id,
+            root,
+            language,
+            default_item_count=item_count,
+            default_container_count=container_count,
+            default_environment=environment,
+        )
     with history_tab:
         runs = discover_runs(level_id, root=root, limit=100)
         if not runs:

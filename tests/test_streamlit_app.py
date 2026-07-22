@@ -8,6 +8,11 @@ def test_streamlit_app_runs_valid_experiment_and_renders_3d(root: Path):
     page = AppTest.from_file(str(app), default_timeout=60).run()
     assert not page.exception
     assert [value.value for value in page.title] == ["Mô phỏng xếp container 3D — Nghiên cứu"]
+    tab_labels = {value.label for value in page.tabs}
+    assert {
+        "Kết quả và 3D", "So sánh benchmark", "Mô hình toán học", "Lịch sử chạy",
+        "Chất lượng nghiệm", "Hiệu năng", "Trade-off", "Bảng và dữ liệu",
+    }.issubset(tab_labels)
     selects = {value.label: value for value in page.selectbox}
     assert selects["Cấp độ"].value == "level_01"
     assert selects["Thuật toán"].options == [
@@ -28,7 +33,7 @@ def test_streamlit_app_runs_valid_experiment_and_renders_3d(root: Path):
     assert metrics["Trạng thái"] == "FEASIBLE"
     assert metrics["Kiểm định"] == "VALID"
     assert metrics["Số kiện"] == "10"
-    assert len(page.get("plotly_chart")) == 1
+    assert len(page.get("plotly_chart")) >= 1
     selects = {value.label: value for value in page.selectbox}
     assert selects["Chế độ xem 3D"].value == "C3"
     assert selects["Chế độ hiển thị"].options == ["Rõ khối", "Cân bằng", "X-Ray"]
@@ -43,7 +48,40 @@ def test_streamlit_app_runs_valid_experiment_and_renders_3d(root: Path):
     hidden_items = next(value for value in page.multiselect if "I0007" in value.options)
     hidden_items.set_value(["I0007"]).run()
     assert not page.exception
-    assert len(page.get("plotly_chart")) == 1
+    assert len(page.get("plotly_chart")) >= 1
+
+
+def test_streamlit_exposes_same_instance_benchmark_controls(root: Path):
+    app = root / "src/container_packing/web/streamlit_app.py"
+    page = AppTest.from_file(str(app), default_timeout=30).run()
+
+    assert not page.exception
+    benchmark_algorithms = {value.label: value for value in page.multiselect}["Các thuật toán cần so sánh"]
+    assert set(benchmark_algorithms.value) == {
+        "extreme_point_ffd", "extreme_point_best_fit", "maximal_space_best_fit",
+    }
+    assert "Chạy benchmark so sánh" in {value.label for value in page.button}
+    assert "Danh sách seed" in {value.label for value in page.text_input}
+
+
+def test_streamlit_runs_two_algorithm_same_instance_benchmark(root: Path):
+    app = root / "src/container_packing/web/streamlit_app.py"
+    page = AppTest.from_file(str(app), default_timeout=60).run()
+    assert not page.exception
+
+    next(value for value in page.multiselect if value.key == "benchmark_algorithms").set_value([
+        "extreme_point_ffd", "extreme_point_best_fit",
+    ])
+    next(value for value in page.number_input if value.key == "benchmark_item_count").set_value(1)
+    next(value for value in page.number_input if value.key == "benchmark_container_count").set_value(2)
+    next(value for value in page.text_input if value.key == "benchmark_seed_list").set_value("7")
+    next(value for value in page.button if value.key == "run_benchmark_comparison").click().run()
+
+    assert not page.exception
+    assert "Benchmark hoàn tất; tất cả case đều hợp lệ." in [value.value for value in page.success]
+    metrics = {value.label: value.value for value in page.metric}
+    assert metrics["Thuật toán có nghiệm"] == "2/2"
+    assert metrics["Ít container nhất"] == "1"
 
 
 def test_streamlit_contract_renders_latex_and_switches_to_english(root: Path):

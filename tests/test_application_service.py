@@ -1,12 +1,17 @@
 import json
+from pathlib import Path
 
 import pytest
+import yaml
 
 from container_packing.application.service import (
     build_experiment_request,
+    discover_benchmark_runs,
     discover_runs,
+    execute_benchmark_comparison,
     get_instance_limits,
 )
+from container_packing.data_loader import load_config
 
 
 def test_web_application_boundary_builds_registry_validated_request(root):
@@ -53,3 +58,72 @@ def test_run_discovery_is_level_isolated(tmp_path):
     assert len(runs) == 1
     assert runs[0].run_id == "run-1"
     assert runs[0].item_count == 10
+
+
+def test_benchmark_discovery_requires_benchmark_artifacts(tmp_path):
+    (tmp_path / "pyproject.toml").write_text("[project]\nname='fixture'\n", encoding="utf-8")
+    benchmark = tmp_path / "outputs/level_01/runs/benchmark-1"
+    (benchmark / "benchmark").mkdir(parents=True)
+    (benchmark / "manifest.json").write_text(json.dumps({
+        "run_id": "benchmark-1",
+        "run_type": "benchmark",
+        "level": "level_01",
+        "status": "SUCCESS",
+        "created_at_utc": "2026-01-01T00:00:00Z",
+        "case_count": 4,
+        "successful_case_count": 4,
+        "random_seeds": [7, 11],
+        "repeats_per_seed": 2,
+    }), encoding="utf-8")
+    (benchmark / "benchmark/summary.csv").write_text("level,algorithm\nlevel_01,extreme_point_ffd\n", encoding="utf-8")
+    (benchmark / "benchmark/results.csv").write_text("level,algorithm\nlevel_01,extreme_point_ffd\n", encoding="utf-8")
+    incomplete = tmp_path / "outputs/level_01/runs/benchmark-incomplete"
+    incomplete.mkdir(parents=True)
+    (incomplete / "manifest.json").write_text(json.dumps({
+        "run_id": "benchmark-incomplete", "run_type": "benchmark", "level": "level_01",
+    }), encoding="utf-8")
+
+    benchmarks = discover_benchmark_runs("level_01", root=tmp_path)
+
+    assert len(benchmarks) == 1
+    assert benchmarks[0].run_id == "benchmark-1"
+    assert benchmarks[0].case_count == 4
+    assert benchmarks[0].random_seeds == (7, 11)
+
+
+def test_interactive_benchmark_uses_one_shared_instance(root: Path, tmp_path: Path):
+    config = load_config(root / "config/level_01/default.yaml")
+    config["paths"]["raw_items_csv"] = str(root / "data/raw/dataset_small_items_original.csv")
+    config["paths"]["processed_dir"] = str(tmp_path / "processed/level_01")
+    config["paths"]["manifest_json"] = str(tmp_path / "processed/level_01/latest_manifest.json")
+    config["paths"]["output_root"] = str(tmp_path / "outputs")
+    config_path = tmp_path / "level_01.yaml"
+    config_path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
+
+    result = execute_benchmark_comparison(
+        level_id="level_01",
+        algorithm_ids=["extreme_point_ffd", "extreme_point_best_fit"],
+        item_count=1,
+        container_count=2,
+        seeds=[7],
+        repeats=1,
+        config_path=config_path,
+        root=root,
+    )
+
+    assert result.successful
+    assert set(result.results["algorithm"]) == {"extreme_point_ffd", "extreme_point_best_fit"}
+    assert set(result.results["scenario_id"]) == {"interactive_i1_c2"}
+    assert result.results["input_fingerprint"].nunique() == 1
+
+
+def test_interactive_benchmark_requires_two_algorithms(root: Path):
+    with pytest.raises(ValueError, match="at least two algorithms"):
+        execute_benchmark_comparison(
+            level_id="level_01",
+            algorithm_ids=["extreme_point_ffd"],
+            item_count=1,
+            container_count=1,
+            seeds=[7],
+            root=root,
+        )
