@@ -14,6 +14,7 @@ from ..benchmarks import BenchmarkResult, BenchmarkScenario, run_benchmark
 from ..data_loader import load_config
 from ..experiments.contracts import ExperimentRequest
 from ..experiments.runner import run_experiment
+from ..instance_data import ITEM_SELECTION_STRATEGIES
 from ..levels.registry import get_level
 from ..runtime.project import find_project_root
 from ..schemas import RunResult
@@ -137,6 +138,8 @@ def execute_benchmark_comparison(
     environment: str = "local",
     config_path: str | Path | None = None,
     root: str | Path | None = None,
+    item_selection_strategy: str = "prefix",
+    item_selection_seed: int | None = None,
 ) -> BenchmarkResult:
     """Run selected algorithms on one strictly shared, independently validated instance."""
     algorithms = tuple(str(value) for value in algorithm_ids)
@@ -151,6 +154,10 @@ def execute_benchmark_comparison(
         raise ValueError("seeds must contain one or more non-negative integers")
     if len(random_seeds) != len(set(random_seeds)):
         raise ValueError("seeds must not contain duplicates; use repeats for timing repetition")
+    if item_selection_strategy not in ITEM_SELECTION_STRATEGIES:
+        raise ValueError(f"Unsupported item selection strategy: {item_selection_strategy}")
+    if item_selection_strategy == "stable_random" and item_selection_seed is None:
+        raise ValueError("stable_random item selection requires item_selection_seed")
 
     project_root = _root(root)
     level = get_level(level_id)
@@ -173,6 +180,8 @@ def execute_benchmark_comparison(
         item_count=item_count,
         container_count=container_count,
         tags=("interactive", "same_instance"),
+        item_selection_strategy=item_selection_strategy,
+        item_selection_seed=item_selection_seed,
     )
     return run_benchmark(
         level_id=level_id,

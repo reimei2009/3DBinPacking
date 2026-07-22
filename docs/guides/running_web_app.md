@@ -53,7 +53,8 @@ Every execution uses the same pipeline as the CLI and writes to a new directory 
 ## Same-instance benchmark dashboard
 
 Open **So sánh benchmark**, choose at least two algorithms, then enter one item
-count, one container count, shared seeds, and repetitions. **Chạy benchmark so
+count, one container count, one deterministic item-subset policy, shared seeds,
+and repetitions. **Chạy benchmark so
 sánh** executes every selected algorithm against exactly that instance and
 selects the new immutable benchmark run automatically.
 

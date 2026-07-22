@@ -21,6 +21,8 @@ def run(request: ExperimentRequest):
         environment=request.environment,
         random_seed=request.random_seed,
         algorithm_parameters=request.algorithm_parameters,
+        item_selection_strategy=request.item_selection_strategy,
+        item_selection_seed=request.item_selection_seed,
     )
 
 
@@ -29,6 +31,8 @@ def prepare(request: ExperimentRequest) -> dict:
         project_root(), load_config(request.config_path),
         item_count=request.item_count, container_count=request.container_count,
         level_id=request.level_id,
+        item_selection_strategy=request.item_selection_strategy,
+        item_selection_seed=request.item_selection_seed,
     )
 
 

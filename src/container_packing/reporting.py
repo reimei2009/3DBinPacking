@@ -105,6 +105,9 @@ def metrics_payload(metadata: dict[str, Any], validation_valid: bool | None) -> 
         "n_containers_available": metadata["n_containers"],
         "algorithm_runtime_seconds": metadata.get("algorithm_runtime_seconds"),
         "validation_valid": validation_valid,
+        "item_selection_strategy": metadata.get("item_selection_strategy"),
+        "item_selection_seed": metadata.get("item_selection_seed"),
+        "selected_item_ids_checksum": metadata.get("selected_item_ids_checksum"),
     }
 
 
@@ -129,6 +132,12 @@ def _initialize_run(
         "dataset_files": ["input_snapshot/items.csv", "input_snapshot/containers.csv"],
         "dataset_checksums": {
             "items": sha256_file(items_path), "containers": sha256_file(containers_path),
+        },
+        "item_selection": {
+            "strategy": metadata.get("item_selection_strategy"),
+            "seed": metadata.get("item_selection_seed"),
+            "selected_item_ids_checksum": metadata.get("selected_item_ids_checksum"),
+            "profile": metadata.get("item_profile"),
         },
         "config_file": metadata.get("config_file"),
         "resolved_config_checksum": sha256_file(resolved_config_path),

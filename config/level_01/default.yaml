@@ -6,6 +6,8 @@ project:
 instance:
   item_count: 20
   container_count: 5
+  item_selection_strategy: prefix
+  item_selection_seed: null
 paths:
   raw_items_csv: data/raw/dataset_small_items_original.csv
   processed_dir: data/processed/level_01

@@ -8,6 +8,8 @@ from typing import Any
 
 import yaml
 
+from ..instance_data import ITEM_SELECTION_STRATEGIES
+
 
 @dataclass(frozen=True)
 class BenchmarkScenario:
@@ -18,6 +20,9 @@ class BenchmarkScenario:
     item_count: int
     container_count: int
     tags: tuple[str, ...] = ()
+    algorithm_ids: tuple[str, ...] = ()
+    item_selection_strategy: str = "prefix"
+    item_selection_seed: int | None = None
 
 
 @dataclass(frozen=True)
@@ -84,12 +89,34 @@ def load_benchmark_suite(path: str | Path) -> BenchmarkSuite:
         tags = value.get("tags", [])
         if not isinstance(tags, list):
             raise ValueError(f"suite.scenarios[{index}].tags must be a list")
+        scenario_algorithms = tuple(str(item) for item in value.get("algorithms", algorithms))
+        if not scenario_algorithms or len(scenario_algorithms) != len(set(scenario_algorithms)):
+            raise ValueError(f"suite.scenarios[{index}].algorithms must be non-empty and unique")
+        unknown_algorithms = sorted(set(scenario_algorithms) - set(algorithms))
+        if unknown_algorithms:
+            raise ValueError(
+                f"suite.scenarios[{index}].algorithms are not declared by suite.algorithms: {', '.join(unknown_algorithms)}"
+            )
+        selection_strategy = str(value.get("item_selection", "prefix"))
+        if selection_strategy not in ITEM_SELECTION_STRATEGIES:
+            raise ValueError(
+                f"suite.scenarios[{index}].item_selection must be one of {', '.join(ITEM_SELECTION_STRATEGIES)}"
+            )
+        raw_selection_seed = value.get("selection_seed")
+        selection_seed = None if raw_selection_seed is None else int(raw_selection_seed)
+        if selection_seed is not None and selection_seed < 0:
+            raise ValueError(f"suite.scenarios[{index}].selection_seed must be zero or greater")
+        if selection_strategy == "stable_random" and selection_seed is None:
+            raise ValueError(f"suite.scenarios[{index}] stable_random requires selection_seed")
         scenarios.append(BenchmarkScenario(
             scenario_id=scenario_id,
             description=str(value.get("description", scenario_id)),
             item_count=_positive(value.get("item_count"), f"suite.scenarios[{index}].item_count"),
             container_count=_positive(value.get("container_count"), f"suite.scenarios[{index}].container_count"),
             tags=tuple(str(tag) for tag in tags),
+            algorithm_ids=scenario_algorithms,
+            item_selection_strategy=selection_strategy,
+            item_selection_seed=selection_seed,
         ))
     if len({value.scenario_id for value in scenarios}) != len(scenarios):
         raise ValueError("suite.scenarios scenario_id values must be unique")
