@@ -134,6 +134,7 @@ def terminal_preview(result: RunResult, *, placement_limit: int = 20) -> str:
         f"Validation   : {validation}",
         f"Level        : {metadata.get('level_id')}",
         f"Algorithm    : {metadata.get('algorithm_id')}",
+        f"Algorithm role: {metadata.get('algorithm_role') or 'research_method'}",
         f"Items        : {metadata.get('n_items')}",
         f"Item subset  : {metadata.get('item_selection_strategy', 'prefix')}",
         f"Subset seed  : {metadata.get('item_selection_seed')}",
@@ -143,6 +144,18 @@ def terminal_preview(result: RunResult, *, placement_limit: int = 20) -> str:
         f"Algorithm time: {float(metadata.get('algorithm_runtime_seconds', 0.0)):.3f} s",
         f"Run directory: {metadata.get('run_dir')}",
     ]
+    if metadata.get("mip_gap") is not None:
+        lines.append(f"MIP gap      : {100 * float(metadata['mip_gap']):.3f}%")
+    if metadata.get("mip_dual_bound") is not None:
+        lines.append(f"Best bound   : {float(metadata['mip_dual_bound']):.6g}")
+    if metadata.get("mip_node_count") is not None:
+        lines.append(f"MIP nodes    : {int(metadata['mip_node_count'])}")
+    if metadata.get("support_enabled"):
+        lines.extend([
+            f"Support threshold: {metadata.get('support_threshold')}",
+            f"Minimum exact support ratio: {metadata.get('minimum_exact_support_ratio')}",
+            f"All centers supported: {metadata.get('all_centers_supported')}",
+        ])
     if result.placements:
         groups: dict[str, list] = defaultdict(list)
         for placement in result.placements:

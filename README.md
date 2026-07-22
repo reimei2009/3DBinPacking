@@ -1,6 +1,6 @@
 # 3D Container Packing
 
-Project thử nghiệm đa level/đa thuật toán. `level_01` hiện chạy được `milp_big_m` (exact), các constructive heuristic `extreme_point_ffd`, `extreme_point_best_fit`, `maximal_space_best_fit`, `extreme_point_hill_climbing` (local search) và `extreme_point_simulated_annealing` (metaheuristic). Tất cả giữ orientation cố định, kiểm tra biên, non-overlap và payload. Level 1 không mô hình hóa rotation, support, stacking hay stability.
+Project thử nghiệm đa level/đa thuật toán. `level_01` chạy MILP, constructive heuristic, local search và metaheuristic với orientation cố định. `level_02` kế thừa Level 1 và thêm floor contact, tỷ lệ hỗ trợ đáy cùng hỗ trợ tâm đáy. Level 2 dùng MILP làm exact reference và dùng chung năm engine heuristic/metaheuristic với exact-support feasibility policy. Level 2 vẫn chưa mô hình hóa rotation, stackability, truyền tải, độ bền chịu tải hoặc ổn định vật lý đầy đủ.
 
 ## Web 3D R&D
 
@@ -36,6 +36,32 @@ Chạy không tương tác:
 ```powershell
 python scripts\run_experiment.py --level level_01 --algorithm milp_big_m --items-count 10 --containers-count 3 --environment local --non-interactive
 ```
+
+Chạy Level 2 support-only trên instance nhỏ:
+
+```powershell
+python scripts\run_experiment.py --level level_02 --items-count 20 --containers-count 5 --environment local --non-interactive
+```
+
+Level 2 mặc định chạy `extreme_point_ffd` với role `practical_default`. MILP
+được giữ làm exact reference:
+
+```powershell
+python scripts\run_experiment.py --level level_02 --config config\level_02\experiments\milp_big_m_reference.yaml --non-interactive
+```
+
+Level 2 mặc định dùng grid MILP 4×4, threshold 0.80 và validator exact
+union-area. Xem `solution/support.csv`; không hiểu support hình học là bằng
+chứng ổn định cơ học.
+
+Chạy Level 2 thực dụng bằng heuristic support-aware:
+
+```powershell
+python scripts\run_experiment.py --level level_02 --algorithm extreme_point_best_fit --items-count 20 --containers-count 5 --environment local --non-interactive
+```
+
+Các heuristic kiểm tra exact union support khi sinh từng candidate. MILP vẫn là
+phương pháp tham chiếu; `FEASIBLE_TIME_LIMIT` không phải chứng minh tối ưu.
 
 Chạy heuristic nhanh trên local:
 

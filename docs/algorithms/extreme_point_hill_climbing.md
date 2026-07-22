@@ -1,6 +1,6 @@
 # Extreme-Point Hill Climbing
 
-`extreme_point_hill_climbing` is a deterministic local-search algorithm initialized by `extreme_point_ffd`.
+`extreme_point_hill_climbing` is a deterministic local-search algorithm initialized by `extreme_point_ffd` and shared by Levels 1 and 2.
 
 It uses destroy-and-repair neighborhoods over the item permutation:
 
@@ -16,4 +16,4 @@ Every neighbor is a complete fixed-orientation Extreme-Point reconstruction. Ste
 3. occupied bounding volume;
 4. coordinate compactness.
 
-The search stops at a local optimum or `max_iterations`. It is not A*, does not accept worse moves, and cannot prove global optimality. All returned placements pass the independent Level 1 validator.
+The search stops at a local optimum or `max_iterations`. It is not A*, does not accept worse moves, and cannot prove global optimality. Every reconstruction uses the active feasibility policy; Level 2 therefore rejects unsupported neighbors before acceptance. All returned placements pass the independent active-level validator.

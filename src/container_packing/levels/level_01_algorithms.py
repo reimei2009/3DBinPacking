@@ -6,11 +6,11 @@ from typing import Any, Callable
 
 from ..algorithms.contracts import AlgorithmOutcome
 from ..algorithms.exact.milp_big_m import solve_level1 as solve_milp_big_m
-from ..algorithms.heuristics.extreme_point_best_fit import solve_level1 as solve_extreme_point_best_fit
-from ..algorithms.heuristics.extreme_point_ffd import solve_level1 as solve_extreme_point_ffd
-from ..algorithms.heuristics.extreme_point_hill_climbing import solve_level1 as solve_extreme_point_hill_climbing
-from ..algorithms.heuristics.maximal_space_best_fit import solve_level1 as solve_maximal_space_best_fit
-from ..algorithms.metaheuristics.extreme_point_simulated_annealing import solve_level1 as solve_extreme_point_simulated_annealing
+from ..algorithms.heuristics.extreme_point_best_fit import solve as solve_extreme_point_best_fit
+from ..algorithms.heuristics.extreme_point_ffd import solve as solve_extreme_point_ffd
+from ..algorithms.heuristics.extreme_point_hill_climbing import solve as solve_extreme_point_hill_climbing
+from ..algorithms.heuristics.maximal_space_best_fit import solve as solve_maximal_space_best_fit
+from ..algorithms.metaheuristics.extreme_point_simulated_annealing import solve as solve_extreme_point_simulated_annealing
 from ..schemas import Container, Item
 
 Level01Executor = Callable[[list[Item], list[Container], dict[str, Any] | None], AlgorithmOutcome]

@@ -1,4 +1,4 @@
-"""Deterministic, Level-1-aware interpretation of benchmark summaries.
+"""Deterministic, level-aware interpretation of benchmark summaries.
 
 These functions consume the persisted ``benchmark/summary.csv`` rather than
 solver internals, so their conclusions stay reproducible and auditable.
@@ -48,9 +48,9 @@ def _validate_summary(summary: pd.DataFrame) -> pd.DataFrame:
 
 
 def build_ranking(summary: pd.DataFrame) -> pd.DataFrame:
-    """Rank algorithms within one exact scenario by the Level-1 priority.
+    """Rank algorithms within one exact scenario by the active level priority.
 
-    Valid-solution reliability is first; then the Level-1 lexicographic
+    Valid-solution reliability is first; then the shared lexicographic
     objective (containers, cost), followed by mean algorithm runtime.
     """
     frame = _validate_summary(summary)

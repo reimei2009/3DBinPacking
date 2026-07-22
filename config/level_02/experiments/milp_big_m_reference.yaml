@@ -1,0 +1,11 @@
+extends: ../default.yaml
+project:
+  algorithm_id: milp_big_m
+instance:
+  item_count: 3
+  container_count: 2
+solver:
+  time_limit_seconds: 120
+  mip_rel_gap: 0.0
+  presolve: true
+  display: false

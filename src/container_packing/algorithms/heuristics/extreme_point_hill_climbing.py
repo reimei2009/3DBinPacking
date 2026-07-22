@@ -8,9 +8,10 @@ from typing import Any
 from scipy.optimize import OptimizeResult
 
 from ..contracts import AlgorithmOutcome
+from ..feasibility import FixedOrientationFeasibilityPolicy, PlacementFeasibilityPolicy
 from ...schemas import Container, Item, SolveResult
 from .extreme_point_core import item_sort_key
-from .extreme_point_ffd import solve_level1 as solve_extreme_point_ffd
+from .extreme_point_ffd import solve as solve_extreme_point_ffd
 from .extreme_point_neighborhood import (
     RepackingStats,
     generate_neighbor_orders,
@@ -26,8 +27,9 @@ class HillClimbingStats(RepackingStats):
     accepted_operators: list[str] = field(default_factory=list)
 
 
-def solve_level1(
+def solve(
     items: list[Item], containers: list[Container], settings: dict[str, Any] | None = None,
+    *, policy: PlacementFeasibilityPolicy | None = None,
 ) -> AlgorithmOutcome:
     settings = settings or {}
     max_iterations = int(settings.get("max_iterations", 10))
@@ -36,7 +38,8 @@ def solve_level1(
     if max_iterations < 0 or max_neighbors <= 0 or subset_candidate_limit <= 0:
         raise ValueError("Hill-climbing limits must be non-negative/positive")
 
-    baseline = solve_extreme_point_ffd(items, containers, settings)
+    selected_policy = policy or FixedOrientationFeasibilityPolicy()
+    baseline = solve_extreme_point_ffd(items, containers, settings, policy=selected_policy)
     if baseline.solve.status != "FEASIBLE":
         return AlgorithmOutcome(
             solve=SolveResult(
@@ -62,7 +65,7 @@ def solve_level1(
         best: tuple[tuple[float, ...], str, list[Item], list[Placement]] | None = None
         for operator, neighbor_order in generate_neighbor_orders(current_order, current, max_neighbors):
             stats.neighbors_evaluated += 1
-            candidate = repack_neighbor(neighbor_order, containers, current, settings, stats)
+            candidate = repack_neighbor(neighbor_order, containers, current, settings, stats, selected_policy)
             if candidate is None:
                 continue
             score = solution_score(candidate, containers)
@@ -103,5 +106,9 @@ def solve_level1(
             "improved": current_score < initial_score,
             "n_items": len(items),
             "n_containers": len(containers),
+            **selected_policy.metadata(),
         },
     )
+
+
+solve_level1 = solve

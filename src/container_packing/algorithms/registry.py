@@ -9,7 +9,7 @@ _ALGORITHMS = {
         algorithm_id="extreme_point_best_fit",
         family="constructive_heuristic",
         description="Deterministic objective-aware fixed-orientation Extreme-Point Best Fit Decreasing",
-        supported_levels=("level_01",),
+        supported_levels=("level_01", "level_02"),
         local_friendly=True,
         display_name=LocalizedText(vi="Extreme Point — Best Fit Decreasing", en="Extreme Point — Best Fit Decreasing"),
         localized_description=LocalizedText(
@@ -21,7 +21,7 @@ _ALGORITHMS = {
         algorithm_id="extreme_point_ffd",
         family="constructive_heuristic",
         description="Deterministic fixed-orientation Extreme-Point First-Fit Decreasing",
-        supported_levels=("level_01",),
+        supported_levels=("level_01", "level_02"),
         local_friendly=True,
         display_name=LocalizedText(vi="Extreme Point — First Fit Decreasing", en="Extreme Point — First Fit Decreasing"),
         localized_description=LocalizedText(
@@ -33,7 +33,7 @@ _ALGORITHMS = {
         algorithm_id="extreme_point_hill_climbing",
         family="local_search",
         description="Extreme-Point FFD followed by deterministic destroy-and-repair hill climbing",
-        supported_levels=("level_01",),
+        supported_levels=("level_01", "level_02"),
         local_friendly=True,
         display_name=LocalizedText(vi="Extreme Point — Hill Climbing", en="Extreme Point — Hill Climbing"),
         localized_description=LocalizedText(
@@ -45,7 +45,7 @@ _ALGORITHMS = {
         algorithm_id="extreme_point_simulated_annealing",
         family="metaheuristic",
         description="Seeded Simulated Annealing over Extreme-Point destroy-and-repair neighborhoods",
-        supported_levels=("level_01",),
+        supported_levels=("level_01", "level_02"),
         local_friendly=True,
         display_name=LocalizedText(vi="Extreme Point — Simulated Annealing", en="Extreme Point — Simulated Annealing"),
         localized_description=LocalizedText(
@@ -57,7 +57,7 @@ _ALGORITHMS = {
         algorithm_id="maximal_space_best_fit",
         family="constructive_heuristic",
         description="Deterministic fixed-orientation Maximal Empty Spaces Best Fit Decreasing",
-        supported_levels=("level_01",),
+        supported_levels=("level_01", "level_02"),
         local_friendly=True,
         display_name=LocalizedText(
             vi="Maximal Empty Spaces — Best Fit Decreasing",
@@ -72,7 +72,7 @@ _ALGORITHMS = {
         algorithm_id="milp_big_m",
         family="exact_milp",
         description="Exact sparse MILP with Big-M non-overlap and SciPy/HiGHS",
-        supported_levels=("level_01",),
+        supported_levels=("level_01", "level_02"),
         local_friendly=True,
         display_name=LocalizedText(vi="MILP Big-M chính xác", en="Exact MILP Big-M"),
         localized_description=LocalizedText(

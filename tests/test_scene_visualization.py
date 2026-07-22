@@ -59,6 +59,16 @@ def test_scene_validation_rejects_duplicate_items():
         validate_scene(scene)
 
 
+def test_level2_scene_uses_support_specific_non_stability_warning():
+    containers = [Container("C01", 100, 80, 60, 50, 10, volume_m3=0.00048)]
+    placements = [Placement("I0001", "C01", 0, 0, 0, 20, 30, 40, 5)]
+    scene = build_scene(
+        placements, containers, level_id="level_02", algorithm_id="milp_big_m", validation_status="VALID",
+    )
+    assert "base-support" in scene["warnings"]["en"]
+    assert "full physical stability" in scene["warnings"]["en"]
+
+
 def test_plotly_renderer_is_deterministic_and_exports_views(tmp_path):
     scene = _scene()
     assert stable_item_color("I0001") == stable_item_color("I0001")

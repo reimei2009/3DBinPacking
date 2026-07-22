@@ -1263,7 +1263,7 @@ Không tự triển khai bước tiếp theo khi chưa được yêu cầu.
 Active scope hiện tại là:
 
 ```text
-Level 1
+Level 2 — Geometric Support Constraints Only
 ```
 
 Trước khi code phải:
@@ -1274,8 +1274,9 @@ Trước khi code phải:
 * đọc prior outputs;
 * xác định logic notebook nào cần được đưa vào package;
 * giữ notebook làm tài liệu reference;
-* tạo pipeline Level 1 có thể tái lập;
-* tạo independent validator;
+* bảo toàn pipeline và independent validator Level 1;
+* triển khai Level 2 bằng composition từ shared fixed-orientation core;
+* tạo independent validator Level 2 tính exact union support area;
 * tạo level-isolated run outputs;
 * dựng 3D từ `scene.json`;
 * giữ nguyên contract Level 1.
@@ -1284,13 +1285,16 @@ Không được kích hoạt:
 
 * rotation;
 * stackability;
-* support;
-* stability;
+* load-bearing;
+* load transfer;
+* full physical stability;
 * nesting;
 * fragility;
 * center of gravity;
 * loading order;
 * unloading order.
+
+Level 2 hiện chỉ kích hoạt floor contact, minimum base-support ratio và base-center support. Không được gọi support hình học là ổn định vật lý đầy đủ.
 
 ---
 

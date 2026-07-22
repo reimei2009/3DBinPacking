@@ -8,6 +8,7 @@ from typing import Any
 from scipy.optimize import OptimizeResult
 
 from ..contracts import AlgorithmOutcome
+from ..feasibility import FixedOrientationFeasibilityPolicy, PlacementFeasibilityPolicy
 from .constructive_common import candidate_subsets, container_orders, item_sort_key
 from .maximal_space_core import (
     EmptySpace,
@@ -61,6 +62,7 @@ def pack_order(
     containers: tuple[Container, ...],
     tolerance: float,
     stats: MaximalSpaceStats,
+    policy: PlacementFeasibilityPolicy,
 ) -> list[Placement] | None:
     states = [MaximalSpaceContainerState(container) for container in containers]
     stats.maximum_active_spaces = max(stats.maximum_active_spaces, 1 if states else 0)
@@ -71,7 +73,7 @@ def pack_order(
         for container_rank, state in enumerate(states):
             for space in sorted(state.empty_spaces, key=space_sort_key):
                 stats.empty_spaces_evaluated += 1
-                if not feasible_in_state(state, item, space, tolerance):
+                if not feasible_in_state(state, item, space, tolerance, policy):
                     continue
                 score = candidate_score(state, item, space, container_rank)
                 if selected is None or score < selected[0]:
@@ -84,6 +86,7 @@ def pack_order(
 
 def search_container_subsets(
     ordered_items: list[Item], containers: list[Container], tolerance: float, subset_limit: int,
+    policy: PlacementFeasibilityPolicy,
 ) -> MaximalSpaceSearchResult:
     stats = MaximalSpaceStats()
     total_weight = sum(value.weight_kg for value in ordered_items)
@@ -96,15 +99,16 @@ def search_container_subsets(
             continue
         for order in container_orders(subset):
             stats.packing_attempts += 1
-            placements = pack_order(ordered_items, order, tolerance, stats)
+            placements = pack_order(ordered_items, order, tolerance, stats, policy)
             if placements is not None:
                 chosen = tuple({value.container_id: value for value in order}.values())
                 return MaximalSpaceSearchResult(placements, chosen, stats)
     return MaximalSpaceSearchResult(None, (), stats)
 
 
-def solve_level1(
+def solve(
     items: list[Item], containers: list[Container], settings: dict[str, Any] | None = None,
+    *, policy: PlacementFeasibilityPolicy | None = None,
 ) -> AlgorithmOutcome:
     """Pack all items using EMS Best Fit; FEASIBLE does not prove global optimality."""
     settings = settings or {}
@@ -112,8 +116,11 @@ def solve_level1(
     subset_limit = int(settings.get("subset_enumeration_limit", 12))
     if subset_limit <= 0:
         raise ValueError("subset_enumeration_limit must be positive")
+    selected_policy = policy or FixedOrientationFeasibilityPolicy()
     ordered_items = sorted(items, key=item_sort_key)
-    search = search_container_subsets(ordered_items, containers, tolerance, subset_limit)
+    search = search_container_subsets(
+        ordered_items, containers, tolerance, subset_limit, selected_policy,
+    )
 
     priority = 1.0 + sum(value.cost for value in containers)
     if search.placements is None:
@@ -155,5 +162,9 @@ def solve_level1(
             "candidate_container_ids": [value.container_id for value in search.chosen_containers],
             "n_items": len(items),
             "n_containers": len(containers),
+            **selected_policy.metadata(),
         },
     )
+
+
+solve_level1 = solve

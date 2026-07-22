@@ -85,7 +85,7 @@ def _input_fingerprint(
     root: Path,
     selection: dict[str, Any] | None = None,
 ) -> str:
-    """Hash the input and Level-1 contract shared by algorithms in one scenario."""
+    """Hash the complete level contract shared by algorithms in one scenario."""
     raw_items = _resolve(root, config["paths"]["raw_items_csv"])
     selection = selection or item_selection_fingerprint(
         raw_items, scenario.item_count,
@@ -99,6 +99,7 @@ def _input_fingerprint(
         **selection,
         "containers": config.get("containers", []),
         "model": config.get("model", {}),
+        "support": config.get("support", {}),
     }
     import hashlib
     import json
@@ -151,11 +152,20 @@ def execute_experiment_case(request: ExperimentRequest, repeat_index: int) -> di
         "error": error,
         "instance_id": metadata.get("instance_id"),
         "selected_item_ids_checksum": metadata.get("selected_item_ids_checksum"),
+        "feasibility_policy": metadata.get("feasibility_policy"),
+        "support_threshold": metadata.get("support_threshold"),
+        "minimum_exact_support_ratio": metadata.get("minimum_exact_support_ratio"),
     }
 
 
 def aggregate_results(frame: pd.DataFrame, *, extra_group_keys: Sequence[str] = ()) -> pd.DataFrame:
     """Aggregate runtime over repeats and quality over one value per seed."""
+    frame = frame.copy()
+    for column in (
+        "feasibility_policy", "support_threshold", "minimum_exact_support_ratio",
+    ):
+        if column not in frame:
+            frame[column] = None
     keys = ["level", "algorithm", "item_count", "container_count", *extra_group_keys]
     grouped = frame.groupby(keys, sort=True, dropna=False)
     execution = grouped.agg(
@@ -168,6 +178,8 @@ def aggregate_results(frame: pd.DataFrame, *, extra_group_keys: Sequence[str] = 
         algorithm_runtime_std_seconds=("algorithm_runtime_seconds", "std"),
         wall_runtime_mean_seconds=("wall_runtime_seconds", "mean"),
         distinct_solution_count=("placement_signature", "nunique"),
+        feasibility_policy=("feasibility_policy", "first"),
+        support_threshold=("support_threshold", "first"),
     )
     per_seed = frame.groupby([*keys, "random_seed"], sort=True, dropna=False).agg(
         objective_value=("objective_value", "mean"),
@@ -175,6 +187,7 @@ def aggregate_results(frame: pd.DataFrame, *, extra_group_keys: Sequence[str] = 
         total_container_cost=("total_container_cost", "mean"),
         occupied_bounding_volume_mm3=("occupied_bounding_volume_mm3", "mean"),
         coordinate_compactness_mm=("coordinate_compactness_mm", "mean"),
+        minimum_exact_support_ratio=("minimum_exact_support_ratio", "min"),
     )
     quality = per_seed.groupby(keys, sort=True, dropna=False).agg(
         objective_mean=("objective_value", "mean"),
@@ -193,6 +206,7 @@ def aggregate_results(frame: pd.DataFrame, *, extra_group_keys: Sequence[str] = 
         occupied_bounding_volume_std_mm3=("occupied_bounding_volume_mm3", "std"),
         coordinate_compactness_mean_mm=("coordinate_compactness_mm", "mean"),
         coordinate_compactness_std_mm=("coordinate_compactness_mm", "std"),
+        minimum_exact_support_ratio_min=("minimum_exact_support_ratio", "min"),
     )
     summary = execution.join(quality).reset_index()
     summary["success_rate"] = summary["success_count"] / summary["run_count"]

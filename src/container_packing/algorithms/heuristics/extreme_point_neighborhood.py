@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from ..feasibility import PlacementFeasibilityPolicy
 from ...schemas import Container, Item, Placement
 from ...metrics import packing_tiebreak_metrics
 from .extreme_point_core import (
@@ -101,7 +102,7 @@ def subset_pool(
 
 def repack_neighbor(
     item_order: list[Item], containers: list[Container], current: list[Placement],
-    settings: dict[str, Any], stats: RepackingStats,
+    settings: dict[str, Any], stats: RepackingStats, policy: PlacementFeasibilityPolicy,
 ) -> list[Placement] | None:
     """Rebuild an item permutation with Extreme Points on candidate subsets."""
     tolerance = float(settings.get("coordinate_tolerance_mm", 1e-6))
@@ -114,7 +115,7 @@ def repack_neighbor(
     for subset in subsets:
         for order in container_orders(subset):
             stats.repacking_attempts += 1
-            candidate = pack_order_first_fit(item_order, order, tolerance, SearchStats())
+            candidate = pack_order_first_fit(item_order, order, tolerance, SearchStats(), policy)
             if candidate is not None:
                 return candidate
     return None

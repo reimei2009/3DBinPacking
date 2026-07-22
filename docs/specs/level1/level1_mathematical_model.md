@@ -58,7 +58,7 @@ $$
 x_i+\ell_i\le x_j+M_x(1-\delta_{ijkL}).
 $$
 
-Năm hướng còn lại được xây dựng đối xứng cho phải, trước, sau, dưới và trên. Implementation canonical nằm tại `src/container_packing/models/level_01/milp_model.py::build_level1_model`; mapping chỉ số biến nằm tại `model_indices.py`.
+Năm hướng còn lại được xây dựng đối xứng cho phải, trước, sau, dưới và trên. Entry point Level 1 nằm tại `src/container_packing/models/level_01/milp_model.py::build_level1_model`; R1–R9 dùng implementation canonical có thể tái sử dụng tại `src/container_packing/models/common/fixed_orientation_milp.py::build_fixed_orientation_assembly`. Mapping chỉ số Level 1 nằm tại `model_indices.py`.
 
 Với 20 kiện và 5 container: 5 biến sử dụng + 100 biến gán + 60 tọa độ + 5700 biến phân tách = 5865 biến và 18475 ràng buộc.
 
