@@ -162,7 +162,7 @@ def _container_definitions(config: dict[str, Any], requested: int) -> list[dict[
             "max_weight_kg": float(previous["max_weight_kg"]) + 750,
             "cost": float(previous["cost"]) + 150,
             "availability": 1,
-            "design_note": "Deterministically extended synthetic Level 1 container",
+            "design_note": "Deterministically extended synthetic container",
         })
     return selected
 
@@ -221,7 +221,8 @@ def prepare_instance(
         "largest_volume": f"{actual_items} largest-volume rows of public dataset_small",
         "heaviest": f"{actual_items} heaviest rows of public dataset_small",
     }
-    items["level1_note"] = f"{selection_notes[strategy]}; advanced fields ignored in Level 1"
+    level_label = level_id.replace("_", " ").title()
+    items["level1_note"] = f"{selection_notes[strategy]}; advanced fields classified by {level_label} contract"
     items["source_url"] = SOURCE_URL
 
     rows = []
@@ -236,10 +237,10 @@ def prepare_instance(
             "availability": int(definition.get("availability", 1)),
             "cost": float(definition["cost"]),
             "volume_m3": length * width * height / 1_000_000_000,
-            "data_status": "synthetic_level1",
+            "data_status": f"synthetic_{level_id}",
             "unit_note": "mm, kg; cost is a synthetic comparison score",
             "design_note": definition.get(
-                "design_note", "Synthetic heterogeneous container defined by Level 1 configuration"
+                "design_note", f"Synthetic heterogeneous container defined by {level_label} configuration"
             ),
         })
     containers = pd.DataFrame(rows)

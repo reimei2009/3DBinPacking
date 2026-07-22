@@ -4,6 +4,7 @@ import json
 import yaml
 
 from container_packing.algorithms.registry import get_algorithm, list_algorithms
+from container_packing.cli import _parser, _resolve_request
 from container_packing.data_loader import load_config
 from container_packing.experiments.contracts import ExperimentRequest
 from container_packing.experiments.runner import run_experiment
@@ -12,7 +13,7 @@ from container_packing.runtime.inputs import prompt_choice, prompt_positive
 
 
 def test_registry_only_exposes_runnable_implementations():
-    assert [value.level_id for value in list_levels()] == ["level_01"]
+    assert [value.level_id for value in list_levels()] == ["level_01", "level_02"]
     assert [value.algorithm_id for value in list_algorithms(level_id="level_01")] == [
         "extreme_point_best_fit", "extreme_point_ffd", "extreme_point_hill_climbing",
         "extreme_point_simulated_annealing", "maximal_space_best_fit", "milp_big_m",
@@ -22,6 +23,22 @@ def test_registry_only_exposes_runnable_implementations():
         "milp_big_m", "extreme_point_best_fit", "extreme_point_ffd", "extreme_point_hill_climbing",
         "extreme_point_simulated_annealing", "maximal_space_best_fit",
     )
+    assert [value.algorithm_id for value in list_algorithms(level_id="level_02")] == [
+        "extreme_point_best_fit", "extreme_point_ffd", "extreme_point_hill_climbing",
+        "extreme_point_simulated_annealing", "maximal_space_best_fit", "milp_big_m",
+    ]
+    assert get_level("level_02").supported_algorithms == (
+        "milp_big_m", "extreme_point_best_fit", "extreme_point_ffd",
+        "extreme_point_hill_climbing", "extreme_point_simulated_annealing",
+        "maximal_space_best_fit",
+    )
+    assert get_level("level_02").contract.objective == get_level("level_01").contract.objective
+    assert {value.symbol for value in get_level("level_02").contract.variables} >= {
+        "floor[i,k]", "support_point[i,j,k,p,q]", "center_support[i,j,k]",
+    }
+    assert {value.constraint_id for value in get_level("level_02").contract.active_constraints} >= {
+        "aggregate_volume_capacity", "global_capacity_lower_bounds",
+    }
     contract = get_level("level_01").contract
     assert contract.title.resolve("vi").startswith("Level 1")
     assert contract.objective.latex == r"\min\; B\sum_{k\in K}u_k+\sum_{k\in K}c_k u_k"
@@ -43,6 +60,18 @@ def test_shared_interactive_inputs_are_not_level_specific():
 
 
 def test_config_inheritance(root):
+    level1_default = load_config(root / "config/level_01/default.yaml")
+    level2_default = load_config(root / "config/level_02/default.yaml")
+    assert level1_default["algorithms"] == level2_default["algorithms"]
+    assert level2_default["support"]["threshold"] == 0.8
+    assert level1_default["project"]["algorithm_id"] == "milp_big_m"
+    assert level2_default["project"]["algorithm_id"] == "extreme_point_ffd"
+    reference = load_config(root / "config/level_02/experiments/milp_big_m_reference.yaml")
+    assert reference["project"]["algorithm_id"] == "milp_big_m"
+    assert reference["instance"] == {
+        **level2_default["instance"], "item_count": 3, "container_count": 2,
+    }
+    assert reference["solver"]["time_limit_seconds"] == 120
     config = load_config(root / "config/level_01/experiments/milp_big_m_local.yaml")
     assert config["project"]["level_id"] == "level_01"
     assert config["solver"]["backend"] == "scipy_highs"
@@ -69,6 +98,15 @@ def test_config_inheritance(root):
     assert tuned["algorithms"]["extreme_point_simulated_annealing"]["cooling_rate"] == 0.95
     assert tuned["algorithms"]["extreme_point_simulated_annealing"]["max_iterations"] == 200
     assert tuned["tuning"]["parameter_set_id"] == "p002_1b6f7403"
+
+
+def test_level2_cli_uses_configured_ffd_when_algorithm_is_omitted():
+    args = _parser().parse_args([
+        "run", "--level", "level_02", "--items-count", "3",
+        "--containers-count", "2", "--non-interactive",
+    ])
+    request = _resolve_request(args)
+    assert request.algorithm_id == "extreme_point_ffd"
 
 
 def test_two_runs_are_isolated_and_complete(root: Path, tmp_path: Path):

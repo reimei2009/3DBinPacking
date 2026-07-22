@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+- Added isolated Level 2 geometric-support config, registry contract, MILP variables, constraints, decoder metadata, and independent validator.
+- Extracted reusable fixed-orientation MILP and level orchestration cores while preserving Level 1 behavior.
+- Added exact support union-area validation, dense-grid diagnostics, `support.csv`, and support-specific validation output.
+- Kept rotation, stackability, load-bearing, load transfer, and full physical stability inactive.
+- Refactored all fixed-orientation heuristics into reusable engines with composable feasibility policies.
+- Enabled Extreme Point FFD/Best Fit, Hill Climbing, Simulated Annealing, and Maximal Empty Spaces for Level 2 using exact support checks.
+- Added shared algorithm defaults, Level 2 benchmark scenarios, support-candidate diagnostics, and level-aware benchmark fingerprints.
+- Promoted deterministic Extreme-Point FFD to the Level 2 practical default while retaining MILP as an explicit exact-reference config.
+- Added algorithm-role metadata, config-driven Streamlit defaults, a no-fallback contract, and a nine-profile reproducibility baseline.
+
 ## 0.12.0 - 2026-07-21
 
 - Added deterministic Maximal Empty Spaces — Best Fit Decreasing for Level 1.

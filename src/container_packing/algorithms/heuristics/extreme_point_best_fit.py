@@ -7,6 +7,7 @@ from typing import Any
 from scipy.optimize import OptimizeResult
 
 from ..contracts import AlgorithmOutcome
+from ..feasibility import FixedOrientationFeasibilityPolicy, PlacementFeasibilityPolicy
 from .extreme_point_core import (
     ContainerState,
     Point,
@@ -59,6 +60,7 @@ def best_fit_candidate_score(
 
 def pack_order_best_fit(
     items: list[Item], containers: tuple[Container, ...], tolerance: float, stats: SearchStats,
+    policy: PlacementFeasibilityPolicy,
 ) -> list[Placement] | None:
     """Place each item at the best feasible container/extreme-point candidate."""
     states = [ContainerState(container) for container in containers]
@@ -67,7 +69,7 @@ def pack_order_best_fit(
         for container_rank, state in enumerate(states):
             for point in sorted(state.extreme_points, key=lambda value: (value[2], value[1], value[0])):
                 stats.extreme_points_evaluated += 1
-                if not fits(state, item, point, tolerance):
+                if not fits(state, item, point, tolerance, policy):
                     continue
                 candidate = best_fit_candidate_score(state, item, point, container_rank)
                 if selected is None or candidate < selected[0]:
@@ -78,8 +80,9 @@ def pack_order_best_fit(
     return [placement for state in states for placement in state.placements]
 
 
-def solve_level1(
+def solve(
     items: list[Item], containers: list[Container], settings: dict[str, Any] | None = None,
+    *, policy: PlacementFeasibilityPolicy | None = None,
 ) -> AlgorithmOutcome:
     """Pack all items with deterministic Best Fit; FEASIBLE is not proof of optimality."""
     settings = settings or {}
@@ -87,9 +90,10 @@ def solve_level1(
     subset_limit = int(settings.get("subset_enumeration_limit", 12))
     if subset_limit <= 0:
         raise ValueError("subset_enumeration_limit must be positive")
+    selected_policy = policy or FixedOrientationFeasibilityPolicy()
     ordered_items = sorted(items, key=item_sort_key)
     search = constructive_search(
-        ordered_items, containers, tolerance, subset_limit, pack_order_best_fit,
+        ordered_items, containers, tolerance, subset_limit, pack_order_best_fit, selected_policy,
     )
 
     priority = 1.0 + sum(value.cost for value in containers)
@@ -129,5 +133,9 @@ def solve_level1(
             "candidate_container_ids": [value.container_id for value in search.chosen_containers],
             "n_items": len(items),
             "n_containers": len(containers),
+            **selected_policy.metadata(),
         },
     )
+
+
+solve_level1 = solve

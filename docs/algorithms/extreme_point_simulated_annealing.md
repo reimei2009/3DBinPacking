@@ -1,6 +1,6 @@
 # Extreme-Point Simulated Annealing
 
-`extreme_point_simulated_annealing` is a seeded, CPU-friendly Level 1 metaheuristic initialized by `extreme_point_ffd`.
+`extreme_point_simulated_annealing` is a seeded, CPU-friendly metaheuristic shared by Levels 1 and 2 and initialized by `extreme_point_ffd`.
 
 At each iteration it samples item-order neighbors from the shared relocate, adjacent-swap, front/back-reinsert, and container-elimination destroy-and-repair neighborhood. Each candidate is reconstructed by the fixed-orientation Extreme-Point packer and therefore still respects the active geometric and payload checks.
 
@@ -19,7 +19,7 @@ The algorithm separately retains the best lexicographic solution found by:
 3. occupied bounding volume;
 4. coordinate compactness.
 
-The returned result is therefore no worse than its initial FFD solution on that score. It reports only `FEASIBLE`, never `OPTIMAL`. It does not rotate items and does not model support, stacking, or physical stability.
+The returned result is therefore no worse than its initial FFD solution on that score. It reports only `FEASIBLE`, never `OPTIMAL`. Level 2 reconstructs every candidate with exact support checks. The method does not rotate items or claim stackability/load-bearing/physical stability.
 
 Use `scripts/run_benchmark.py --seeds ...` to measure robustness across independent random trajectories. `--repeats` repeats each seed and is not a replacement for a seed sweep.
 

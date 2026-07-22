@@ -1,0 +1,44 @@
+# Level 2 exact-support comparison protocol for local CPU research.
+suite_id: level_02_core_local_v1
+level_id: level_02
+description: >
+  Compare exact-support-aware constructive, local-search, metaheuristic, and
+  MILP methods on frozen Level 2 instances. Expensive scenarios are manual.
+config: config/level_02/default.yaml
+environment: local
+algorithms:
+  - extreme_point_ffd
+  - extreme_point_best_fit
+  - maximal_space_best_fit
+  - extreme_point_hill_climbing
+  - extreme_point_simulated_annealing
+  - milp_big_m
+seeds: [7]
+repeats: 1
+scenarios:
+  - scenario_id: exact_reference_i3_c2
+    description: "Small instance where MILP must provide an exact reference."
+    item_count: 3
+    container_count: 2
+    item_selection: prefix
+    tags: [small, exact_reference, support]
+
+  - scenario_id: practical_i20_c5
+    description: "Practical Level 2 comparison; MILP is a time-limited bound reference."
+    item_count: 20
+    container_count: 5
+    item_selection: prefix
+    tags: [medium, support, time_limited_milp]
+
+  - scenario_id: heuristic_scale_i50_c5
+    description: "Local scalability comparison without the exact MILP."
+    item_count: 50
+    container_count: 5
+    item_selection: prefix
+    algorithms:
+      - extreme_point_ffd
+      - extreme_point_best_fit
+      - maximal_space_best_fit
+      - extreme_point_hill_climbing
+      - extreme_point_simulated_annealing
+    tags: [large, support, heuristic_scalability]

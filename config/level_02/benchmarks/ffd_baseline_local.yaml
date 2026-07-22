@@ -1,0 +1,89 @@
+# Promotion gate for the deterministic practical Level 2 FFD solver.
+suite_id: level_02_ffd_baseline_local_v1
+level_id: level_02
+description: >
+  Validate the practical-default FFD solver across deterministic item profiles.
+  Repeats measure runtime and verify identical placement signatures; they are
+  not random-search trajectories.
+config: config/level_02/default.yaml
+environment: local
+algorithms:
+  - extreme_point_ffd
+  - milp_big_m
+seeds: [42]
+repeats: 3
+scenarios:
+  - scenario_id: exact_reference_prefix_i3_c2
+    description: "FFD versus an optimal MILP reference on a tiny prefix instance."
+    item_count: 3
+    container_count: 2
+    item_selection: prefix
+    algorithms: [extreme_point_ffd, milp_big_m]
+    tags: [exact_reference, promotion_gate, support]
+
+  - scenario_id: practical_prefix_i20_c5
+    description: "Current practical prefix instance."
+    item_count: 20
+    container_count: 5
+    item_selection: prefix
+    algorithms: [extreme_point_ffd]
+    tags: [practical, prefix, support]
+
+  - scenario_id: stable_random_101_i20_c5
+    description: "Stable random sample with selection seed 101."
+    item_count: 20
+    container_count: 5
+    item_selection: stable_random
+    selection_seed: 101
+    algorithms: [extreme_point_ffd]
+    tags: [practical, stable_random, support]
+
+  - scenario_id: stable_random_202_i20_c5
+    description: "Stable random sample with selection seed 202."
+    item_count: 20
+    container_count: 5
+    item_selection: stable_random
+    selection_seed: 202
+    algorithms: [extreme_point_ffd]
+    tags: [practical, stable_random, support]
+
+  - scenario_id: stable_random_303_i20_c5
+    description: "Stable random sample with selection seed 303."
+    item_count: 20
+    container_count: 5
+    item_selection: stable_random
+    selection_seed: 303
+    algorithms: [extreme_point_ffd]
+    tags: [practical, stable_random, support]
+
+  - scenario_id: diverse_volume_i40_c8
+    description: "Items distributed across the source volume range."
+    item_count: 40
+    container_count: 8
+    item_selection: volume_stratified
+    algorithms: [extreme_point_ffd]
+    tags: [volume_diverse, scalability, support]
+
+  - scenario_id: volume_heavy_i50_c8
+    description: "Largest-volume items stress geometric capacity."
+    item_count: 50
+    container_count: 8
+    item_selection: largest_volume
+    algorithms: [extreme_point_ffd]
+    tags: [volume_heavy, scalability, support]
+
+  - scenario_id: payload_heavy_i40_c8
+    description: "Heaviest items stress payload capacity."
+    item_count: 40
+    container_count: 8
+    item_selection: heaviest
+    algorithms: [extreme_point_ffd]
+    tags: [payload_heavy, scalability, support]
+
+  - scenario_id: scale_prefix_i100_c12
+    description: "One hundred prefix items test deterministic local scaling."
+    item_count: 100
+    container_count: 12
+    item_selection: prefix
+    algorithms: [extreme_point_ffd]
+    tags: [large, scalability, support]

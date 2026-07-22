@@ -143,6 +143,62 @@ def test_named_suite_config_declares_a_level_specific_fair_protocol(root: Path):
     assert all("milp_big_m" not in scenario.algorithm_ids for scenario in suite.scenarios[1:])
 
 
+def test_level2_suite_separates_exact_reference_and_heuristic_scale(root: Path):
+    suite = load_benchmark_suite(root / "config/level_02/benchmarks/core_local.yaml")
+    assert suite.level_id == "level_02"
+    assert suite.suite_id == "level_02_core_local_v1"
+    assert [value.scenario_id for value in suite.scenarios] == [
+        "exact_reference_i3_c2", "practical_i20_c5", "heuristic_scale_i50_c5",
+    ]
+    assert "milp_big_m" in suite.scenarios[0].algorithm_ids
+    assert "milp_big_m" in suite.scenarios[1].algorithm_ids
+    assert "milp_big_m" not in suite.scenarios[2].algorithm_ids
+
+
+def test_level2_ffd_promotion_suite_declares_profile_matrix_and_repeats(root: Path):
+    suite = load_benchmark_suite(root / "config/level_02/benchmarks/ffd_baseline_local.yaml")
+    assert suite.level_id == "level_02"
+    assert suite.suite_id == "level_02_ffd_baseline_local_v1"
+    assert suite.seeds == (42,)
+    assert suite.repeats == 3
+    assert len(suite.scenarios) == 9
+    assert suite.scenarios[0].algorithm_ids == ("extreme_point_ffd", "milp_big_m")
+    assert all(
+        scenario.algorithm_ids == ("extreme_point_ffd",)
+        for scenario in suite.scenarios[1:]
+    )
+    assert {scenario.item_selection_strategy for scenario in suite.scenarios} == {
+        "prefix", "stable_random", "volume_stratified", "largest_volume", "heaviest",
+    }
+
+
+def test_level2_ffd_repeats_are_deterministic_on_same_input(root: Path, tmp_path: Path):
+    config = load_config(root / "config/level_02/default.yaml")
+    config["paths"]["raw_items_csv"] = str(root / "data/raw/dataset_small_items_original.csv")
+    config["paths"]["processed_dir"] = str(tmp_path / "processed/level_02")
+    config["paths"]["manifest_json"] = str(tmp_path / "processed/level_02/latest_manifest.json")
+    config["paths"]["output_root"] = str(tmp_path / "outputs")
+    config_path = tmp_path / "level_02.yaml"
+    config_path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
+    scenario = BenchmarkScenario(
+        "ffd_determinism", "Repeated deterministic Level 2 FFD", 3, 2,
+        algorithm_ids=("extreme_point_ffd",),
+    )
+    result = run_benchmark(
+        level_id="level_02", algorithm_ids=["extreme_point_ffd"],
+        item_counts=[3], container_counts=[2], seeds=[42], repeats=3,
+        config_path=config_path, project_root=root, scenarios=[scenario],
+        suite_id="ffd_determinism_test",
+    )
+    assert result.successful
+    assert result.results["placement_signature"].nunique() == 1
+    assert result.results["objective_value"].nunique() == 1
+    assert set(result.results["feasibility_policy"]) == {
+        "fixed_orientation_geometry_payload_exact_support",
+    }
+    assert result.results["minimum_exact_support_ratio"].min() >= 0.8
+
+
 def test_scenario_rows_share_one_input_fingerprint_across_algorithms(root: Path, tmp_path: Path):
     config = load_config(root / "config/level_01/default.yaml")
     config["paths"]["raw_items_csv"] = str(root / "data/raw/dataset_small_items_original.csv")

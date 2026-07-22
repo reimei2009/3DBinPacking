@@ -21,6 +21,9 @@ def test_streamlit_app_runs_valid_experiment_and_renders_3d(root: Path):
         "Extreme Point — Simulated Annealing", "Maximal Empty Spaces — Best Fit Decreasing",
         "MILP Big-M chính xác",
     ]
+    next(value for value in page.selectbox if value.key == "algorithm_id").set_value(
+        "extreme_point_ffd"
+    ).run()
     numbers = {value.label: value for value in page.number_input}
     numbers["Số lượng kiện"].set_value(10)
     numbers["Số lượng container"].set_value(3)
@@ -101,3 +104,17 @@ def test_streamlit_contract_renders_latex_and_switches_to_english(root: Path):
     assert not page.exception
     assert [value.value for value in page.title] == ["3D Container Packing — Research Console"]
     assert any("Objective function" in value.value for value in page.markdown)
+
+
+def test_streamlit_exposes_level2_support_contract(root: Path):
+    app = root / "src/container_packing/web/streamlit_app.py"
+    page = AppTest.from_file(str(app), default_timeout=30).run()
+    level = next(value for value in page.selectbox if value.key == "level_id")
+    level.set_value("level_02").run()
+    assert not page.exception
+    algorithms = next(value for value in page.selectbox if value.key == "algorithm_id")
+    assert len(algorithms.options) == 6
+    assert algorithms.value == "extreme_point_ffd"
+    latex_values = [value.value for value in page.latex]
+    assert any(r"Gf_{ik}+\sum_{j\ne i,p,q}s_{ijkpq}" in value for value in latex_values)
+    assert page.info

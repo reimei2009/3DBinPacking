@@ -15,6 +15,12 @@ LEVEL_01_WARNING = (
 LEVEL_01_WARNING_VI = (
     "Nghiệm Level 1 chỉ hợp lệ về hình học và tải trọng; chưa mô hình hóa xoay, bề mặt đỡ, chồng kiện và ổn định vật lý."
 )
+LEVEL_02_WARNING = (
+    "Level 2 geometry/payload/base-support solution; rotation, load-bearing, load transfer, and full physical stability are not modeled."
+)
+LEVEL_02_WARNING_VI = (
+    "Nghiệm Level 2 hợp lệ về hình học, tải trọng và hỗ trợ đáy; chưa mô hình hóa xoay, độ bền chịu tải, truyền tải và ổn định vật lý đầy đủ."
+)
 
 
 class SceneValidationError(ValueError):
@@ -75,10 +81,10 @@ def build_scene(
         "level": level_id,
         "algorithm": algorithm_id,
         "validation_status": validation_status,
-        "warning": LEVEL_01_WARNING if level_id == "level_01" else "Refer to the active level contract.",
+        "warning": LEVEL_01_WARNING if level_id == "level_01" else LEVEL_02_WARNING if level_id == "level_02" else "Refer to the active level contract.",
         "warnings": {
-            "vi": LEVEL_01_WARNING_VI if level_id == "level_01" else "Xem contract của level đang hoạt động.",
-            "en": LEVEL_01_WARNING if level_id == "level_01" else "Refer to the active level contract.",
+            "vi": LEVEL_01_WARNING_VI if level_id == "level_01" else LEVEL_02_WARNING_VI if level_id == "level_02" else "Xem contract của level đang hoạt động.",
+            "en": LEVEL_01_WARNING if level_id == "level_01" else LEVEL_02_WARNING if level_id == "level_02" else "Refer to the active level contract.",
         },
         "containers": scene_containers,
     }

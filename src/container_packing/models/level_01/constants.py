@@ -1,16 +1,5 @@
-"""Shared constants for the Level 1 formulation."""
+"""Backward-compatible exports of shared fixed-orientation directions."""
 
-from enum import Enum
+from ..common.constants import DIRECTIONS, Direction
 
-
-class Direction(str, Enum):
-    LEFT = "left"
-    RIGHT = "right"
-    FRONT = "front"
-    BACK = "back"
-    BELOW = "below"
-    ABOVE = "above"
-
-
-DIRECTIONS: tuple[Direction, ...] = tuple(Direction)
-MM3_PER_M3 = 1_000_000_000.0
+__all__ = ["DIRECTIONS", "Direction"]

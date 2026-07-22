@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from ..feasibility import FixedOrientationFeasibilityPolicy, PlacementFeasibilityPolicy
 from ...schemas import Container, Item, Placement
 
 
@@ -181,29 +182,25 @@ def item_fits_space(item: Item, space: EmptySpace, tolerance: float = 1e-6) -> b
     )
 
 
-def item_overlaps_placement(
-    item: Item, space: EmptySpace, placed: Placement, tolerance: float = 1e-6,
-) -> bool:
-    return not (
-        space.x_mm + item.length_mm <= placed.x_mm + tolerance
-        or placed.x_mm + placed.length_mm <= space.x_mm + tolerance
-        or space.y_mm + item.width_mm <= placed.y_mm + tolerance
-        or placed.y_mm + placed.width_mm <= space.y_mm + tolerance
-        or space.z_mm + item.height_mm <= placed.z_mm + tolerance
-        or placed.z_mm + placed.height_mm <= space.z_mm + tolerance
-    )
-
-
 def feasible_in_state(
-    state: MaximalSpaceContainerState, item: Item, space: EmptySpace, tolerance: float = 1e-6,
+    state: MaximalSpaceContainerState,
+    item: Item,
+    space: EmptySpace,
+    tolerance: float = 1e-6,
+    policy: PlacementFeasibilityPolicy | None = None,
 ) -> bool:
     if not item_fits_space(item, space, tolerance):
         return False
-    if state.loaded_weight_kg + item.weight_kg > state.container.max_weight_kg + tolerance:
-        return False
-    return not any(
-        item_overlaps_placement(item, space, placed, tolerance)
-        for placed in state.placements
+    candidate = Placement(
+        item_id=item.item_id, container_id=state.container.container_id,
+        x_mm=space.x_mm, y_mm=space.y_mm, z_mm=space.z_mm,
+        length_mm=item.length_mm, width_mm=item.width_mm, height_mm=item.height_mm,
+        weight_kg=item.weight_kg,
+    )
+    selected_policy = policy or FixedOrientationFeasibilityPolicy()
+    return selected_policy.allows(
+        state.container, state.placements, candidate,
+        loaded_weight_kg=state.loaded_weight_kg, tolerance=tolerance,
     )
 
 

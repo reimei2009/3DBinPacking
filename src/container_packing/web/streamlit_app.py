@@ -258,6 +258,10 @@ def _render_run(run_dir: Path, language: str) -> None:
     if placements_path.is_file():
         with st.expander(t("placements", language)):
             st.dataframe(_localized_frame(pd.read_csv(placements_path), language, "placements"), hide_index=True, width="stretch")
+    support_path = run_dir / "solution" / "support.csv"
+    if support_path.is_file():
+        with st.expander("Hỗ trợ đáy" if language == "vi" else "Base support"):
+            st.dataframe(pd.read_csv(support_path), hide_index=True, width="stretch")
 
 
 def _parse_seed_text(value: str) -> tuple[int, ...]:
@@ -450,6 +454,13 @@ def _render_benchmark_comparison(
         value for value in ("extreme_point_ffd", "extreme_point_best_fit", "maximal_space_best_fit")
         if value in level_algorithms
     ]
+    if len(level_algorithms) < 2:
+        st.info(
+            "Level này hiện chỉ có một thuật toán nên chưa thể tạo benchmark so sánh."
+            if language == "vi" else
+            "This level currently has only one algorithm, so a comparison benchmark is not available yet."
+        )
+        return
     with st.expander(t("benchmark_create", language), expanded=True):
         st.caption(t("benchmark_create_note", language))
         algorithms = st.multiselect(
@@ -602,7 +613,18 @@ def main() -> None:
     level_ids = [value.level_id for value in list_levels()]
     level_id = st.sidebar.selectbox(t("level", language), level_ids, key="level_id")
     level = get_level(level_id)
+    config_path = root / level.default_config
+    config = load_config(config_path)
     algorithm_ids = [value.algorithm_id for value in list_algorithms(level_id=level_id)]
+    configured_algorithm = str(config.get("project", {}).get("algorithm_id", algorithm_ids[0]))
+    if configured_algorithm not in algorithm_ids:
+        raise ValueError(f"Configured algorithm {configured_algorithm!r} is not compatible with {level_id}")
+    if (
+        st.session_state.get("_algorithm_level_id") != level_id
+        or st.session_state.get("algorithm_id") not in algorithm_ids
+    ):
+        st.session_state["algorithm_id"] = configured_algorithm
+        st.session_state["_algorithm_level_id"] = level_id
     algorithm_id = st.sidebar.selectbox(
         t("algorithm", language), algorithm_ids,
         format_func=lambda value: get_algorithm(value).name_for(language), key="algorithm_id",
@@ -610,8 +632,6 @@ def main() -> None:
     algorithm = get_algorithm(algorithm_id)
     st.sidebar.caption(f"{algorithm_family(algorithm.family, language)}: {algorithm.description_for(language)}")
 
-    config_path = root / level.default_config
-    config = load_config(config_path)
     limits = get_instance_limits(config_path, root=root)
     instance_defaults = config["instance"]
     item_count = int(st.sidebar.number_input(

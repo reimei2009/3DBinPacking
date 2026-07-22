@@ -1,0 +1,47 @@
+extends: ../common/fixed_orientation_algorithms.yaml
+project:
+  name: 3d-container-packing
+  level_id: level_02
+  algorithm_id: extreme_point_ffd
+  random_seed: 42
+instance:
+  item_count: 10
+  container_count: 3
+  item_selection_strategy: prefix
+  item_selection_seed: null
+paths:
+  raw_items_csv: data/raw/dataset_small_items_original.csv
+  processed_dir: data/processed/level_02
+  manifest_json: data/processed/level_02/latest_manifest.json
+  output_root: outputs
+containers:
+  - {container_id: C1, length_mm: 3000, width_mm: 2200, height_mm: 2200, max_weight_kg: 1500, cost: 650, availability: 1}
+  - {container_id: C2, length_mm: 3600, width_mm: 2300, height_mm: 2300, max_weight_kg: 2200, cost: 760, availability: 1}
+  - {container_id: C3, length_mm: 4200, width_mm: 2400, height_mm: 2400, max_weight_kg: 3000, cost: 880, availability: 1}
+  - {container_id: C4, length_mm: 5000, width_mm: 2450, height_mm: 2600, max_weight_kg: 4200, cost: 1050, availability: 1}
+  - {container_id: C5, length_mm: 6000, width_mm: 2500, height_mm: 2800, max_weight_kg: 5500, cost: 1250, availability: 1}
+model:
+  allow_rotation: false
+  enforce_support: true
+  enforce_stability: false
+  enforce_stackability: false
+  require_all_items: true
+  objective:
+    primary: minimize_container_count
+    secondary: minimize_container_cost
+support:
+  threshold: 0.80
+  grid_x: 4
+  grid_y: 4
+  dense_grid_x: 16
+  dense_grid_y: 16
+  epsilon_mm: 0.0001
+solver:
+  backend: scipy_highs
+  time_limit_seconds: 120
+  mip_rel_gap: 0.0
+  presolve: true
+  display: false
+validation:
+  coordinate_tolerance_mm: 0.0001
+  weight_tolerance_kg: 0.000001

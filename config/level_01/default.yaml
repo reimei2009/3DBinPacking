@@ -1,3 +1,4 @@
+extends: ../common/fixed_orientation_algorithms.yaml
 project:
   name: 3d-container-packing
   level_id: level_01
@@ -33,27 +34,6 @@ solver:
   mip_rel_gap: 0.0
   presolve: true
   display: false
-algorithms:
-  maximal_space_best_fit:
-    subset_enumeration_limit: 12
-  extreme_point_best_fit:
-    subset_enumeration_limit: 12
-  extreme_point_ffd:
-    subset_enumeration_limit: 12
-  extreme_point_hill_climbing:
-    subset_enumeration_limit: 12
-    subset_candidate_limit: 48
-    max_iterations: 10
-    max_neighbors: 24
-  extreme_point_simulated_annealing:
-    subset_enumeration_limit: 12
-    subset_candidate_limit: 48
-    max_iterations: 200
-    max_neighbors: 48
-    neighbors_per_iteration: 3
-    initial_temperature: 0.25
-    cooling_rate: 0.97
-    minimum_temperature: 0.0001
 validation:
   coordinate_tolerance_mm: 0.0001
   weight_tolerance_kg: 0.000001

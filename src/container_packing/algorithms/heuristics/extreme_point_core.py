@@ -5,11 +5,15 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Callable
 
+from ..feasibility import FixedOrientationFeasibilityPolicy, PlacementFeasibilityPolicy
 from ...schemas import Container, Item, Placement
 from .constructive_common import candidate_subsets, container_orders, item_sort_key
 
 Point = tuple[float, float, float]
-PackOrder = Callable[[list[Item], tuple[Container, ...], float, "SearchStats"], list[Placement] | None]
+PackOrder = Callable[
+    [list[Item], tuple[Container, ...], float, "SearchStats", PlacementFeasibilityPolicy],
+    list[Placement] | None,
+]
 
 
 @dataclass
@@ -41,31 +45,31 @@ class ConstructiveSearchResult:
     stats: SearchStats
 
 
-def overlaps(point: Point, item: Item, placed: Placement, tolerance: float) -> bool:
+def candidate_placement(state: ContainerState, item: Item, point: Point) -> Placement:
     x, y, z = point
-    return not (
-        x + item.length_mm <= placed.x_mm + tolerance
-        or placed.x_mm + placed.length_mm <= x + tolerance
-        or y + item.width_mm <= placed.y_mm + tolerance
-        or placed.y_mm + placed.width_mm <= y + tolerance
-        or z + item.height_mm <= placed.z_mm + tolerance
-        or placed.z_mm + placed.height_mm <= z + tolerance
+    return Placement(
+        item_id=item.item_id, container_id=state.container.container_id,
+        x_mm=x, y_mm=y, z_mm=z,
+        length_mm=item.length_mm, width_mm=item.width_mm, height_mm=item.height_mm,
+        weight_kg=item.weight_kg,
     )
 
 
-def fits(state: ContainerState, item: Item, point: Point, tolerance: float) -> bool:
-    container = state.container
-    x, y, z = point
-    if state.loaded_weight_kg + item.weight_kg > container.max_weight_kg + tolerance:
-        return False
-    if (
-        x < -tolerance or y < -tolerance or z < -tolerance
-        or x + item.length_mm > container.length_mm + tolerance
-        or y + item.width_mm > container.width_mm + tolerance
-        or z + item.height_mm > container.height_mm + tolerance
-    ):
-        return False
-    return not any(overlaps(point, item, placed, tolerance) for placed in state.placements)
+def fits(
+    state: ContainerState,
+    item: Item,
+    point: Point,
+    tolerance: float,
+    policy: PlacementFeasibilityPolicy | None = None,
+) -> bool:
+    selected_policy = policy or FixedOrientationFeasibilityPolicy()
+    return selected_policy.allows(
+        state.container,
+        state.placements,
+        candidate_placement(state, item, point),
+        loaded_weight_kg=state.loaded_weight_kg,
+        tolerance=tolerance,
+    )
 
 
 def _point_inside_box(point: Point, box: Placement, tolerance: float) -> bool:
@@ -109,6 +113,7 @@ def place_item(state: ContainerState, item: Item, point: Point, tolerance: float
 
 def pack_order_first_fit(
     items: list[Item], containers: tuple[Container, ...], tolerance: float, stats: SearchStats,
+    policy: PlacementFeasibilityPolicy,
 ) -> list[Placement] | None:
     states = [ContainerState(container) for container in containers]
     for item in items:
@@ -116,7 +121,7 @@ def pack_order_first_fit(
         for state in states:
             for point in sorted(state.extreme_points, key=lambda value: (value[2], value[1], value[0])):
                 stats.extreme_points_evaluated += 1
-                if fits(state, item, point, tolerance):
+                if fits(state, item, point, tolerance, policy):
                     selected = state, point
                     break
             if selected is not None:
@@ -129,7 +134,7 @@ def pack_order_first_fit(
 
 def constructive_search(
     ordered_items: list[Item], containers: list[Container], tolerance: float,
-    subset_limit: int, pack_order: PackOrder,
+    subset_limit: int, pack_order: PackOrder, policy: PlacementFeasibilityPolicy,
 ) -> ConstructiveSearchResult:
     total_weight = sum(value.weight_kg for value in ordered_items)
     total_volume = sum(value.volume_m3 for value in ordered_items)
@@ -142,7 +147,7 @@ def constructive_search(
             continue
         for container_order in container_orders(subset):
             stats.packing_attempts += 1
-            placements = pack_order(ordered_items, container_order, tolerance, stats)
+            placements = pack_order(ordered_items, container_order, tolerance, stats, policy)
             if placements is not None:
                 chosen = tuple({value.container_id: value for value in container_order}.values())
                 return ConstructiveSearchResult(placements, chosen, stats)

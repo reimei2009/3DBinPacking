@@ -15,17 +15,23 @@ def test_terminal_preview_contains_summary_and_limits_placements():
         validation=ValidationResult(True, []),
         metadata={
             "status": "OPTIMAL", "level_id": "level_01", "algorithm_id": "milp_big_m",
+            "algorithm_role": "exact_reference",
             "n_items": 3, "n_containers": 2, "container_count": 1,
             "selected_containers": ["C01"], "objective_value": 100,
             "algorithm_runtime_seconds": 0.25, "run_dir": "outputs/level_01/runs/example",
+            "mip_gap": 0.125, "mip_dual_bound": 87.5, "mip_node_count": 42,
         },
     )
     preview = terminal_preview(result, placement_limit=2)
     assert "Validation   : VALID" in preview
+    assert "Algorithm role: exact_reference" in preview
     assert "C01" in preview
     assert "I0001" in preview and "I0002" in preview
     assert "I0003" not in preview
     assert "1 rows hidden" in preview
+    assert "MIP gap      : 12.500%" in preview
+    assert "Best bound   : 87.5" in preview
+    assert "MIP nodes    : 42" in preview
 
 
 def test_validate_cli_rejects_level_mismatch(root, tmp_path):

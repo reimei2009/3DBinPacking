@@ -1,6 +1,8 @@
 # Documentation index
 
 - `specs/level1`: problem, mathematical model, data, acceptance criteria, implementation spec.
+- `levels/level_02.md` and `specs/level2`: geometric-support contract, model, data, and acceptance criteria.
+- `reports/generated/level2_ffd_baseline.md`: practical-default FFD promotion evidence.
 - `design`: architecture, folder structure, solver and data flow.
 - `guides`: setup, running and debugging.
 - `decisions`: Level 1 architecture decision records.
@@ -21,3 +23,4 @@
 - `decisions/ADR-0009-thin-streamlit-plotly-adapter.md`: why the R&D UI remains replaceable.
 - `decisions/ADR-0010-add-extreme-point-best-fit.md`: why Best Fit is the next constructive baseline.
 - `decisions/ADR-0011-add-maximal-empty-spaces.md`: why EMS is the next geometric heuristic family.
+- `decisions/ADR-0013-level2-geometric-support.md`: support-only scope, exact validation, and reusable composition.
