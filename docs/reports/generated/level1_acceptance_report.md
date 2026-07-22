@@ -31,7 +31,7 @@ The solution has no boundary, overlap, payload, identity, dimension, or weight v
 ## Config-driven research corpus acceptance evidence
 
 - Corpus: `config/level_01/benchmarks/research_corpus.yaml`; five named cases covering small/easy, payload-tight, proven infeasible, medium, and large local-CPU profiles.
-- Aggregate run: `outputs/level_01/runs/20260722T035103835314Z__level_01__benchmark_corpus__level1_research_v1__seed42`.
+- Clean-tree aggregate run: `outputs/level_01/runs/20260722T035645441455Z__level_01__benchmark_corpus__level1_research_v1__seed42`; source commit `76adce5`, `git_dirty: false`.
 - Executions: 26/26 matched the declared expected outcome; every feasible source run passed the independent Level 1 validator.
 - `small_easy_i5_c2` and `small_tight_i10_c2` have MILP `proven_optimal` references. Every tested heuristic matched the exact count/cost objective on both cases.
 - `small_infeasible_i10_c1` has a MILP `proven_infeasible` reference because the first ten items weigh 2,845.128 kg while the only configured C1 container permits 1,500 kg. Heuristic failures remain labelled `INFEASIBLE_HEURISTIC` and are not treated as proofs.
