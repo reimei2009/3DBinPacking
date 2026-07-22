@@ -22,6 +22,7 @@ from ..reporting import OUTPUT_SCHEMA_VERSION, write_json, write_text
 from ..runtime.project import find_project_root
 from ..runtime.run_context import create_benchmark_directory
 from ..runtime.structured_logging import append_event
+from .suites import BenchmarkScenario
 
 
 @dataclass(frozen=True)
@@ -57,6 +58,44 @@ def _seed_values(values: Sequence[int]) -> tuple[int, ...]:
 def _resolve(root: Path, value: str | Path) -> Path:
     path = Path(value)
     return path.resolve() if path.is_absolute() else (root / path).resolve()
+
+
+def _default_scenarios(item_counts: Sequence[int], container_counts: Sequence[int]) -> tuple[BenchmarkScenario, ...]:
+    return tuple(
+        BenchmarkScenario(
+            scenario_id=f"items_{item_count}__containers_{container_count}",
+            description=f"{item_count} items, {container_count} containers",
+            item_count=item_count,
+            container_count=container_count,
+            tags=("ad_hoc",),
+        )
+        for item_count in item_counts
+        for container_count in container_counts
+    )
+
+
+def _input_fingerprint(
+    *,
+    level_id: str,
+    scenario: BenchmarkScenario,
+    config: dict[str, Any],
+    root: Path,
+) -> str:
+    """Hash the input and Level-1 contract shared by algorithms in one scenario."""
+    raw_items = _resolve(root, config["paths"]["raw_items_csv"])
+    payload = {
+        "level": level_id,
+        "scenario_id": scenario.scenario_id,
+        "item_count": scenario.item_count,
+        "container_count": scenario.container_count,
+        "raw_items_checksum": sha256_file(raw_items),
+        "containers": config.get("containers", []),
+        "model": config.get("model", {}),
+    }
+    import hashlib
+    import json
+
+    return hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
 
 
 def execute_experiment_case(request: ExperimentRequest, repeat_index: int) -> dict[str, Any]:
@@ -173,12 +212,23 @@ def run_benchmark(
     config_path: str | Path | None = None,
     environment: str = "local",
     project_root: str | Path | None = None,
+    scenarios: Sequence[BenchmarkScenario] | None = None,
+    suite_id: str | None = None,
+    suite_source_path: str | Path | None = None,
 ) -> BenchmarkResult:
     """Execute all requested combinations and retain failures as benchmark rows."""
     if repeats <= 0:
         raise ValueError("repeats must be a positive integer")
     items = _positive_values(item_counts, "item_counts")
     containers = _positive_values(container_counts, "container_counts")
+    selected_scenarios = tuple(scenarios) if scenarios is not None else _default_scenarios(items, containers)
+    if not selected_scenarios:
+        raise ValueError("scenarios must not be empty")
+    if len({value.scenario_id for value in selected_scenarios}) != len(selected_scenarios):
+        raise ValueError("scenarios must have unique scenario_id values")
+    for scenario in selected_scenarios:
+        _positive_values((scenario.item_count,), f"scenario {scenario.scenario_id}.item_count")
+        _positive_values((scenario.container_count,), f"scenario {scenario.scenario_id}.container_count")
     level = get_level(level_id)
     algorithms = tuple(str(value) for value in algorithm_ids)
     if not algorithms:
@@ -207,6 +257,19 @@ def run_benchmark(
         "algorithms": list(algorithms),
         "item_counts": list(items),
         "container_counts": list(containers),
+        "suite_id": suite_id,
+        "suite_source_path": str(suite_source_path) if suite_source_path is not None else None,
+        "scenarios": [
+            {
+                "scenario_id": value.scenario_id,
+                "description": value.description,
+                "item_count": value.item_count,
+                "container_count": value.container_count,
+                "tags": list(value.tags),
+                "input_fingerprint": _input_fingerprint(level_id=level_id, scenario=value, config=config, root=root),
+            }
+            for value in selected_scenarios
+        ],
         "repeats": repeats,
         "random_seeds": list(random_seeds),
         "environment": environment,
@@ -220,21 +283,32 @@ def run_benchmark(
 
     rows: list[dict[str, Any]] = []
     for algorithm_id in algorithms:
-        for item_count in items:
-            for container_count in containers:
-                for random_seed in random_seeds:
-                    for repeat_index in range(1, repeats + 1):
-                        request = ExperimentRequest(
-                            level_id=level_id, algorithm_id=algorithm_id, config_path=config_file,
-                            item_count=item_count, container_count=container_count, environment=environment,
-                            random_seed=random_seed,
-                        )
-                        row = {"benchmark_id": benchmark_id, **execute_experiment_case(request, repeat_index)}
-                        rows.append(row)
-                        append_event(log_path, "benchmark_case_completed", **row)
+        for scenario in selected_scenarios:
+            fingerprint = _input_fingerprint(level_id=level_id, scenario=scenario, config=config, root=root)
+            for random_seed in random_seeds:
+                for repeat_index in range(1, repeats + 1):
+                    request = ExperimentRequest(
+                        level_id=level_id, algorithm_id=algorithm_id, config_path=config_file,
+                        item_count=scenario.item_count, container_count=scenario.container_count, environment=environment,
+                        random_seed=random_seed,
+                    )
+                    row = {
+                        "benchmark_id": benchmark_id,
+                        "suite_id": suite_id or "ad_hoc",
+                        "scenario_id": scenario.scenario_id,
+                        "scenario_description": scenario.description,
+                        "scenario_tags": ",".join(scenario.tags),
+                        "input_fingerprint": fingerprint,
+                        **execute_experiment_case(request, repeat_index),
+                    }
+                    rows.append(row)
+                    append_event(log_path, "benchmark_case_completed", **row)
 
     results = pd.DataFrame(rows)
-    summary = _aggregate(results)
+    summary = aggregate_results(
+        results,
+        extra_group_keys=("suite_id", "scenario_id", "scenario_description", "scenario_tags", "input_fingerprint"),
+    )
     results.to_csv(benchmark_dir / "results.csv", index=False, encoding="utf-8")
     summary.to_csv(benchmark_dir / "summary.csv", index=False, encoding="utf-8")
     write_json(benchmark_dir / "summary.json", {
@@ -254,6 +328,16 @@ def run_benchmark(
         "random_seed": random_seeds[0] if len(random_seeds) == 1 else None,
         "random_seeds": list(random_seeds),
         "repeats_per_seed": repeats,
+        "suite_id": suite_id or "ad_hoc",
+        "suite_source_path": str(suite_source_path) if suite_source_path is not None else None,
+        "suite_source_checksum": sha256_file(suite_source_path) if suite_source_path is not None else None,
+        "comparison_protocol": {
+            "same_level_only": True,
+            "same_scenario_for_all_algorithms": True,
+            "shared_input_fingerprint": True,
+            "quality_aggregated_across_seeds": True,
+            "runtime_repeated_per_seed": True,
+        },
         "status": status,
         "case_count": len(results),
         "successful_case_count": succeeded,

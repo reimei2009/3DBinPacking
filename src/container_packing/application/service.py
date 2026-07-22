@@ -10,6 +10,7 @@ from typing import Any
 import pandas as pd
 
 from ..algorithms.registry import get_algorithm
+from ..benchmarks import BenchmarkResult, BenchmarkScenario, run_benchmark
 from ..data_loader import load_config
 from ..experiments.contracts import ExperimentRequest
 from ..experiments.runner import run_experiment
@@ -37,8 +38,21 @@ class RunArtifact:
     container_count: int | None
 
 
+@dataclass(frozen=True)
+class BenchmarkArtifact:
+    run_id: str
+    run_dir: Path
+    level_id: str
+    status: str
+    created_at_utc: str
+    case_count: int
+    successful_case_count: int
+    random_seeds: tuple[int, ...]
+    repeats_per_seed: int | None
+
+
 def _root(root: str | Path | None = None) -> Path:
-    return find_project_root(root) if root is not None else find_project_root(__file__)
+    return Path(root).resolve() if root is not None else find_project_root(__file__)
 
 
 def _resolve(root: Path, path: str | Path) -> Path:
@@ -112,6 +126,69 @@ def execute_experiment(request: ExperimentRequest) -> RunResult:
     return run_experiment(request)
 
 
+def execute_benchmark_comparison(
+    *,
+    level_id: str,
+    algorithm_ids: list[str] | tuple[str, ...],
+    item_count: int,
+    container_count: int,
+    seeds: list[int] | tuple[int, ...],
+    repeats: int = 1,
+    environment: str = "local",
+    config_path: str | Path | None = None,
+    root: str | Path | None = None,
+) -> BenchmarkResult:
+    """Run selected algorithms on one strictly shared, independently validated instance."""
+    algorithms = tuple(str(value) for value in algorithm_ids)
+    if len(algorithms) < 2:
+        raise ValueError("A benchmark comparison requires at least two algorithms")
+    if len(algorithms) != len(set(algorithms)):
+        raise ValueError("Benchmark algorithms must not contain duplicates")
+    if repeats <= 0:
+        raise ValueError("repeats must be positive")
+    random_seeds = tuple(int(value) for value in seeds)
+    if not random_seeds or any(value < 0 for value in random_seeds):
+        raise ValueError("seeds must contain one or more non-negative integers")
+    if len(random_seeds) != len(set(random_seeds)):
+        raise ValueError("seeds must not contain duplicates; use repeats for timing repetition")
+
+    project_root = _root(root)
+    level = get_level(level_id)
+    selected_config = level.default_config if config_path is None else Path(config_path)
+    resolved_config = _resolve(project_root, selected_config)
+    for algorithm_id in algorithms:
+        build_experiment_request(
+            level_id=level_id,
+            algorithm_id=algorithm_id,
+            item_count=item_count,
+            container_count=container_count,
+            environment=environment,
+            random_seed=random_seeds[0],
+            config_path=resolved_config,
+            root=project_root,
+        )
+    scenario = BenchmarkScenario(
+        scenario_id=f"interactive_i{item_count}_c{container_count}",
+        description=f"Interactive comparison: {item_count} items, {container_count} containers",
+        item_count=item_count,
+        container_count=container_count,
+        tags=("interactive", "same_instance"),
+    )
+    return run_benchmark(
+        level_id=level_id,
+        algorithm_ids=algorithms,
+        item_counts=(item_count,),
+        container_counts=(container_count,),
+        repeats=repeats,
+        seeds=random_seeds,
+        config_path=resolved_config,
+        environment=environment,
+        project_root=project_root,
+        scenarios=(scenario,),
+        suite_id=f"{level_id}_interactive_comparison",
+    )
+
+
 def discover_runs(
     level_id: str,
     *,
@@ -150,6 +227,47 @@ def discover_runs(
             created_at_utc=str(manifest.get("created_at_utc", "")),
             item_count=metrics.get("n_items"),
             container_count=metrics.get("n_containers_available"),
+        ))
+        if len(artifacts) >= limit:
+            break
+    return tuple(artifacts)
+
+
+def discover_benchmark_runs(
+    level_id: str,
+    *,
+    root: str | Path | None = None,
+    limit: int = 50,
+) -> tuple[BenchmarkArtifact, ...]:
+    if limit <= 0:
+        raise ValueError("limit must be positive")
+    get_level(level_id)
+    project_root = _root(root)
+    runs_root = (project_root / "outputs" / level_id / "runs").resolve()
+    if not runs_root.is_dir():
+        return ()
+    artifacts: list[BenchmarkArtifact] = []
+    for manifest_path in sorted(runs_root.glob("*/manifest.json"), key=lambda value: value.stat().st_mtime, reverse=True):
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if manifest.get("level") != level_id or manifest.get("run_type") != "benchmark":
+            continue
+        benchmark_dir = manifest_path.parent / "benchmark"
+        if not (benchmark_dir / "summary.csv").is_file() or not (benchmark_dir / "results.csv").is_file():
+            continue
+        seeds = manifest.get("random_seeds", [])
+        artifacts.append(BenchmarkArtifact(
+            run_id=str(manifest.get("run_id", manifest_path.parent.name)),
+            run_dir=manifest_path.parent,
+            level_id=level_id,
+            status=str(manifest.get("status", "unknown")),
+            created_at_utc=str(manifest.get("created_at_utc", "")),
+            case_count=int(manifest.get("case_count", 0) or 0),
+            successful_case_count=int(manifest.get("successful_case_count", 0) or 0),
+            random_seeds=tuple(int(value) for value in seeds),
+            repeats_per_seed=manifest.get("repeats_per_seed"),
         ))
         if len(artifacts) >= limit:
             break

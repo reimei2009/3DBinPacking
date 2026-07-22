@@ -45,3 +45,22 @@ The promoted rank-1 config is intentionally scoped to the tested 20-item/5-conta
 ```powershell
 python scripts\run_experiment.py --config config/level_01/experiments/extreme_point_simulated_annealing_tuned_i20_c5_local.yaml --items-count 20 --containers-count 5 --seed 42 --non-interactive
 ```
+
+## Fair Level 1 benchmark suite
+
+For a reportable comparison, run the named suite instead of mixing unrelated
+single runs:
+
+```powershell
+python scripts\run_benchmark.py --suite config\level_01\benchmarks\core_local.yaml
+```
+
+Every algorithm receives every named scenario, seed, and repeat. Compare rows
+only within the same `scenario_id` and `input_fingerprint`; the Streamlit
+**So sánh benchmark** tab provides this scenario filter. See
+`docs/design/benchmark_protocol.md` for the complete contract.
+
+The same comparison can be launched from the Streamlit **So sánh benchmark**
+tab. Choose one item/container instance, at least two algorithms, shared seeds,
+and repetitions. The newly created benchmark is selected automatically and its
+quality, runtime, success-rate, and trade-off views appear immediately.

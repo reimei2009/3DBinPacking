@@ -6,6 +6,7 @@ import pytest
 
 from container_packing.benchmarks import run_benchmark
 from container_packing.benchmarks.runner import _aggregate
+from container_packing.benchmarks.suites import BenchmarkScenario, load_benchmark_suite
 from container_packing.data_loader import load_config
 
 
@@ -117,3 +118,39 @@ def test_quality_standard_deviation_is_computed_across_seeds_not_repeats():
     assert summary.run_count == 4
     assert summary.seed_count == 2
     assert summary.repeats_per_seed == 2
+
+
+def test_named_suite_config_declares_a_level_specific_fair_protocol(root: Path):
+    suite = load_benchmark_suite(root / "config/level_01/benchmarks/core_local.yaml")
+
+    assert suite.level_id == "level_01"
+    assert suite.suite_id == "level_01_core_local_v1"
+    assert [value.scenario_id for value in suite.scenarios] == ["small_i10_c3", "medium_i20_c5", "large_i40_c8"]
+    assert len(suite.algorithms) == len(set(suite.algorithms))
+    assert suite.seeds == (7, 11, 19)
+
+
+def test_scenario_rows_share_one_input_fingerprint_across_algorithms(root: Path, tmp_path: Path):
+    config = load_config(root / "config/level_01/default.yaml")
+    config["paths"]["raw_items_csv"] = str(root / "data/raw/dataset_small_items_original.csv")
+    config["paths"]["processed_dir"] = str(tmp_path / "processed/level_01")
+    config["paths"]["manifest_json"] = str(tmp_path / "processed/level_01/latest_manifest.json")
+    config["paths"]["output_root"] = str(tmp_path / "outputs")
+    config_path = tmp_path / "level_01.yaml"
+    config_path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
+    scenario = BenchmarkScenario(
+        scenario_id="fair_mini", description="One shared mini instance", item_count=1, container_count=2,
+        tags=("test", "small"),
+    )
+
+    result = run_benchmark(
+        level_id="level_01", algorithm_ids=["extreme_point_ffd", "extreme_point_best_fit"],
+        item_counts=[1], container_counts=[2], seeds=[7, 11], config_path=config_path,
+        project_root=root, scenarios=[scenario], suite_id="test_fair_suite",
+    )
+
+    assert result.successful
+    assert set(result.results["scenario_id"]) == {"fair_mini"}
+    assert result.results["input_fingerprint"].nunique() == 1
+    assert set(result.summary["suite_id"]) == {"test_fair_suite"}
+    assert result.summary.groupby("scenario_id")["input_fingerprint"].nunique().eq(1).all()
