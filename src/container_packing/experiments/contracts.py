@@ -17,6 +17,8 @@ class ExperimentRequest:
     environment: str = "local"
     random_seed: int | None = None
     algorithm_parameters: dict[str, Any] | None = None
+    item_selection_strategy: str | None = None
+    item_selection_seed: int | None = None
 
 
 @dataclass(frozen=True)

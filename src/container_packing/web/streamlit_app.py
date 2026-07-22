@@ -22,6 +22,7 @@ from container_packing.application.service import (
 )
 from container_packing.data_loader import load_config
 from container_packing.levels.registry import get_level, list_levels
+from container_packing.instance_data import ITEM_SELECTION_STRATEGIES
 from container_packing.runtime.project import find_project_root
 from container_packing.visualization.plotly_3d import (
     DEFAULT_DIMMED_OPACITY,
@@ -274,8 +275,28 @@ def _parse_seed_text(value: str) -> tuple[int, ...]:
     return seeds
 
 
-def _render_benchmark_dashboard(summary: pd.DataFrame, results: pd.DataFrame, language: str) -> None:
+def _render_benchmark_dashboard(
+    summary: pd.DataFrame,
+    results: pd.DataFrame,
+    language: str,
+    *,
+    ranking: pd.DataFrame | None = None,
+    pareto: pd.DataFrame | None = None,
+    milp_gaps: pd.DataFrame | None = None,
+    pairwise: pd.DataFrame | None = None,
+) -> None:
     frame = summary.copy()
+    if ranking is not None and not ranking.empty:
+        derived_columns = ["algorithm", "lexicographic_rank", "is_lexicographic_winner"]
+        ranking_view = ranking[[column for column in derived_columns if column in ranking]].drop_duplicates("algorithm")
+        frame = frame.merge(ranking_view, on="algorithm", how="left")
+    if pareto is not None and not pareto.empty and "is_pareto_optimal" in pareto:
+        pareto_view = pareto[["algorithm", "is_pareto_optimal"]].drop_duplicates("algorithm")
+        frame = frame.merge(pareto_view, on="algorithm", how="left")
+    if milp_gaps is not None and not milp_gaps.empty:
+        gap_columns = ["algorithm", "milp_reference_status", "container_gap_to_milp", "cost_gap_to_milp", "runtime_speedup_vs_milp"]
+        gap_view = milp_gaps[[column for column in gap_columns if column in milp_gaps]].drop_duplicates("algorithm")
+        frame = frame.merge(gap_view, on="algorithm", how="left")
     frame["algorithm_name"] = frame["algorithm"].map(lambda value: get_algorithm(str(value)).name_for(language))
     numeric_columns = (
         "success_rate", "used_containers_mean", "used_containers_std", "total_cost_mean",
@@ -292,8 +313,13 @@ def _render_benchmark_dashboard(summary: pd.DataFrame, results: pd.DataFrame, la
         quality_ties = successful[successful["used_containers_mean"] == best_container_count]
         best_cost = quality_ties["total_cost_mean"].min()
         fastest = successful["algorithm_runtime_mean_seconds"].min()
-        cards = st.columns(4)
+        winner = successful.sort_values(
+            ["success_rate", "used_containers_mean", "total_cost_mean", "algorithm_runtime_mean_seconds"],
+            ascending=[False, True, True, True],
+        ).iloc[0]
+        cards = st.columns(5)
         values = (
+            ("Thuật toán dẫn đầu" if language == "vi" else "Lexicographic winner", winner["algorithm_name"]),
             (t("benchmark_valid_algorithms", language), f"{len(successful)}/{len(frame)}"),
             (t("benchmark_best_containers", language), f"{best_container_count:g}"),
             (t("benchmark_best_cost", language), f"{best_cost:g}"),
@@ -376,7 +402,7 @@ def _render_benchmark_dashboard(summary: pd.DataFrame, results: pd.DataFrame, la
             size="success_rate",
             size_max=28,
             log_x=True,
-            hover_data=["total_cost_mean", "objective_mean", "success_rate"],
+            hover_data=[column for column in ["total_cost_mean", "objective_mean", "success_rate", "lexicographic_rank", "is_pareto_optimal", "container_gap_to_milp"] if column in frame],
             labels={
                 "algorithm_runtime_mean_seconds": t("runtime", language),
                 "used_containers_mean": t("containers_used", language),
@@ -388,9 +414,9 @@ def _render_benchmark_dashboard(summary: pd.DataFrame, results: pd.DataFrame, la
         st.plotly_chart(tradeoff_chart, width="stretch", config={"displaylogo": False})
     with data_tab:
         ranking_columns = [
-            "algorithm_name", "success_rate", "used_containers_mean", "used_containers_std",
+            "lexicographic_rank", "is_lexicographic_winner", "is_pareto_optimal", "algorithm_name", "success_rate", "used_containers_mean", "used_containers_std",
             "total_cost_mean", "total_cost_std", "algorithm_runtime_mean_seconds",
-            "algorithm_runtime_std_seconds", "objective_mean", "distinct_solution_count",
+            "algorithm_runtime_std_seconds", "container_gap_to_milp", "cost_gap_to_milp", "runtime_speedup_vs_milp", "objective_mean", "distinct_solution_count",
         ]
         ranking_columns = [value for value in ranking_columns if value in frame.columns]
         ranking = frame.sort_values(
@@ -399,6 +425,13 @@ def _render_benchmark_dashboard(summary: pd.DataFrame, results: pd.DataFrame, la
         )
         st.dataframe(ranking[ranking_columns], hide_index=True, width="stretch")
         st.caption(t("benchmark_objective_note", language))
+        if "is_pareto_optimal" in frame:
+            pareto_algorithms = frame.loc[frame["is_pareto_optimal"].fillna(False), "algorithm_name"].tolist()
+            if pareto_algorithms:
+                st.caption(("Pareto: " if language == "vi" else "Pareto frontier: ") + ", ".join(pareto_algorithms))
+        if pairwise is not None and not pairwise.empty:
+            with st.expander("So sánh từng cặp" if language == "vi" else "Pairwise comparison"):
+                st.dataframe(pairwise, hide_index=True, width="stretch")
         with st.expander(t("benchmark_raw_results", language)):
             st.dataframe(results, hide_index=True, width="stretch")
 
@@ -441,6 +474,21 @@ def _render_benchmark_comparison(
             t("benchmark_repeats", language), min_value=1, max_value=20, value=1, step=1,
             key="benchmark_repeat_count",
         ))
+        selection_columns = st.columns(2)
+        item_selection_strategy = selection_columns[0].selectbox(
+            t("benchmark_item_selection", language),
+            ITEM_SELECTION_STRATEGIES,
+            format_func=lambda value: t(f"item_selection_{value}", language),
+            key="benchmark_item_selection",
+        )
+        item_selection_seed = int(selection_columns[1].number_input(
+            t("benchmark_selection_seed", language),
+            min_value=0,
+            value=101,
+            step=1,
+            disabled=item_selection_strategy != "stable_random",
+            key="benchmark_selection_seed",
+        ))
         if "milp_big_m" in algorithms:
             st.warning(t("benchmark_milp_warning", language))
         run_benchmark_clicked = st.button(
@@ -460,6 +508,8 @@ def _render_benchmark_comparison(
                         environment=default_environment,
                         config_path=get_level(level_id).default_config,
                         root=root,
+                        item_selection_strategy=item_selection_strategy,
+                        item_selection_seed=item_selection_seed if item_selection_strategy == "stable_random" else None,
                     )
                 st.session_state["pending_benchmark_run_id"] = benchmark_result.benchmark_id
                 if benchmark_result.successful:
@@ -491,6 +541,13 @@ def _render_benchmark_comparison(
     benchmark_dir = selected.run_dir / "benchmark"
     summary = pd.read_csv(benchmark_dir / "summary.csv")
     results = pd.read_csv(benchmark_dir / "results.csv")
+    derived = {
+        name: pd.read_csv(benchmark_dir / filename) if (benchmark_dir / filename).is_file() else pd.DataFrame()
+        for name, filename in {
+            "ranking": "ranking.csv", "pareto": "pareto_frontier.csv",
+            "milp_gaps": "milp_reference_gaps.csv", "pairwise": "pairwise_comparison.csv",
+        }.items()
+    }
 
     st.caption(str(selected.run_dir))
     columns = st.columns(5)
@@ -522,13 +579,16 @@ def _render_benchmark_comparison(
         summary = summary[summary["scenario_id"] == selected_scenario].copy()
         if "scenario_id" in results.columns:
             results = results[results["scenario_id"] == selected_scenario].copy()
+        for name, frame in derived.items():
+            if "scenario_id" in frame.columns:
+                derived[name] = frame[frame["scenario_id"] == selected_scenario].copy()
         if "input_fingerprint" in summary.columns and summary["input_fingerprint"].nunique() != 1:
             st.warning(
                 "Kịch bản này có nhiều input fingerprint; không nên so sánh các dòng này như cùng một điều kiện."
                 if language == "vi" else
                 "This scenario has multiple input fingerprints; do not treat its rows as one comparable condition."
             )
-    _render_benchmark_dashboard(summary, results, language)
+    _render_benchmark_dashboard(summary, results, language, **derived)
 
 
 def main() -> None:

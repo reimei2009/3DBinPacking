@@ -12,6 +12,7 @@ from .algorithms.registry import list_algorithms
 from .data_loader import DataValidationError, load_config
 from .experiments.contracts import ExperimentRequest
 from .experiments.runner import prepare_experiment, run_experiment
+from .instance_data import ITEM_SELECTION_STRATEGIES
 from .levels.registry import get_level, list_levels
 from .reporting import validation_payload
 from .runtime.inputs import positive_int, prompt_choice, prompt_positive
@@ -43,6 +44,8 @@ def _request_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--items-count", type=_positive)
     parser.add_argument("--containers-count", type=_positive)
     parser.add_argument("--seed", type=_non_negative, help="Override project.random_seed for this run")
+    parser.add_argument("--item-selection", choices=ITEM_SELECTION_STRATEGIES, help="Deterministic item subset policy")
+    parser.add_argument("--selection-seed", type=_non_negative, help="Subset seed; required by stable_random")
     parser.add_argument("--environment", choices=("local", "colab", "kaggle"), default=None)
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--interactive", action="store_true", help="Prompt for all experiment inputs")
@@ -86,14 +89,23 @@ def _resolve_request(args: argparse.Namespace) -> ExperimentRequest:
     item_count = args.items_count or int(defaults["item_count"])
     container_count = args.containers_count or int(defaults["container_count"])
     environment = args.environment or "local"
+    item_selection = args.item_selection or str(defaults.get("item_selection_strategy", "prefix"))
+    selection_seed = args.selection_seed if args.selection_seed is not None else defaults.get("item_selection_seed")
     if interactive:
         item_count = prompt_positive("Number of items", item_count)
         container_count = prompt_positive("Number of containers", container_count)
         environment = prompt_choice("Environment", ("local", "colab", "kaggle"), environment)
+        item_selection = prompt_choice("Item selection", ITEM_SELECTION_STRATEGIES, item_selection)
+        if item_selection == "stable_random":
+            selection_seed = prompt_positive(
+                "Item-selection seed", int(selection_seed if selection_seed is not None else 42)
+            )
     return ExperimentRequest(
         level_id=level_id, algorithm_id=algorithm_id, config_path=config_path,
         item_count=item_count, container_count=container_count, environment=environment,
         random_seed=args.seed,
+        item_selection_strategy=item_selection,
+        item_selection_seed=selection_seed,
     )
 
 
@@ -123,6 +135,8 @@ def terminal_preview(result: RunResult, *, placement_limit: int = 20) -> str:
         f"Level        : {metadata.get('level_id')}",
         f"Algorithm    : {metadata.get('algorithm_id')}",
         f"Items        : {metadata.get('n_items')}",
+        f"Item subset  : {metadata.get('item_selection_strategy', 'prefix')}",
+        f"Subset seed  : {metadata.get('item_selection_seed')}",
         f"Containers   : {metadata.get('container_count', 0)} used / {metadata.get('n_containers')} available",
         f"Selected     : {selected}",
         f"Objective    : {metadata.get('objective_value')}",

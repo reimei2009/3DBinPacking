@@ -64,7 +64,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     print("\n=== BENCHMARK SUMMARY ===")
     preview_columns = [
-        "level", "algorithm", "item_count", "container_count", "run_count", "seed_count",
+        "level", "scenario_id", "item_selection_strategy", "algorithm", "item_count", "container_count", "run_count", "seed_count",
         "success_rate", "objective_mean", "objective_std", "used_containers_mean",
         "used_containers_std", "total_cost_mean", "total_cost_std", "distinct_solution_count",
         "algorithm_runtime_mean_seconds",

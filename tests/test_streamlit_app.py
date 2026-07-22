@@ -62,6 +62,11 @@ def test_streamlit_exposes_same_instance_benchmark_controls(root: Path):
     }
     assert "Chạy benchmark so sánh" in {value.label for value in page.button}
     assert "Danh sách seed" in {value.label for value in page.text_input}
+    selection = {value.label: value for value in page.selectbox}["Cách chọn tập items"]
+    assert selection.options == [
+        "Các dòng đầu tiên (tương thích cũ)", "Mẫu ngẫu nhiên xác định",
+        "Trải đều theo thể tích", "Các items thể tích lớn nhất", "Các items nặng nhất",
+    ]
 
 
 def test_streamlit_runs_two_algorithm_same_instance_benchmark(root: Path):

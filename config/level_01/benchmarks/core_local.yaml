@@ -1,9 +1,10 @@
-# Fair Level 1 comparison protocol. Every listed algorithm runs every scenario.
-suite_id: level_01_core_local_v1
+# Scientific Level 1 comparison protocol. Item selection is deterministic and audited.
+suite_id: level_01_core_local_v2
 level_id: level_01
 description: >
   Local CPU benchmark for the Level 1 fixed-orientation, geometry-and-payload
-  contract. Do not compare its rows with a different level or input fingerprint.
+  contract. Each scenario freezes its subset selection; MILP is restricted to
+  the small exact-reference instance.
 config: config/level_01/default.yaml
 environment: local
 algorithms:
@@ -16,18 +17,63 @@ algorithms:
 seeds: [7, 11, 19]
 repeats: 1
 scenarios:
-  - scenario_id: small_i10_c3
-    description: "Small exact-reference case: 10 items and 3 candidate containers."
+  - scenario_id: small_random_i10_c3
+    description: "Small seeded subset used by heuristics and the exact MILP reference."
     item_count: 10
     container_count: 3
-    tags: [small, exact_reference, heterogeneous_containers]
-  - scenario_id: medium_i20_c5
-    description: "Default Level 1 case: 20 items and 5 candidate containers."
+    item_selection: stable_random
+    selection_seed: 101
+    tags: [small, exact_reference, seeded_subset, heterogeneous_containers]
+
+  - scenario_id: medium_random_i20_c5
+    description: "Medium seeded subset for general Level 1 quality comparison."
     item_count: 20
     container_count: 5
-    tags: [medium, default, heterogeneous_containers]
-  - scenario_id: large_i40_c8
-    description: "Larger local-CPU case: 40 items and 8 candidate containers."
+    item_selection: stable_random
+    selection_seed: 202
+    algorithms:
+      - extreme_point_ffd
+      - extreme_point_best_fit
+      - maximal_space_best_fit
+      - extreme_point_hill_climbing
+      - extreme_point_simulated_annealing
+    tags: [medium, seeded_subset, heterogeneous_containers]
+
+  - scenario_id: diverse_volume_i40_c8
+    description: "Forty items spread deterministically across the source volume range."
     item_count: 40
     container_count: 8
-    tags: [large, scalability, heterogeneous_containers]
+    item_selection: volume_stratified
+    algorithms:
+      - extreme_point_ffd
+      - extreme_point_best_fit
+      - maximal_space_best_fit
+      - extreme_point_hill_climbing
+      - extreme_point_simulated_annealing
+    tags: [large, volume_diverse, scalability, heterogeneous_containers]
+
+  - scenario_id: payload_heavy_i40_c8
+    description: "The forty heaviest source items create a payload-stress profile."
+    item_count: 40
+    container_count: 8
+    item_selection: heaviest
+    algorithms:
+      - extreme_point_ffd
+      - extreme_point_best_fit
+      - maximal_space_best_fit
+      - extreme_point_hill_climbing
+      - extreme_point_simulated_annealing
+    tags: [large, payload_heavy, stress, heterogeneous_containers]
+
+  - scenario_id: volume_heavy_i100_c12
+    description: "The one hundred largest-volume source items test local-CPU scalability."
+    item_count: 100
+    container_count: 12
+    item_selection: largest_volume
+    algorithms:
+      - extreme_point_ffd
+      - extreme_point_best_fit
+      - maximal_space_best_fit
+      - extreme_point_hill_climbing
+      - extreme_point_simulated_annealing
+    tags: [large, volume_heavy, scalability, heterogeneous_containers]

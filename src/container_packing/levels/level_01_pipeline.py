@@ -46,6 +46,8 @@ def run_from_config(
     environment: str = "local",
     random_seed: int | None = None,
     algorithm_parameters: dict[str, Any] | None = None,
+    item_selection_strategy: str | None = None,
+    item_selection_seed: int | None = None,
 ) -> RunResult:
     """Prepare, solve, validate, and report one dynamically sized instance."""
     config_file = Path(config_path).resolve()
@@ -57,8 +59,21 @@ def run_from_config(
     root = project_root()
     paths = config["paths"]
     manifest = prepare_instance(
-        root, config, item_count=item_count, container_count=container_count, level_id=level_id
+        root,
+        config,
+        item_count=item_count,
+        container_count=container_count,
+        level_id=level_id,
+        item_selection_strategy=item_selection_strategy,
+        item_selection_seed=item_selection_seed,
     )
+    config.setdefault("instance", {}).update({
+        "item_count": int(manifest["n_items"]),
+        "container_count": int(manifest["n_containers"]),
+        "item_selection_strategy": manifest["item_selection_strategy"],
+        "item_selection_seed": manifest["item_selection_seed"],
+        "selected_item_ids_checksum": manifest["selected_item_ids_checksum"],
+    })
     items_path = resolve_path(root, manifest["items_csv"])
     containers_path = resolve_path(root, manifest["containers_csv"])
     items = load_items(items_path)
@@ -113,6 +128,10 @@ def run_from_config(
         "items_data_status": "public benchmark sample",
         "containers_data_status": "synthetic_level1",
         "cost_note": "Synthetic comparison score; not a real freight price.",
+        "item_selection_strategy": manifest["item_selection_strategy"],
+        "item_selection_seed": manifest["item_selection_seed"],
+        "selected_item_ids_checksum": manifest["selected_item_ids_checksum"],
+        "item_profile": manifest["item_profile"],
     }
     if solve.status not in {"OPTIMAL", "FEASIBLE", "FEASIBLE_TIME_LIMIT"} or len(placements) != len(items):
         if write_outputs and run_dir is not None:

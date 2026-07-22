@@ -18,7 +18,7 @@ Run a repeatable benchmark after the single-run smoke test:
 python scripts\run_benchmark.py --level level_01 --algorithms extreme_point_best_fit extreme_point_ffd maximal_space_best_fit extreme_point_hill_climbing extreme_point_simulated_annealing --item-counts 10 20 --container-counts 3 5 --seeds 7 11 19 --repeats 2
 ```
 
-The total number of cases is `algorithms × item counts × container counts × seeds × repeats`. Inspect `benchmark/results.csv` for every seed/repeat and `benchmark/summary.csv` for grouped runtime, quality variation, compactness, distinct solutions, and success rate.
+The total number of cases is `algorithms × item counts × container counts × seeds × repeats`. Inspect `benchmark/results.csv` for every seed/repeat and `benchmark/summary.csv` for grouped runtime, quality variation, compactness, distinct solutions, and success rate. Then inspect `ranking.csv`, `pairwise_comparison.csv`, `pareto_frontier.csv`, and (only if MILP is fully optimal) `milp_reference_gaps.csv` for the automatic interpretation.
 
 Run the Maximal Empty Spaces constructive heuristic directly:
 
@@ -55,8 +55,17 @@ single runs:
 python scripts\run_benchmark.py --suite config\level_01\benchmarks\core_local.yaml
 ```
 
-Every algorithm receives every named scenario, seed, and repeat. Compare rows
-only within the same `scenario_id` and `input_fingerprint`; the Streamlit
+Every enabled algorithm receives the exact frozen subset, seeds, and repeats
+for its named scenario. Compare rows
+only within the same `scenario_id` and `input_fingerprint`; scenario policy
+keeps MILP on the small exact-reference case. For a quick five-profile smoke
+run, override the suite algorithm list:
+
+```powershell
+python scripts\run_benchmark.py --suite config\level_01\benchmarks\core_local.yaml --algorithms extreme_point_ffd --seeds 7
+```
+
+The Streamlit
 **So sánh benchmark** tab provides this scenario filter. See
 `docs/design/benchmark_protocol.md` for the complete contract.
 

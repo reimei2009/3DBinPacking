@@ -77,6 +77,17 @@ Output đầy đủ nằm tại `outputs/<level_id>/runs/<run_id>/`. Xem hướn
 
 ## Benchmark
 
+Chạy bộ instance Level 1 chuẩn (MILP chỉ chạy case nhỏ; các phương pháp nhẹ
+chạy thêm các profile random, đa dạng thể tích, nặng tải và lớn thể tích):
+
+```powershell
+python scripts\run_benchmark.py --suite config\level_01\benchmarks\core_local.yaml
+```
+
+Mỗi scenario lưu chiến lược chọn item, seed chọn tập, danh sách ID, checksum và
+thống kê profile. Vì vậy chỉ các dòng có cùng `scenario_id` và
+`input_fingerprint` mới được so sánh trực tiếp.
+
 Chạy một ma trận benchmark có thể tái lập:
 
 ```powershell
@@ -84,6 +95,11 @@ python scripts\run_benchmark.py --level level_01 --algorithms extreme_point_best
 ```
 
 `--seeds` là các seed thí nghiệm khác nhau; `--repeats` là số lần đo lại cho từng seed. Ví dụ trên chạy `5 thuật toán × 2 item counts × 2 container counts × 5 seeds × 2 repeats = 200` case. Mỗi case tạo experiment run riêng. Bảng tổng hợp được lưu trong một benchmark run riêng dưới `outputs/level_01/runs/<benchmark_id>/benchmark/`.
+
+Sau mỗi benchmark, xem `ranking.csv` (xếp hạng Level 1: hợp lệ → ít
+container → chi phí → runtime), `pairwise_comparison.csv`,
+`pareto_frontier.csv`, và `milp_reference_gaps.csv`. File cuối chỉ có ý nghĩa
+khi MILP đã chứng minh `OPTIMAL` cho toàn bộ lần chạy cùng scenario.
 
 ## Parameter sweep
 

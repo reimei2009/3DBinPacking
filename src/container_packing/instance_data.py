@@ -3,12 +3,22 @@
 from __future__ import annotations
 
 import json
+import hashlib
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
 
+from .provenance import sha256_file
+
 SOURCE_URL = "https://github.com/MRVSmartNetworks/container_loading_heuristics/tree/main/data/dataset_small"
+ITEM_SELECTION_STRATEGIES = (
+    "prefix",
+    "stable_random",
+    "volume_stratified",
+    "largest_volume",
+    "heaviest",
+)
 
 
 def resolve_count(value: int | None, fallback: Any, label: str) -> int:
@@ -33,6 +43,106 @@ def _portable_path(root: Path, value: Path) -> str:
         return value.relative_to(root).as_posix()
     except ValueError:
         return str(value.resolve())
+
+
+def _selection_checksum(item_ids: list[str]) -> str:
+    payload = json.dumps(item_ids, ensure_ascii=True, separators=(",", ":"))
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def select_item_rows(
+    source: pd.DataFrame,
+    item_count: int,
+    *,
+    strategy: str = "prefix",
+    seed: int | None = None,
+) -> pd.DataFrame:
+    """Select an immutable ordered subset using a documented deterministic policy."""
+    if strategy not in ITEM_SELECTION_STRATEGIES:
+        raise ValueError(
+            f"Unsupported item selection strategy {strategy!r}; expected one of {', '.join(ITEM_SELECTION_STRATEGIES)}"
+        )
+    required = {"id_item"}
+    if strategy in {"volume_stratified", "largest_volume"}:
+        required.update({"length", "width", "height"})
+    if strategy == "heaviest":
+        required.add("weight")
+    missing = sorted(required - set(source.columns))
+    if missing:
+        raise ValueError(f"Item selection {strategy!r} requires raw columns: {', '.join(missing)}")
+    if item_count <= 0 or item_count > len(source):
+        raise ValueError(f"item_count must be between 1 and {len(source)}, got {item_count}")
+    indexed = source.reset_index(drop=False).rename(columns={"index": "_source_row"}).copy()
+    if strategy == "prefix":
+        selected = indexed.head(item_count)
+    elif strategy == "stable_random":
+        if seed is None or int(seed) < 0:
+            raise ValueError("stable_random item selection requires a non-negative selection seed")
+        selected = indexed.assign(_selection_rank=indexed.apply(
+            lambda row: hashlib.sha256(
+                f"{int(seed)}:{int(row['_source_row'])}:{row['id_item']}".encode("utf-8")
+            ).hexdigest(),
+            axis=1,
+        )).sort_values(["_selection_rank", "_source_row"]).head(item_count)
+    else:
+        indexed["_volume_mm3"] = (
+            pd.to_numeric(indexed["length"])
+            * pd.to_numeric(indexed["width"])
+            * pd.to_numeric(indexed["height"])
+        )
+        indexed["_weight_kg"] = pd.to_numeric(indexed["weight"])
+        if strategy == "largest_volume":
+            selected = indexed.sort_values(
+                ["_volume_mm3", "id_item", "_source_row"], ascending=[False, True, True]
+            ).head(item_count)
+        elif strategy == "heaviest":
+            selected = indexed.sort_values(
+                ["_weight_kg", "id_item", "_source_row"], ascending=[False, True, True]
+            ).head(item_count)
+        else:
+            ranked = indexed.sort_values(["_volume_mm3", "id_item", "_source_row"]).reset_index(drop=True)
+            if item_count == 1:
+                positions = [(len(ranked) - 1) // 2]
+            else:
+                positions = [round(index * (len(ranked) - 1) / (item_count - 1)) for index in range(item_count)]
+            selected = ranked.iloc[positions]
+    return selected.sort_values("_source_row").drop(
+        columns=["_source_row", "_selection_rank", "_volume_mm3", "_weight_kg"], errors="ignore"
+    ).reset_index(drop=True)
+
+
+def item_selection_fingerprint(
+    source_path: Path,
+    item_count: int,
+    *,
+    strategy: str = "prefix",
+    seed: int | None = None,
+) -> dict[str, Any]:
+    """Return the exact deterministic item identity used by benchmark comparison."""
+    source = pd.read_csv(source_path, encoding="utf-8-sig")
+    selected = select_item_rows(source, item_count, strategy=strategy, seed=seed)
+    item_ids = selected["id_item"].astype(str).tolist()
+    return {
+        "raw_items_checksum": sha256_file(source_path),
+        "selected_item_ids": item_ids,
+        "selected_item_ids_checksum": _selection_checksum(item_ids),
+        "selection_strategy": strategy,
+        "selection_seed": seed,
+    }
+
+
+def _item_profile(items: pd.DataFrame) -> dict[str, Any]:
+    volume = items["length_mm"] * items["width_mm"] * items["height_mm"]
+    return {
+        "total_volume_mm3": float(volume.sum()),
+        "volume_mm3_min": float(volume.min()),
+        "volume_mm3_mean": float(volume.mean()),
+        "volume_mm3_max": float(volume.max()),
+        "weight_kg_min": float(items["weight_kg"].min()),
+        "weight_kg_mean": float(items["weight_kg"].mean()),
+        "weight_kg_max": float(items["weight_kg"].max()),
+        "unique_dimension_triples": int(items[["length_mm", "width_mm", "height_mm"]].drop_duplicates().shape[0]),
+    }
 
 
 def _container_definitions(config: dict[str, Any], requested: int) -> list[dict[str, Any]]:
@@ -64,6 +174,8 @@ def prepare_instance(
     item_count: int | None = None,
     container_count: int | None = None,
     level_id: str = "level_01",
+    item_selection_strategy: str | None = None,
+    item_selection_seed: int | None = None,
 ) -> dict[str, Any]:
     """Prepare one requested instance and return its manifest.
 
@@ -90,7 +202,11 @@ def prepare_instance(
     if requested_items > len(source):
         raise ValueError(f"Requested {requested_items} items but raw data contains only {len(source)} rows")
 
-    items = source.head(requested_items).copy()
+    strategy = str(item_selection_strategy or settings.get("item_selection_strategy", "prefix"))
+    configured_selection_seed = settings.get("item_selection_seed")
+    selection_seed = configured_selection_seed if item_selection_seed is None else item_selection_seed
+    selection_seed = None if selection_seed is None else int(selection_seed)
+    items = select_item_rows(source, requested_items, strategy=strategy, seed=selection_seed)
     actual_items = len(items)
     items.insert(0, "level1_order", range(1, actual_items + 1))
     items = items.rename(columns={
@@ -98,9 +214,14 @@ def prepare_instance(
         "weight": "weight_kg", "nesting_height": "nesting_height_mm",
     })
     items["used_in_level1"] = 1
-    items["level1_note"] = (
-        f"First {actual_items} rows of public dataset_small; advanced fields ignored in Level 1"
-    )
+    selection_notes = {
+        "prefix": f"First {actual_items} rows of public dataset_small",
+        "stable_random": f"Stable hash sample of {actual_items} rows using selection seed {selection_seed}",
+        "volume_stratified": f"{actual_items} rows distributed across the public dataset_small volume range",
+        "largest_volume": f"{actual_items} largest-volume rows of public dataset_small",
+        "heaviest": f"{actual_items} heaviest rows of public dataset_small",
+    }
+    items["level1_note"] = f"{selection_notes[strategy]}; advanced fields ignored in Level 1"
     items["source_url"] = SOURCE_URL
 
     rows = []
@@ -123,11 +244,15 @@ def prepare_instance(
         })
     containers = pd.DataFrame(rows)
     actual_containers = len(containers)
+    selection_token = strategy if selection_seed is None else f"{strategy}_seed{selection_seed}"
     run_id = instance_id(actual_items, actual_containers, level_id)
+    if strategy != "prefix":
+        run_id = f"{run_id}__{selection_token}"
 
     processed = _path(root, paths["processed_dir"])
     processed.mkdir(parents=True, exist_ok=True)
-    items_path = processed / f"items_{actual_items}.csv"
+    items_suffix = "" if strategy == "prefix" else f"__{selection_token}"
+    items_path = processed / f"items_{actual_items}{items_suffix}.csv"
     containers_path = processed / f"containers_{actual_containers}types.csv"
     items.to_csv(items_path, index=False, encoding="utf-8-sig")
     containers.to_csv(containers_path, index=False, encoding="utf-8-sig")
@@ -140,6 +265,12 @@ def prepare_instance(
         "containers_csv": _portable_path(root, containers_path),
         "source_url": SOURCE_URL,
         "items_note": items["level1_note"].iloc[0],
+        "raw_items_checksum": sha256_file(raw_path),
+        "item_selection_strategy": strategy,
+        "item_selection_seed": selection_seed,
+        "selected_item_ids": items["id_item"].astype(str).tolist(),
+        "selected_item_ids_checksum": _selection_checksum(items["id_item"].astype(str).tolist()),
+        "item_profile": _item_profile(items),
     }
     latest_manifest = _path(root, paths.get("manifest_json", "data/processed/level1_manifest.json"))
     manifests_dir = processed / "manifests"

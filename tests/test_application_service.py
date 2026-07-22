@@ -109,12 +109,15 @@ def test_interactive_benchmark_uses_one_shared_instance(root: Path, tmp_path: Pa
         repeats=1,
         config_path=config_path,
         root=root,
+        item_selection_strategy="stable_random",
+        item_selection_seed=101,
     )
 
     assert result.successful
     assert set(result.results["algorithm"]) == {"extreme_point_ffd", "extreme_point_best_fit"}
     assert set(result.results["scenario_id"]) == {"interactive_i1_c2"}
     assert result.results["input_fingerprint"].nunique() == 1
+    assert set(result.results["item_selection_strategy"]) == {"stable_random"}
 
 
 def test_interactive_benchmark_requires_two_algorithms(root: Path):
