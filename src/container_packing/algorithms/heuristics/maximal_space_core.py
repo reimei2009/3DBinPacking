@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from ..feasibility import FixedOrientationFeasibilityPolicy, PlacementFeasibilityPolicy
+from ..orientation import fixed_orientation_provider
+from ...geometry.orientation import OrientedDimensions
 from ...schemas import Container, Item, Placement
 
 
@@ -42,6 +44,7 @@ class MaximalSpaceStats:
     empty_spaces_generated: int = 0
     empty_spaces_pruned: int = 0
     maximum_active_spaces: int = 0
+    orientation_candidates_evaluated: int = 0
 
 
 @dataclass
@@ -188,15 +191,15 @@ def feasible_in_state(
     space: EmptySpace,
     tolerance: float = 1e-6,
     policy: PlacementFeasibilityPolicy | None = None,
+    dimensions: OrientedDimensions | None = None,
 ) -> bool:
-    if not item_fits_space(item, space, tolerance):
+    candidate = candidate_placement(state, item, space, dimensions)
+    if (
+        candidate.length_mm > space.length_mm + tolerance
+        or candidate.width_mm > space.width_mm + tolerance
+        or candidate.height_mm > space.height_mm + tolerance
+    ):
         return False
-    candidate = Placement(
-        item_id=item.item_id, container_id=state.container.container_id,
-        x_mm=space.x_mm, y_mm=space.y_mm, z_mm=space.z_mm,
-        length_mm=item.length_mm, width_mm=item.width_mm, height_mm=item.height_mm,
-        weight_kg=item.weight_kg,
-    )
     selected_policy = policy or FixedOrientationFeasibilityPolicy()
     return selected_policy.allows(
         state.container, state.placements, candidate,
@@ -204,19 +207,44 @@ def feasible_in_state(
     )
 
 
+def candidate_placement(
+    state: MaximalSpaceContainerState,
+    item: Item,
+    space: EmptySpace,
+    dimensions: OrientedDimensions | None = None,
+) -> Placement:
+    """Create one canonical placement at a maximal-space origin."""
+    selected = dimensions or fixed_orientation_provider().candidates(item)[0]
+    return Placement(
+        item_id=item.item_id,
+        container_id=state.container.container_id,
+        x_mm=space.x_mm,
+        y_mm=space.y_mm,
+        z_mm=space.z_mm,
+        length_mm=selected.length_mm,
+        width_mm=selected.width_mm,
+        height_mm=selected.height_mm,
+        weight_kg=item.weight_kg,
+        orientation_code=selected.code,
+    )
+
+
 def place_item(
     state: MaximalSpaceContainerState, item: Item, space: EmptySpace,
+    stats: MaximalSpaceStats, tolerance: float = 1e-6, dimensions: OrientedDimensions | None = None,
+) -> Placement:
+    placement = candidate_placement(state, item, space, dimensions)
+    return place_candidate(state, placement, stats, tolerance)
+
+
+def place_candidate(
+    state: MaximalSpaceContainerState, placement: Placement,
     stats: MaximalSpaceStats, tolerance: float = 1e-6,
 ) -> Placement:
-    placement = Placement(
-        item_id=item.item_id, container_id=state.container.container_id,
-        x_mm=space.x_mm, y_mm=space.y_mm, z_mm=space.z_mm,
-        length_mm=item.length_mm, width_mm=item.width_mm, height_mm=item.height_mm,
-        weight_kg=item.weight_kg,
-    )
+    """Commit one feasibility-checked maximal-space candidate."""
     state.placements.append(placement)
-    state.loaded_weight_kg += item.weight_kg
-    state.loaded_volume_mm3 += item.length_mm * item.width_mm * item.height_mm
+    state.loaded_weight_kg += placement.weight_kg
+    state.loaded_volume_mm3 += placement.length_mm * placement.width_mm * placement.height_mm
     state.empty_spaces, generated, pruned = update_maximal_spaces(
         state.empty_spaces, placement, tolerance,
     )
@@ -228,13 +256,18 @@ def place_item(
 
 def occupied_bounding_volume(
     placements: list[Placement], item: Item | None = None, space: EmptySpace | None = None,
+    candidate: Placement | None = None,
 ) -> float:
-    if not placements and item is None:
+    if not placements and item is None and candidate is None:
         return 0.0
     max_x = max((value.x_mm + value.length_mm for value in placements), default=0.0)
     max_y = max((value.y_mm + value.width_mm for value in placements), default=0.0)
     max_z = max((value.z_mm + value.height_mm for value in placements), default=0.0)
-    if item is not None and space is not None:
+    if candidate is not None:
+        max_x = max(max_x, candidate.x_mm + candidate.length_mm)
+        max_y = max(max_y, candidate.y_mm + candidate.width_mm)
+        max_z = max(max_z, candidate.z_mm + candidate.height_mm)
+    elif item is not None and space is not None:
         max_x = max(max_x, space.x_mm + item.length_mm)
         max_y = max(max_y, space.y_mm + item.width_mm)
         max_z = max(max_z, space.z_mm + item.height_mm)

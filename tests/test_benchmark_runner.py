@@ -172,6 +172,67 @@ def test_level2_ffd_promotion_suite_declares_profile_matrix_and_repeats(root: Pa
     }
 
 
+def test_level3_ffd_baseline_suite_declares_deterministic_orientation_protocol(root: Path):
+    suite = load_benchmark_suite(root / "config/level_03/benchmarks/ffd_baseline_local.yaml")
+
+    assert suite.level_id == "level_03"
+    assert suite.suite_id == "level_03_ffd_baseline_local_v1"
+    assert suite.algorithms == ("extreme_point_ffd",)
+    assert suite.seeds == (42,)
+    assert suite.repeats == 3
+    assert [scenario.scenario_id for scenario in suite.scenarios] == [
+        "sanity_prefix_i3_c2", "practical_prefix_i20_c5", "stable_random_101_i20_c5",
+        "diverse_volume_i40_c8", "scale_prefix_i100_c12",
+    ]
+
+
+def test_level3_core_heuristic_suite_compares_only_shared_level3_inputs(root: Path):
+    suite = load_benchmark_suite(root / "config/level_03/benchmarks/core_heuristics_local.yaml")
+
+    assert suite.level_id == "level_03"
+    assert suite.suite_id == "level_03_core_heuristics_local_v1"
+    assert suite.algorithms == (
+        "extreme_point_ffd", "extreme_point_best_fit", "extreme_point_hill_climbing",
+        "extreme_point_simulated_annealing", "maximal_space_best_fit",
+    )
+    assert suite.repeats == 3
+    assert suite.scenarios[0].algorithm_ids == suite.algorithms
+    assert suite.scenarios[-1].algorithm_ids == (
+        "extreme_point_ffd", "extreme_point_best_fit", "maximal_space_best_fit",
+    )
+
+
+def test_level3_ffd_repeats_persist_horizontal_orientation_profile(root: Path, tmp_path: Path):
+    config = load_config(root / "config/level_03/default.yaml")
+    config["paths"].update({
+        "raw_items_csv": str(root / "data/raw/dataset_small_items_original.csv"),
+        "processed_dir": str(tmp_path / "processed/level_03"),
+        "manifest_json": str(tmp_path / "processed/level_03/latest_manifest.json"),
+        "output_root": str(tmp_path / "outputs"),
+    })
+    config_path = tmp_path / "level_03.yaml"
+    config_path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
+    scenario = BenchmarkScenario(
+        "orientation_determinism", "Repeated horizontal-orientation FFD", 3, 2,
+        algorithm_ids=("extreme_point_ffd",),
+    )
+    result = run_benchmark(
+        level_id="level_03", algorithm_ids=["extreme_point_ffd"],
+        item_counts=[3], container_counts=[2], seeds=[42], repeats=3,
+        config_path=config_path, project_root=root, scenarios=[scenario],
+        suite_id="orientation_determinism_test",
+    )
+
+    assert result.successful
+    assert result.results["placement_signature"].nunique() == 1
+    assert result.results["objective_value"].nunique() == 1
+    assert set(result.results["orientation_profile"]) == {"horizontal_rotatable"}
+    assert set(result.results["feasibility_policy"]) == {
+        "horizontal_orientation_geometry_payload_exact_support",
+    }
+    assert result.results["orientation_candidates_evaluated"].min() >= 3
+
+
 def test_level2_ffd_repeats_are_deterministic_on_same_input(root: Path, tmp_path: Path):
     config = load_config(root / "config/level_02/default.yaml")
     config["paths"]["raw_items_csv"] = str(root / "data/raw/dataset_small_items_original.csv")

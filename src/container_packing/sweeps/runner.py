@@ -39,6 +39,14 @@ class ParameterSweepResult:
         return bool(len(self.results)) and bool(self.results["success"].all())
 
 
+@dataclass(frozen=True)
+class SweepParameterSet:
+    parameter_set_id: str
+    algorithm_parameters: dict[str, Any]
+    config_overrides: dict[str, Any]
+    display_values: dict[str, Any]
+
+
 def _positive(values: Sequence[int], name: str) -> tuple[int, ...]:
     parsed = tuple(int(value) for value in values)
     if not parsed or any(value <= 0 for value in parsed):
@@ -55,37 +63,85 @@ def _seeds(values: Sequence[int]) -> tuple[int, ...]:
     return parsed
 
 
-def _parameter_sets(
-    grid: Mapping[str, Sequence[Any]], allowed: set[str], max_parameter_sets: int,
-) -> list[tuple[str, dict[str, Any]]]:
-    if not grid:
-        raise ValueError("sweep.parameters must define at least one parameter")
-    unknown = sorted(set(grid) - allowed)
-    if unknown:
-        raise ValueError(f"Unknown algorithm parameters: {', '.join(unknown)}")
-    names = list(grid)
-    value_lists: list[list[Any]] = []
-    for name in names:
-        if isinstance(grid[name], (str, bytes)) or not isinstance(grid[name], Sequence):
+def _validated_grid(grid: Mapping[str, Sequence[Any]], label: str) -> dict[str, list[Any]]:
+    if not isinstance(grid, Mapping):
+        raise ValueError(f"{label} must be a YAML mapping")
+    values_by_name: dict[str, list[Any]] = {}
+    for name, raw_values in grid.items():
+        if isinstance(raw_values, (str, bytes)) or not isinstance(raw_values, Sequence):
             raise ValueError(f"Parameter {name!r} values must be a YAML list")
-        values = list(grid[name])
+        values = list(raw_values)
         if not values:
             raise ValueError(f"Parameter {name!r} must contain at least one value")
         signatures = [json.dumps(value, sort_keys=True) for value in values]
         if len(set(signatures)) != len(signatures):
             raise ValueError(f"Parameter {name!r} contains duplicate values")
-        value_lists.append(values)
+        values_by_name[str(name)] = values
+    return values_by_name
+
+
+def _config_override_template(base_config: Mapping[str, Any], path: str) -> tuple[str, ...]:
+    parts = tuple(part for part in path.split(".") if part)
+    if not parts or ".".join(parts) != path:
+        raise ValueError(f"Invalid config parameter path: {path!r}")
+    if parts[0] not in {"model", "support", "solver", "validation"}:
+        raise ValueError(
+            f"Config parameter {path!r} must be under model, support, solver, or validation"
+        )
+    current: Any = base_config
+    for part in parts:
+        if not isinstance(current, Mapping) or part not in current:
+            raise ValueError(f"Unknown config parameter: {path}")
+        current = current[part]
+    if isinstance(current, Mapping):
+        raise ValueError(f"Config parameter {path!r} must target a scalar value")
+    return parts
+
+
+def _set_nested_value(target: dict[str, Any], parts: tuple[str, ...], value: Any) -> None:
+    current = target
+    for part in parts[:-1]:
+        current = current.setdefault(part, {})
+    current[parts[-1]] = value
+
+
+def _parameter_sets(
+    algorithm_grid: Mapping[str, Sequence[Any]],
+    config_grid: Mapping[str, Sequence[Any]],
+    allowed_algorithm_parameters: set[str],
+    base_config: Mapping[str, Any],
+    max_parameter_sets: int,
+) -> list[SweepParameterSet]:
+    if not algorithm_grid and not config_grid:
+        raise ValueError("sweep must define parameters or config_parameters")
+    grid = _validated_grid(algorithm_grid, "sweep.parameters")
+    config_values = _validated_grid(config_grid, "sweep.config_parameters")
+    unknown = sorted(set(grid) - allowed_algorithm_parameters)
+    if unknown:
+        raise ValueError(f"Unknown algorithm parameters: {', '.join(unknown)}")
+    config_paths = {name: _config_override_template(base_config, name) for name in config_values}
+    names = [*grid, *config_values]
+    value_lists = [*grid.values(), *config_values.values()]
     count = 1
     for values in value_lists:
         count *= len(values)
     if count > max_parameter_sets:
         raise ValueError(f"Parameter grid creates {count} sets, above max_parameter_sets={max_parameter_sets}")
-    sets: list[tuple[str, dict[str, Any]]] = []
+    sets: list[SweepParameterSet] = []
     for index, values in enumerate(product(*value_lists), start=1):
-        parameters = dict(zip(names, values, strict=True))
-        canonical = json.dumps(parameters, sort_keys=True, separators=(",", ":"))
+        display_values = dict(zip(names, values, strict=True))
+        algorithm_parameters = {name: display_values[name] for name in grid}
+        config_overrides: dict[str, Any] = {}
+        for name, parts in config_paths.items():
+            _set_nested_value(config_overrides, parts, display_values[name])
+        canonical = json.dumps({
+            "algorithm_parameters": algorithm_parameters,
+            "config_overrides": config_overrides,
+        }, sort_keys=True, separators=(",", ":"))
         fingerprint = sha256(canonical.encode("utf-8")).hexdigest()[:8]
-        sets.append((f"p{index:03d}_{fingerprint}", parameters))
+        sets.append(SweepParameterSet(
+            f"p{index:03d}_{fingerprint}", algorithm_parameters, config_overrides, display_values,
+        ))
     return sets
 
 
@@ -159,7 +215,8 @@ def run_parameter_sweep(
         raise ValueError(f"Unsupported environment {environment!r}")
     sweep = definition.get("sweep", {})
     parameter_values = _parameter_sets(
-        sweep.get("parameters", {}), set(base_settings), int(sweep.get("max_parameter_sets", 100)),
+        sweep.get("parameters", {}), sweep.get("config_parameters", {}),
+        set(base_settings), base_config, int(sweep.get("max_parameter_sets", 100)),
     )
 
     output_value = Path(str(base_config.get("paths", {}).get("output_root", "outputs")))
@@ -170,7 +227,10 @@ def run_parameter_sweep(
     sweep_dir.mkdir(parents=True)
     log_path.parent.mkdir(parents=True)
 
-    parameter_rows = [{"parameter_set_id": identifier, **values} for identifier, values in parameter_values]
+    parameter_rows = [
+        {"parameter_set_id": value.parameter_set_id, **value.display_values}
+        for value in parameter_values
+    ]
     parameter_frame = pd.DataFrame(parameter_rows)
     request_payload = {
         "schema_version": OUTPUT_SCHEMA_VERSION,
@@ -181,6 +241,7 @@ def run_parameter_sweep(
         "environment": environment, "parameter_set_count": len(parameter_values),
         "case_count": len(parameter_values) * len(resolved_items) * len(resolved_containers) * len(resolved_seeds) * resolved_repeats,
         "parameters": sweep.get("parameters", {}),
+        "config_parameters": sweep.get("config_parameters", {}),
     }
     write_json(sweep_dir / "request.json", request_payload)
     parameter_frame.to_csv(sweep_dir / "parameter_sets.csv", index=False, encoding="utf-8")
@@ -192,7 +253,7 @@ def run_parameter_sweep(
     append_event(log_path, "parameter_sweep_started", sweep_id=sweep_id, **request_payload)
 
     rows: list[dict[str, Any]] = []
-    for parameter_set_id, parameters in parameter_values:
+    for parameter_set in parameter_values:
         for item_count in resolved_items:
             for container_count in resolved_containers:
                 for random_seed in resolved_seeds:
@@ -201,10 +262,11 @@ def run_parameter_sweep(
                             level_id=level_id, algorithm_id=algorithm_id, config_path=base_file,
                             item_count=item_count, container_count=container_count,
                             environment=environment, random_seed=random_seed,
-                            algorithm_parameters=parameters,
+                            algorithm_parameters=parameter_set.algorithm_parameters,
+                            config_overrides=parameter_set.config_overrides,
                         )
                         row = {
-                            "sweep_id": sweep_id, "parameter_set_id": parameter_set_id,
+                            "sweep_id": sweep_id, "parameter_set_id": parameter_set.parameter_set_id,
                             **execute_experiment_case(request, repeat_index),
                         }
                         rows.append(row)

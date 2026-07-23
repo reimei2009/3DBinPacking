@@ -45,6 +45,20 @@ Run the deterministic FFD promotion matrix manually:
 python scripts\run_benchmark.py --suite config\level_02\benchmarks\ffd_baseline_local.yaml
 ```
 
+Run the Level 2 support-threshold sensitivity sweep manually. It runs FFD for
+the same 20-item/5-container instance at $\alpha=0.80$, $0.90$, and $1.00$;
+each value is repeated three times only to measure runtime and verify the
+deterministic placement signature:
+
+```powershell
+python scripts\run_parameter_sweep.py --config config\level_02\sweeps\support_threshold_local.yaml
+```
+
+Read `sweep/parameter_sets.csv` for the tested $\alpha$ values,
+`sweep/summary.csv` for quality/runtime, and `sweep/results.csv` for the
+linked independently validated runs. Do not compare the alpha variants as if
+they had identical feasible regions; the purpose is sensitivity analysis.
+
 The suite repeats each frozen subset three times. For deterministic FFD,
 identical placement signatures verify reproducibility; random experiment seeds
 are not interpreted as independent search trajectories.

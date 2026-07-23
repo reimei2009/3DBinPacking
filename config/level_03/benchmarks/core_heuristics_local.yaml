@@ -1,0 +1,51 @@
+# Fair Level 3 comparison: every row within a scenario shares the same input.
+# Run manually only; this suite includes local-search/metaheuristic cases.
+suite_id: level_03_core_heuristics_local_v1
+level_id: level_03
+description: >
+  Compare all Level 3 heuristic/metaheuristic solvers under the same
+  horizontal-orientation and exact-support contract. Repeats check
+  reproducibility for a fixed seed and measure timing variation.
+config: config/level_03/default.yaml
+environment: local
+algorithms:
+  - extreme_point_ffd
+  - extreme_point_best_fit
+  - extreme_point_hill_climbing
+  - extreme_point_simulated_annealing
+  - maximal_space_best_fit
+seeds: [42]
+repeats: 3
+scenarios:
+  - scenario_id: orientation_smoke_i3_c2
+    description: "Small common scenario for all five methods."
+    item_count: 3
+    container_count: 2
+    item_selection: prefix
+    tags: [smoke, deterministic, horizontal_orientation, support]
+
+  - scenario_id: practical_prefix_i20_c5
+    description: "Practical common scenario for all five methods; run manually."
+    item_count: 20
+    container_count: 5
+    item_selection: prefix
+    tags: [practical, comparison, horizontal_orientation, support]
+
+  - scenario_id: stable_random_101_i20_c5
+    description: "Stable random common scenario; run manually."
+    item_count: 20
+    container_count: 5
+    item_selection: stable_random
+    selection_seed: 101
+    tags: [practical, comparison, stable_random, horizontal_orientation, support]
+
+  - scenario_id: scale_i50_c8
+    description: "Scale comparison for constructive methods; run manually."
+    item_count: 50
+    container_count: 8
+    item_selection: volume_stratified
+    algorithms:
+      - extreme_point_ffd
+      - extreme_point_best_fit
+      - maximal_space_best_fit
+    tags: [scale, constructive, volume_diverse, horizontal_orientation, support]

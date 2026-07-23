@@ -1,0 +1,12 @@
+extends: ../default.yaml
+project:
+  algorithm_id: milp_big_m
+instance:
+  item_count: 3
+  container_count: 2
+solver:
+  # Exact orientation reference only; dispatcher rejects more than five items.
+  time_limit_seconds: 60
+  mip_rel_gap: 0.0
+  presolve: true
+  display: false

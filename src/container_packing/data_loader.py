@@ -155,6 +155,9 @@ def load_placements(path: str | Path) -> list[Placement]:
     placements: list[Placement] = []
     for idx, row in frame.iterrows():
         line = int(idx) + 2
+        orientation_code = row["orientation_code"].strip() if "orientation_code" in frame.columns else "XYZ"
+        if not orientation_code:
+            raise DataValidationError(f"{csv_path}: row {line}, column orientation_code: empty value")
         placements.append(Placement(
             item_id=row["item_id"].strip(), container_id=row["container_id"].strip(),
             x_mm=_number(row, "x_mm", csv_path, line, positive=False),
@@ -164,5 +167,6 @@ def load_placements(path: str | Path) -> list[Placement]:
             width_mm=_number(row, "width_mm", csv_path, line),
             height_mm=_number(row, "height_mm", csv_path, line),
             weight_kg=_number(row, "weight_kg", csv_path, line),
+            orientation_code=orientation_code,
         ))
     return placements

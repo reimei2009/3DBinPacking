@@ -100,6 +100,7 @@ def _input_fingerprint(
         "containers": config.get("containers", []),
         "model": config.get("model", {}),
         "support": config.get("support", {}),
+        "orientation": config.get("orientation", {}),
     }
     import hashlib
     import json
@@ -155,6 +156,8 @@ def execute_experiment_case(request: ExperimentRequest, repeat_index: int) -> di
         "feasibility_policy": metadata.get("feasibility_policy"),
         "support_threshold": metadata.get("support_threshold"),
         "minimum_exact_support_ratio": metadata.get("minimum_exact_support_ratio"),
+        "orientation_profile": metadata.get("orientation_profile"),
+        "orientation_candidates_evaluated": metadata.get("orientation_candidates_evaluated"),
     }
 
 
@@ -162,7 +165,8 @@ def aggregate_results(frame: pd.DataFrame, *, extra_group_keys: Sequence[str] = 
     """Aggregate runtime over repeats and quality over one value per seed."""
     frame = frame.copy()
     for column in (
-        "feasibility_policy", "support_threshold", "minimum_exact_support_ratio",
+        "feasibility_policy", "support_threshold", "minimum_exact_support_ratio", "orientation_profile",
+        "orientation_candidates_evaluated",
     ):
         if column not in frame:
             frame[column] = None
@@ -180,6 +184,8 @@ def aggregate_results(frame: pd.DataFrame, *, extra_group_keys: Sequence[str] = 
         distinct_solution_count=("placement_signature", "nunique"),
         feasibility_policy=("feasibility_policy", "first"),
         support_threshold=("support_threshold", "first"),
+        orientation_profile=("orientation_profile", "first"),
+        orientation_candidates_evaluated_mean=("orientation_candidates_evaluated", "mean"),
     )
     per_seed = frame.groupby([*keys, "random_seed"], sort=True, dropna=False).agg(
         objective_value=("objective_value", "mean"),

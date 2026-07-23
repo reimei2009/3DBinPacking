@@ -42,6 +42,7 @@ def test_streamlit_app_runs_valid_experiment_and_renders_3d(root: Path):
     assert selects["Chế độ hiển thị"].options == ["Rõ khối", "Cân bằng", "X-Ray"]
     sliders = {value.label: value for value in page.slider}
     assert sliders["Độ đục của kiện"].value == 0.92
+    assert not any(value.key == "level_02_support_threshold" for value in page.number_input)
     assert {value.label for value in page.multiselect} >= {"Ẩn các kiện"}
     item_selector = next(value for value in page.selectbox if "I0006" in value.options)
     item_selector.set_value("I0006").run()
@@ -126,3 +127,18 @@ def test_streamlit_exposes_level2_support_contract(root: Path):
     latex_values = [value.value for value in page.latex]
     assert any(r"Gf_{ik}+\sum_{j\ne i,p,q}s_{ijkpq}" in value for value in latex_values)
     assert page.info
+
+
+def test_streamlit_exposes_level3_constructive_solvers_and_orientation_contract(root: Path):
+    app = root / "src/container_packing/web/streamlit_app.py"
+    page = AppTest.from_file(str(app), default_timeout=30).run()
+    level = next(value for value in page.selectbox if value.key == "level_id")
+    level.set_value("level_03").run()
+
+    assert not page.exception
+    algorithms = next(value for value in page.selectbox if value.key == "algorithm_id")
+    assert len(algorithms.options) == 5
+    assert algorithms.value == "extreme_point_ffd"
+    threshold = next(value for value in page.number_input if value.key == "level_03_support_threshold")
+    assert threshold.value == 0.8
+    assert any(r"\sum_{o\in O_i}r_{io}=1" in value.value for value in page.latex)

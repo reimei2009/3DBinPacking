@@ -2,7 +2,10 @@ import pytest
 
 from container_packing.algorithms.heuristics.extreme_point_best_fit import solve_level1
 from container_packing.algorithms.heuristics.extreme_point_ffd import solve_level1 as solve_ffd
+from container_packing.algorithms.feasibility import ExactSupportFeasibilityPolicy
+from container_packing.algorithms.orientation import horizontal_orientation_provider
 from container_packing.levels.level_01_validation import validate_solution
+from container_packing.levels.level_03_validation import validate_solution as validate_level3
 from container_packing.metrics import packing_tiebreak_metrics
 from container_packing.schemas import Container, Item
 
@@ -52,3 +55,29 @@ def test_best_fit_rejects_invalid_subset_limit():
     items, containers = compactness_fixture()
     with pytest.raises(ValueError, match="subset_enumeration_limit"):
         solve_level1(items, containers, {"subset_enumeration_limit": 0})
+
+
+def test_best_fit_uses_horizontal_orientation_when_fixed_orientation_cannot_fit():
+    item = Item("A", 8, 12, 5, 1)
+    containers = [Container("C", 12, 8, 5, 10, 1, volume_m3=0.00000048)]
+
+    outcome = solve_level1([item], containers, orientation_provider=horizontal_orientation_provider())
+
+    assert outcome.solve.status == "FEASIBLE"
+    assert outcome.placements[0].orientation_code == "YXZ"
+    assert validate_level3([item], containers, outcome.placements).result.valid
+    assert outcome.metadata["orientation_candidates_evaluated"] >= 2
+
+
+def test_best_fit_passes_rotated_candidates_through_exact_support_policy():
+    items = [Item("BOTTOM", 10, 20, 5, 1), Item("TOP", 10, 20, 5, 1)]
+    containers = [Container("C", 20, 10, 10, 10, 1, volume_m3=0.000002)]
+    outcome = solve_level1(
+        items, containers,
+        policy=ExactSupportFeasibilityPolicy(0.8, 1e-4),
+        orientation_provider=horizontal_orientation_provider(),
+    )
+
+    assert outcome.solve.status == "FEASIBLE"
+    assert {placement.orientation_code for placement in outcome.placements} == {"YXZ"}
+    assert validate_level3(items, containers, outcome.placements).result.valid

@@ -12,7 +12,7 @@ from ..experiments.contracts import (
     MathematicalExpression,
     VariableDefinition,
 )
-from . import level_01, level_02
+from . import level_01, level_02, level_03
 
 _LEVELS = {
     "level_01": LevelDefinition(
@@ -320,6 +320,105 @@ _LEVELS["level_02"] = LevelDefinition(
         solution_claim=LocalizedText(
             vi="Nghiệm hợp lệ về hình học, tải trọng và hỗ trợ đáy theo giả định Level 2.",
             en="A geometry, payload, and base-support-feasible solution under Level 2 assumptions.",
+        ),
+    ),
+)
+
+
+_LEVEL_02_CONTRACT = _LEVELS["level_02"].contract
+_LEVELS["level_03"] = LevelDefinition(
+    level_id="level_03",
+    description="Horizontal item orientation plus Level 2 geometric support constraints",
+    default_config=Path("config/level_03/default.yaml"),
+    supported_algorithms=(
+        "milp_big_m", "extreme_point_ffd", "extreme_point_best_fit", "extreme_point_hill_climbing",
+        "extreme_point_simulated_annealing",
+        "maximal_space_best_fit",
+    ),
+    run=level_03.run,
+    prepare=level_03.prepare,
+    validate_run=level_03.validate_run,
+    contract=LevelContract(
+        title=LocalizedText(
+            vi="Level 3 — Xoay ngang và ràng buộc hỗ trợ hình học",
+            en="Level 3 — Horizontal orientation and geometric support",
+        ),
+        problem=LocalizedText(
+            vi="Kế thừa Level 2 và cho phép mỗi kiện giữ nguyên hoặc hoán đổi chiều dài, chiều rộng; chiều cao luôn giữ theo trục đứng.",
+            en="Extend Level 2 by allowing each item to keep or swap its horizontal length and width, while height always remains vertical.",
+        ),
+        notation=_LEVEL_02_CONTRACT.notation + (
+            MathematicalExpression(
+                "orientation_set",
+                LocalizedText(vi="Tập orientation ngang", en="Horizontal orientation set"),
+                r"O_i\subseteq\{XYZ,YXZ\},\quad r_{io}\in\{0,1\}",
+                LocalizedText(
+                    vi="Mỗi kiện dùng profile synthetic để chọn các hướng ngang được phép.",
+                    en="Each item uses the declared synthetic profile to select permitted horizontal orientations.",
+                ),
+                "src/container_packing/algorithms/orientation.py::ProfileOrientationProvider",
+            ),
+        ),
+        objective=_LEVEL_02_CONTRACT.objective,
+        variables=_LEVEL_02_CONTRACT.variables + (
+            VariableDefinition(
+                "r[i,o]", r"r_{io}\in\{0,1\}", LocalizedText(vi="Nhị phân", en="Binary"),
+                LocalizedText(vi="kiện i, hướng ngang o", en="item i, horizontal orientation o"),
+                LocalizedText(
+                    vi="Bằng 1 khi kiện i chọn hướng o; FFD lưu mã chọn trong placement.orientation_code.",
+                    en="Equals 1 when item i chooses o; FFD records the choice in placement.orientation_code.",
+                ),
+                "src/container_packing/algorithms/orientation.py::ProfileOrientationProvider; schemas.py::Placement.orientation_code",
+            ),
+        ),
+        active_constraints=_LEVEL_02_CONTRACT.active_constraints + (
+            ConstraintDefinition(
+                "horizontal_orientation_selection",
+                LocalizedText(vi="Chọn đúng một orientation", en="Select exactly one orientation"),
+                r"\sum_{o\in O_i}r_{io}=1\quad\forall i\in I",
+                LocalizedText(
+                    vi="Mỗi kiện chọn XYZ hoặc YXZ; đáy vuông được khử trùng lặp.",
+                    en="Each item selects XYZ or YXZ; duplicate orientations are removed for square bases.",
+                ),
+                "src/container_packing/geometry/orientation.py::allowed_orientation_codes",
+            ),
+            ConstraintDefinition(
+                "orientation_dependent_dimensions",
+                LocalizedText(vi="Kích thước phụ thuộc orientation", en="Orientation-dependent dimensions"),
+                r"(\ell'_i,w'_i,h'_i)=\sum_{o\in O_i}(\ell_{io},w_{io},h_{io})r_{io}",
+                LocalizedText(
+                    vi="Chỉ chiều dài và chiều rộng có thể hoán đổi; chiều cao không đổi.",
+                    en="Only length and width may swap; height is unchanged.",
+                ),
+                "src/container_packing/geometry/orientation.py::oriented_dimensions",
+            ),
+        ),
+        inactive_constraints=tuple(LocalizedText(vi=vi, en=en) for vi, en in (
+            ("xoay làm đổi trục đứng", "vertical-axis rotation"),
+            ("độ bền chịu tải", "load bearing"), ("truyền tải trọng", "load transfer"),
+            ("ổn định vật lý đầy đủ", "full physical stability"), ("khả năng chồng", "stackability"),
+            ("lồng kiện", "nesting"), ("hàng dễ vỡ", "fragility"),
+            ("trọng tâm", "center of gravity"), ("thứ tự xếp/dỡ", "loading/unloading order"),
+        )),
+        assumptions=_LEVEL_02_CONTRACT.assumptions + (
+            LocalizedText(
+                vi="forced_orientation của dữ liệu nguồn chưa có mapping đã xác minh; profile orientation hiện là synthetic và được lưu trong manifest.",
+                en="The source forced_orientation field has no verified mapping; the active orientation profile is synthetic and persisted in the manifest.",
+            ),
+        ),
+        limitations=(
+            LocalizedText(
+                vi="FFD là default thực tế; MILP orientation chỉ là exact reference cho instance nhỏ (tối đa 5 kiện).",
+                en="FFD is the practical default; orientation MILP is an exact reference for small instances only (up to 5 items).",
+            ),
+            LocalizedText(
+                vi="Support hình học không chứng minh ổn định cơ học hoặc khả năng chịu tải.",
+                en="Geometric support does not prove mechanical stability or load-bearing capacity.",
+            ),
+        ),
+        solution_claim=LocalizedText(
+            vi="Nghiệm hợp lệ về hình học, tải trọng, support đáy và xoay ngang theo giả định Level 3.",
+            en="A geometry, payload, base-support, and horizontal-orientation-feasible solution under Level 3 assumptions.",
         ),
     ),
 )

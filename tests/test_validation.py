@@ -25,3 +25,33 @@ def test_detects_missing_duplicate_unknown_bounds_and_weight():
     bad = [replace(placements[0], x_mm=-1, weight_kg=99), placements[0], replace(placements[1], item_id="X")]
     codes = {issue.code for issue in validate_solution(items, containers, bad).issues}
     assert {"DUPLICATE_ITEM", "MISSING_ITEM", "UNKNOWN_ITEM", "NEGATIVE_COORDINATE", "WEIGHT_MISMATCH", "OVERWEIGHT"} <= codes
+
+
+def test_fixed_levels_reject_horizontal_orientation_even_with_swapped_dimensions():
+    items = [Item("A", 10, 20, 30, 2)]
+    containers = [Container("C", 20, 20, 30, 5, 1, volume_m3=0.000012)]
+    placements = [Placement("A", "C", 0, 0, 0, 20, 10, 30, 2, "YXZ")]
+
+    result = validate_solution(items, containers, placements)
+
+    assert "UNSUPPORTED_ORIENTATION" in {issue.code for issue in result.issues}
+
+
+def test_horizontal_profile_validates_swapped_dimensions_without_moving_height():
+    items = [Item("A", 10, 20, 30, 2)]
+    containers = [Container("C", 20, 20, 30, 5, 1, volume_m3=0.000012)]
+    placements = [Placement("A", "C", 0, 0, 0, 20, 10, 30, 2, "YXZ")]
+
+    result = validate_solution(items, containers, placements, orientation_profile="horizontal_rotatable")
+
+    assert result.valid
+
+
+def test_orientation_dimension_mismatch_is_rejected():
+    items = [Item("A", 10, 20, 30, 2)]
+    containers = [Container("C", 20, 20, 30, 5, 1, volume_m3=0.000012)]
+    placements = [Placement("A", "C", 0, 0, 0, 20, 10, 20, 2, "YXZ")]
+
+    result = validate_solution(items, containers, placements, orientation_profile="horizontal_rotatable")
+
+    assert "DIMENSION_MISMATCH" in {issue.code for issue in result.issues}

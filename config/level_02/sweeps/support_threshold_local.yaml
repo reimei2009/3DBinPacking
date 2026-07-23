@@ -1,0 +1,19 @@
+project:
+  level_id: level_02
+  algorithm_id: extreme_point_ffd
+
+base_config: config/level_02/default.yaml
+
+instance:
+  item_counts: [20]
+  container_counts: [5]
+
+execution:
+  environment: local
+  seeds: [42]
+  repeats: 3
+
+sweep:
+  max_parameter_sets: 3
+  config_parameters:
+    support.threshold: [0.80, 0.90, 1.00]

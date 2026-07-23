@@ -1,5 +1,8 @@
 from container_packing.algorithms.heuristics.extreme_point_ffd import solve_level1
+from container_packing.algorithms.orientation import horizontal_orientation_provider
+from container_packing.algorithms.feasibility import ExactSupportFeasibilityPolicy
 from container_packing.levels.level_01_validation import validate_solution
+from container_packing.levels.level_03_validation import validate_solution as validate_level3
 from container_packing.schemas import Container, Item
 
 
@@ -32,3 +35,32 @@ def test_no_packing_is_not_reported_as_proven_infeasible():
     assert outcome.solve.status == "INFEASIBLE_HEURISTIC"
     assert outcome.placements == []
     assert outcome.metadata["optimality_proven"] is False
+
+
+def test_horizontal_orientation_provider_finds_solution_that_fixed_orientation_cannot():
+    item = Item("A", 8, 12, 5, 1)
+    containers = [Container("C", 12, 8, 5, 10, 1, volume_m3=0.00000048)]
+
+    fixed = solve_level1([item], containers)
+    rotated = solve_level1([item], containers, orientation_provider=horizontal_orientation_provider())
+
+    assert fixed.solve.status == "INFEASIBLE_HEURISTIC"
+    assert rotated.solve.status == "FEASIBLE"
+    assert rotated.placements[0].orientation_code == "YXZ"
+    assert validate_level3([item], containers, rotated.placements).result.valid
+    assert rotated.metadata["orientation_profile"] == "horizontal_rotatable"
+
+
+def test_horizontal_ffd_passes_rotated_candidates_through_exact_support_policy():
+    items = [Item("BOTTOM", 10, 20, 5, 1), Item("TOP", 10, 20, 5, 1)]
+    containers = [Container("C", 20, 10, 10, 10, 1, volume_m3=0.000002)]
+    outcome = solve_level1(
+        items,
+        containers,
+        policy=ExactSupportFeasibilityPolicy(0.8, 1e-4),
+        orientation_provider=horizontal_orientation_provider(),
+    )
+
+    assert outcome.solve.status == "FEASIBLE"
+    assert {placement.orientation_code for placement in outcome.placements} == {"YXZ"}
+    assert validate_level3(items, containers, outcome.placements).result.valid

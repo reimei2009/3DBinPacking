@@ -83,3 +83,44 @@ def test_parameter_sweep_rejects_unknown_and_excessive_grids(root: Path, tmp_pat
     }, max_sets=3)
     with pytest.raises(ValueError, match="above max_parameter_sets"):
         run_parameter_sweep(excessive, project_root=root)
+
+
+def test_parameter_sweep_supports_level_config_parameters(root: Path, tmp_path: Path):
+    base = load_config(root / "config/level_02/default.yaml")
+    base["paths"]["raw_items_csv"] = str(root / "data/raw/dataset_small_items_original.csv")
+    base["paths"]["processed_dir"] = str(tmp_path / "processed/level_02")
+    base["paths"]["manifest_json"] = str(tmp_path / "processed/level_02/latest_manifest.json")
+    base["paths"]["output_root"] = str(tmp_path / "outputs")
+    base_file = tmp_path / "level_02_base.yaml"
+    base_file.write_text(yaml.safe_dump(base, sort_keys=False), encoding="utf-8")
+    definition = {
+        "project": {"level_id": "level_02", "algorithm_id": "extreme_point_ffd"},
+        "base_config": str(base_file),
+        "instance": {"item_counts": [1], "container_counts": [2]},
+        "execution": {"environment": "local", "seeds": [7], "repeats": 1},
+        "sweep": {
+            "max_parameter_sets": 2,
+            "config_parameters": {"support.threshold": [0.8, 0.9]},
+        },
+    }
+    sweep_file = tmp_path / "level_02_support_sweep.yaml"
+    sweep_file.write_text(yaml.safe_dump(definition, sort_keys=False), encoding="utf-8")
+
+    result = run_parameter_sweep(sweep_file, project_root=root)
+
+    assert result.successful
+    assert set(result.parameter_sets["support.threshold"]) == {0.8, 0.9}
+    assert set(result.results["support_threshold"]) == {0.8, 0.9}
+    for row in result.results.itertuples():
+        resolved = yaml.safe_load((Path(row.experiment_run_dir) / "resolved_config.yaml").read_text(encoding="utf-8"))
+        assert resolved["support"]["threshold"] == row.support_threshold
+
+
+def test_parameter_sweep_rejects_unknown_config_parameter(root: Path, tmp_path: Path):
+    path = write_sweep(root, tmp_path, {"max_iterations": [1]})
+    definition = yaml.safe_load(path.read_text(encoding="utf-8"))
+    definition["sweep"]["config_parameters"] = {"paths.output_root": ["outputs"]}
+    path.write_text(yaml.safe_dump(definition, sort_keys=False), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="must be under model, support, solver, or validation"):
+        run_parameter_sweep(path, project_root=root)
