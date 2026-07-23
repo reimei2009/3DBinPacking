@@ -1,0 +1,26 @@
+.git/
+.venv/
+.pytest_cache/
+.pytest-tmp/
+.pytest-work/
+.jupyter/
+**/__pycache__/
+**/*.py[cod]
+*.egg-info/
+
+# Runtime artifacts are regenerated inside the running container.
+outputs/
+data/interim/
+data/processed/
+
+# Not required to build or serve the demo image.
+notebooks/
+tests/
+docs/
+prompts/
+.agents/
+.idea/
+.vscode/
+*.ipynb
+.env
+.env.*
