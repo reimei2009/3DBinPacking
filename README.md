@@ -143,6 +143,16 @@ python scripts\run_parameter_sweep.py --item-counts 20 30 --container-counts 5 -
 
 Grid YAML hiện so sánh `initial_temperature`, `cooling_rate` và `max_iterations`. Kết quả đầy đủ nằm tại `outputs/level_01/runs/<sweep_id>/sweep/`; xem `ranking.csv` và `best_parameters.json`. Rank 1 chỉ là tốt nhất trong grid/instance/seed đã thử, không phải bằng chứng tối ưu toàn cục.
 
+Level 2 cũng có sweep cấu hình cho ngưỡng support $\alpha$ của FFD. Lệnh này
+chạy thủ công vì tạo chín experiment run:
+
+```powershell
+python scripts\run_parameter_sweep.py --config config\level_02\sweeps\support_threshold_local.yaml
+```
+
+`sweep.config_parameters` dùng đường dẫn config như `support.threshold`; mọi
+giá trị được lưu trong resolved config của từng run.
+
 Config rank 1 đã được lưu riêng, không ghi đè default:
 
 ```powershell
