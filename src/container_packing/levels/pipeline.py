@@ -8,7 +8,7 @@ from time import perf_counter
 from typing import Any, Callable
 
 from ..algorithms.contracts import AlgorithmOutcome
-from ..data_loader import load_config, load_containers, load_items
+from ..data_loader import load_config, load_containers, load_items, merge_config
 from ..instance_data import prepare_instance
 from ..reporting import write_run_outputs, write_status_outputs
 from ..runtime.project import find_project_root
@@ -55,11 +55,13 @@ def run_configured_level(
     environment: str = "local",
     random_seed: int | None = None,
     algorithm_parameters: dict[str, Any] | None = None,
+    config_overrides: dict[str, Any] | None = None,
     item_selection_strategy: str | None = None,
     item_selection_seed: int | None = None,
 ) -> RunResult:
     config_file = Path(config_path).resolve()
     config = load_config(config_file)
+    config = merge_config(config, dict(config_overrides or {}))
     seed = int(config.get("project", {}).get("random_seed", 42) if random_seed is None else random_seed)
     if seed < 0:
         raise ValueError(f"random_seed must be zero or greater, got {seed}")
@@ -110,7 +112,8 @@ def run_configured_level(
         "run_id": run_id, "run_dir": _display_path(root, run_dir), "level_id": level_id,
         "algorithm_id": algorithm_id, "environment": environment,
         "config_file": _display_path(root, config_file), "random_seed": seed,
-        "algorithm_parameters": overrides, "algorithm_runtime_seconds": runtime,
+        "algorithm_parameters": overrides, "config_overrides": dict(config_overrides or {}),
+        "algorithm_runtime_seconds": runtime,
         "algorithm_role": strategy.algorithm_roles.get(algorithm_id),
         "failure_interpretation": (
             "search_failure_not_mathematical_infeasibility_proof"

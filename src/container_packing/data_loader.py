@@ -39,6 +39,11 @@ def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any
     return merged
 
 
+def merge_config(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
+    """Return a nested configuration merge without mutating either input."""
+    return _deep_merge(base, override)
+
+
 def load_config(path: str | Path, *, _chain: tuple[Path, ...] = ()) -> dict[str, Any]:
     config_path = Path(path)
     try:

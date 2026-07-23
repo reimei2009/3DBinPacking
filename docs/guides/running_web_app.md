@@ -28,9 +28,14 @@ python scripts/run_web_app.py
 
 ## Workflow
 
-1. Select an implemented level. Only `level_01` is currently available.
+1. Select an implemented level (`level_01` or `level_02`).
 2. Select a compatible algorithm.
 3. Enter item count, container count, seed, environment metadata, and algorithm-specific settings.
+   In Level 2, the **Minimum supported-area ratio α** control overrides
+   `support.threshold` for that one run. Its valid range is `0.01` to `1.00`;
+   the default is `0.80`. The selected value is written to the run's
+   `resolved_config.yaml` and manifest metadata. Base-center support remains
+   mandatory under the Level 2 contract.
 4. Click **Run experiment**.
 5. Review solver status and independent validation status.
 6. Inspect the combined scene or one used container.

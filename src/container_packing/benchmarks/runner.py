@@ -12,7 +12,7 @@ import pandas as pd
 import yaml
 
 from ..algorithms.registry import get_algorithm
-from ..data_loader import load_config
+from ..data_loader import load_config, merge_config
 from ..experiments.contracts import ExperimentRequest
 from ..experiments.runner import run_experiment
 from ..instance_data import item_selection_fingerprint
@@ -239,6 +239,7 @@ def run_benchmark(
     scenarios: Sequence[BenchmarkScenario] | None = None,
     suite_id: str | None = None,
     suite_source_path: str | Path | None = None,
+    config_overrides: dict[str, Any] | None = None,
 ) -> BenchmarkResult:
     """Execute all requested combinations and retain failures as benchmark rows."""
     if repeats <= 0:
@@ -274,6 +275,7 @@ def run_benchmark(
     selected_config = Path(config_path) if config_path is not None else level.default_config
     config_file = _resolve(root, selected_config)
     config = load_config(config_file)
+    config = merge_config(config, dict(config_overrides or {}))
     raw_items_path = _resolve(root, config["paths"]["raw_items_csv"])
     scenario_selections = {
         scenario.scenario_id: item_selection_fingerprint(
@@ -335,6 +337,7 @@ def run_benchmark(
         "random_seeds": list(random_seeds),
         "environment": environment,
         "config_file": str(config_file),
+        "config_overrides": dict(config_overrides or {}),
     }
     write_json(benchmark_dir / "request.json", request_payload)
     resolved_config_path = run_dir / "resolved_config.yaml"
@@ -351,6 +354,7 @@ def run_benchmark(
                     level_id=level_id, algorithm_id=algorithm_id, config_path=config_file,
                     item_count=scenario.item_count, container_count=scenario.container_count, environment=environment,
                     random_seed=random_seed,
+                    config_overrides=dict(config_overrides or {}),
                     item_selection_strategy=scenario.item_selection_strategy,
                     item_selection_seed=scenario.item_selection_seed,
                 )
