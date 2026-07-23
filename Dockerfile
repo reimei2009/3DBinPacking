@@ -12,6 +12,8 @@ WORKDIR /app
 # application code changes.
 COPY pyproject.toml README.md ./
 COPY requirements.txt ./
+# setuptools must see the package source while resolving `.[web]`.
+COPY src ./src
 RUN pip install --upgrade pip && pip install ".[web]"
 
 COPY . .
