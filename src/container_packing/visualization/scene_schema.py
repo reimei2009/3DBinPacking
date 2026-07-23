@@ -23,6 +23,16 @@ LEVEL_02_WARNING_VI = (
 )
 
 
+LEVEL_03_WARNING = (
+    "Level 3 geometry/payload/base-support solution with horizontal orientation only; "
+    "load-bearing, load transfer, and full physical stability are not modeled."
+)
+LEVEL_03_WARNING_VI = (
+    "Nghiệm Level 3 hợp lệ về hình học, tải trọng, hỗ trợ đáy và xoay ngang; chưa mô hình hóa "
+    "độ bền chịu tải, truyền tải và ổn định vật lý đầy đủ."
+)
+
+
 class SceneValidationError(ValueError):
     """Raised when a scene does not satisfy the public visualization contract."""
 
@@ -71,7 +81,7 @@ def build_scene(
                     "height": float(item.height_mm),
                 },
                 "weight_kg": float(item.weight_kg),
-                "orientation": "fixed",
+                "orientation": item.orientation_code,
                 "metadata": {},
             } for item in group],
         })
@@ -81,10 +91,16 @@ def build_scene(
         "level": level_id,
         "algorithm": algorithm_id,
         "validation_status": validation_status,
-        "warning": LEVEL_01_WARNING if level_id == "level_01" else LEVEL_02_WARNING if level_id == "level_02" else "Refer to the active level contract.",
+        "warning": (
+            LEVEL_01_WARNING if level_id == "level_01" else LEVEL_02_WARNING if level_id == "level_02"
+            else LEVEL_03_WARNING if level_id == "level_03" else "Refer to the active level contract."
+        ),
         "warnings": {
             "vi": LEVEL_01_WARNING_VI if level_id == "level_01" else LEVEL_02_WARNING_VI if level_id == "level_02" else "Xem contract của level đang hoạt động.",
-            "en": LEVEL_01_WARNING if level_id == "level_01" else LEVEL_02_WARNING if level_id == "level_02" else "Refer to the active level contract.",
+            "en": (
+                LEVEL_01_WARNING if level_id == "level_01" else LEVEL_02_WARNING if level_id == "level_02"
+                else LEVEL_03_WARNING if level_id == "level_03" else "Refer to the active level contract."
+            ),
         },
         "containers": scene_containers,
     }
@@ -141,6 +157,9 @@ def validate_scene(scene: dict[str, Any]) -> None:
             item_dimensions = item.get("dimensions_mm", {})
             for axis in ("length", "width", "height"):
                 _positive_number(item_dimensions.get(axis), f"{item_id}.dimensions_mm.{axis}")
+            orientation = item.get("orientation")
+            if not isinstance(orientation, str) or not orientation:
+                raise SceneValidationError(f"{item_id}.orientation must be a non-empty string")
 
 
 def load_scene(path: str | Path) -> dict[str, Any]:

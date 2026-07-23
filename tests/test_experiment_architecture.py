@@ -13,7 +13,7 @@ from container_packing.runtime.inputs import prompt_choice, prompt_positive
 
 
 def test_registry_only_exposes_runnable_implementations():
-    assert [value.level_id for value in list_levels()] == ["level_01", "level_02"]
+    assert [value.level_id for value in list_levels()] == ["level_01", "level_02", "level_03"]
     assert [value.algorithm_id for value in list_algorithms(level_id="level_01")] == [
         "extreme_point_best_fit", "extreme_point_ffd", "extreme_point_hill_climbing",
         "extreme_point_simulated_annealing", "maximal_space_best_fit", "milp_big_m",
@@ -32,6 +32,12 @@ def test_registry_only_exposes_runnable_implementations():
         "extreme_point_hill_climbing", "extreme_point_simulated_annealing",
         "maximal_space_best_fit",
     )
+    assert [value.algorithm_id for value in list_algorithms(level_id="level_03")] == ["extreme_point_ffd"]
+    assert get_level("level_03").supported_algorithms == ("extreme_point_ffd",)
+    assert {value.symbol for value in get_level("level_03").contract.variables} >= {"r[i,o]"}
+    assert {value.constraint_id for value in get_level("level_03").contract.active_constraints} >= {
+        "horizontal_orientation_selection", "orientation_dependent_dimensions",
+    }
     assert get_level("level_02").contract.objective == get_level("level_01").contract.objective
     assert {value.symbol for value in get_level("level_02").contract.variables} >= {
         "floor[i,k]", "support_point[i,j,k,p,q]", "center_support[i,j,k]",
@@ -62,10 +68,14 @@ def test_shared_interactive_inputs_are_not_level_specific():
 def test_config_inheritance(root):
     level1_default = load_config(root / "config/level_01/default.yaml")
     level2_default = load_config(root / "config/level_02/default.yaml")
+    level3_default = load_config(root / "config/level_03/default.yaml")
     assert level1_default["algorithms"] == level2_default["algorithms"]
     assert level2_default["support"]["threshold"] == 0.8
     assert level1_default["project"]["algorithm_id"] == "milp_big_m"
     assert level2_default["project"]["algorithm_id"] == "extreme_point_ffd"
+    assert level3_default["project"]["level_id"] == "level_03"
+    assert level3_default["model"]["allow_rotation"] is True
+    assert level3_default["orientation"]["profile"] == "horizontal_rotatable"
     reference = load_config(root / "config/level_02/experiments/milp_big_m_reference.yaml")
     assert reference["project"]["algorithm_id"] == "milp_big_m"
     assert reference["instance"] == {
@@ -103,6 +113,15 @@ def test_config_inheritance(root):
 def test_level2_cli_uses_configured_ffd_when_algorithm_is_omitted():
     args = _parser().parse_args([
         "run", "--level", "level_02", "--items-count", "3",
+        "--containers-count", "2", "--non-interactive",
+    ])
+    request = _resolve_request(args)
+    assert request.algorithm_id == "extreme_point_ffd"
+
+
+def test_level3_cli_uses_configured_ffd_when_algorithm_is_omitted():
+    args = _parser().parse_args([
+        "run", "--level", "level_03", "--items-count", "3",
         "--containers-count", "2", "--non-interactive",
     ])
     request = _resolve_request(args)

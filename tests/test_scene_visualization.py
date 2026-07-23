@@ -44,6 +44,7 @@ def test_scene_contains_versioned_geometry_and_utilization(tmp_path):
     assert scene["schema_version"] == "1.0"
     assert scene["coordinate_system"]["origin"] == "lower-left-back"
     assert container["utilization"]["item_count"] == 1
+    assert container["items"][0]["orientation"] == "XYZ"
     assert container["utilization"]["weight_pct"] == pytest.approx(10)
     assert container["utilization"]["volume_pct"] == pytest.approx(5)
     assert scene["warnings"]["vi"].startswith("Nghiệm Level 1")
@@ -67,6 +68,16 @@ def test_level2_scene_uses_support_specific_non_stability_warning():
     )
     assert "base-support" in scene["warnings"]["en"]
     assert "full physical stability" in scene["warnings"]["en"]
+
+
+def test_level3_scene_warns_that_horizontal_orientation_is_not_full_stability():
+    containers = [Container("C01", 100, 80, 60, 50, 10, volume_m3=0.00048)]
+    placements = [Placement("I0001", "C01", 0, 0, 0, 30, 20, 40, 5, "YXZ")]
+    scene = build_scene(
+        placements, containers, level_id="level_03", algorithm_id="extreme_point_ffd", validation_status="VALID",
+    )
+    assert scene["containers"][0]["items"][0]["orientation"] == "YXZ"
+    assert "horizontal orientation only" in scene["warnings"]["en"]
 
 
 def test_plotly_renderer_is_deterministic_and_exports_views(tmp_path):

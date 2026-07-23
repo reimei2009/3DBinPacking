@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections import Counter, defaultdict
 from itertools import combinations
 
+from ..geometry.orientation import allowed_orientation_codes, oriented_dimensions
 from ..schemas import Container, Item, Placement, ValidationIssue, ValidationResult
 
 
@@ -20,7 +21,14 @@ def boxes_intersect(a: Placement, b: Placement, eps: float = 1e-4) -> bool:
 def validate_solution(
     items: list[Item], containers: list[Container], placements: list[Placement],
     *, coordinate_tolerance: float = 1e-4, weight_tolerance: float = 1e-6,
+    orientation_profile: str = "fixed",
 ) -> ValidationResult:
+    """Independently validate placements for an explicit orientation profile.
+
+    Levels 1 and 2 retain the default ``fixed`` profile.  The optional
+    horizontal profile is an inactive, reusable validation seam for a future
+    level; it does not activate rotation in either existing level.
+    """
     issues: list[ValidationIssue] = []
     item_map = {item.item_id: item for item in items}
     container_map = {container.container_id: container for container in containers}
@@ -43,9 +51,31 @@ def validate_solution(
         by_container[placement.container_id].append(placement)
         if item is None:
             continue
-        for field in ("length_mm", "width_mm", "height_mm"):
-            if abs(getattr(placement, field) - getattr(item, field)) > coordinate_tolerance:
-                issues.append(ValidationIssue("DIMENSION_MISMATCH", f"{placement.item_id}: {field} does not match input", (placement.item_id,), placement.container_id))
+        allowed_codes = allowed_orientation_codes(
+            orientation_profile, item.length_mm, item.width_mm, item.height_mm
+        )
+        if placement.orientation_code not in allowed_codes:
+            allowed = ", ".join(allowed_codes)
+            issues.append(ValidationIssue(
+                "UNSUPPORTED_ORIENTATION",
+                f"{placement.item_id}: orientation {placement.orientation_code!r} is not allowed; expected one of {allowed}",
+                (placement.item_id,),
+                placement.container_id,
+            ))
+        else:
+            expected = oriented_dimensions(
+                item.length_mm, item.width_mm, item.height_mm, placement.orientation_code
+            )
+            for field, expected_value in zip(
+                ("length_mm", "width_mm", "height_mm"), expected.as_tuple(), strict=True
+            ):
+                if abs(getattr(placement, field) - expected_value) > coordinate_tolerance:
+                    issues.append(ValidationIssue(
+                        "DIMENSION_MISMATCH",
+                        f"{placement.item_id}: {field} does not match orientation {placement.orientation_code}",
+                        (placement.item_id,),
+                        placement.container_id,
+                    ))
         if abs(placement.weight_kg - item.weight_kg) > weight_tolerance:
             issues.append(ValidationIssue("WEIGHT_MISMATCH", f"{placement.item_id}: weight does not match input", (placement.item_id,), placement.container_id))
         if min(placement.x_mm, placement.y_mm, placement.z_mm) < -coordinate_tolerance:

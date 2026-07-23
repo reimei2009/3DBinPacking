@@ -47,6 +47,9 @@ class Placement:
     width_mm: float
     height_mm: float
     weight_kg: float
+    # ``XYZ`` is the backward-compatible fixed orientation for Levels 1--2.
+    # Future orientation-aware levels must write the selected canonical code.
+    orientation_code: str = "XYZ"
 
     @property
     def volume_m3(self) -> float:

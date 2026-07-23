@@ -12,6 +12,12 @@
 - Promoted deterministic Extreme-Point FFD to the Level 2 practical default while retaining MILP as an explicit exact-reference config.
 - Added algorithm-role metadata, config-driven Streamlit defaults, a no-fallback contract, and a nine-profile reproducibility baseline.
 - Added a Level 2 UI alpha override, persisted it in experiment and benchmark provenance, and added generic `config_parameters` sweeps for bounded model/solver settings.
+- Added the planned Level 3 horizontal-orientation data contract; no Level 3 solver, rotation, or new constraint is active yet.
+- Added a shared, pure horizontal-orientation geometry core for that planned contract; it supports only `XYZ` and `YXZ`, keeps height invariant, and does not activate Level 3 execution.
+- Extended canonical placements with a backward-compatible `orientation_code`; existing Level 1--2 validation remains fixed at `XYZ`, while the shared validator is ready for a future explicit horizontal profile.
+- Extracted exact base-support validation into a reusable orientation-profile-aware core and added the inactive Level 3 independent validator; Level 2 remains fixed orientation.
+- Refactored Extreme-Point FFD to use a reusable orientation provider; existing levels keep `XYZ`, while the planned Level 3 provider evaluates `XYZ` and `YXZ` candidates through the same support policy.
+- Registered Level 3 with isolated configuration, outputs, contract, CLI, Streamlit, exact orientation-plus-support validation, and practical FFD only.
 
 ## 0.12.0 - 2026-07-21
 

@@ -6,6 +6,8 @@ from dataclasses import dataclass, field
 from typing import Callable
 
 from ..feasibility import FixedOrientationFeasibilityPolicy, PlacementFeasibilityPolicy
+from ..orientation import OrientationProvider, fixed_orientation_provider
+from ...geometry.orientation import OrientedDimensions
 from ...schemas import Container, Item, Placement
 from .constructive_common import candidate_subsets, container_orders, item_sort_key
 
@@ -36,6 +38,7 @@ class SearchStats:
     candidate_subsets_evaluated: int = 0
     packing_attempts: int = 0
     extreme_points_evaluated: int = 0
+    orientation_candidates_evaluated: int = 0
 
 
 @dataclass(frozen=True)
@@ -45,13 +48,22 @@ class ConstructiveSearchResult:
     stats: SearchStats
 
 
-def candidate_placement(state: ContainerState, item: Item, point: Point) -> Placement:
+def candidate_placement(
+    state: ContainerState,
+    item: Item,
+    point: Point,
+    dimensions: OrientedDimensions | None = None,
+) -> Placement:
     x, y, z = point
+    selected_dimensions = dimensions or fixed_orientation_provider().candidates(item)[0]
     return Placement(
         item_id=item.item_id, container_id=state.container.container_id,
         x_mm=x, y_mm=y, z_mm=z,
-        length_mm=item.length_mm, width_mm=item.width_mm, height_mm=item.height_mm,
+        length_mm=selected_dimensions.length_mm,
+        width_mm=selected_dimensions.width_mm,
+        height_mm=selected_dimensions.height_mm,
         weight_kg=item.weight_kg,
+        orientation_code=selected_dimensions.code,
     )
 
 
@@ -61,12 +73,13 @@ def fits(
     point: Point,
     tolerance: float,
     policy: PlacementFeasibilityPolicy | None = None,
+    dimensions: OrientedDimensions | None = None,
 ) -> bool:
     selected_policy = policy or FixedOrientationFeasibilityPolicy()
     return selected_policy.allows(
         state.container,
         state.placements,
-        candidate_placement(state, item, point),
+        candidate_placement(state, item, point, dimensions),
         loaded_weight_kg=state.loaded_weight_kg,
         tolerance=tolerance,
     )
@@ -98,38 +111,60 @@ def update_extreme_points(state: ContainerState, placement: Placement, tolerance
 
 
 def place_item(state: ContainerState, item: Item, point: Point, tolerance: float) -> Placement:
-    placement = Placement(
-        item_id=item.item_id,
-        container_id=state.container.container_id,
-        x_mm=point[0], y_mm=point[1], z_mm=point[2],
-        length_mm=item.length_mm, width_mm=item.width_mm, height_mm=item.height_mm,
-        weight_kg=item.weight_kg,
-    )
+    placement = candidate_placement(state, item, point)
+    return place_candidate(state, placement, tolerance)
+
+
+def place_candidate(state: ContainerState, placement: Placement, tolerance: float) -> Placement:
+    """Commit an already feasibility-checked candidate to its container state."""
     state.placements.append(placement)
-    state.loaded_weight_kg += item.weight_kg
+    state.loaded_weight_kg += placement.weight_kg
     update_extreme_points(state, placement, tolerance)
     return placement
 
 
 def pack_order_first_fit(
     items: list[Item], containers: tuple[Container, ...], tolerance: float, stats: SearchStats,
-    policy: PlacementFeasibilityPolicy,
+    policy: PlacementFeasibilityPolicy, *, orientation_provider: OrientationProvider | None = None,
 ) -> list[Placement] | None:
+    """Place the first feasible extreme-point/orientation candidate in order."""
+    selected_provider = orientation_provider or fixed_orientation_provider()
     states = [ContainerState(container) for container in containers]
     for item in items:
-        selected: tuple[ContainerState, Point] | None = None
+        selected: tuple[ContainerState, Placement] | None = None
         for state in states:
             for point in sorted(state.extreme_points, key=lambda value: (value[2], value[1], value[0])):
                 stats.extreme_points_evaluated += 1
-                if fits(state, item, point, tolerance, policy):
-                    selected = state, point
+                for dimensions in selected_provider.candidates(item):
+                    stats.orientation_candidates_evaluated += 1
+                    candidate = candidate_placement(state, item, point, dimensions)
+                    if selected_policy_allows(state, candidate, tolerance, policy):
+                        selected = state, candidate
+                        break
+                if selected is not None:
                     break
             if selected is not None:
                 break
         if selected is None:
             return None
-        place_item(selected[0], item, selected[1], tolerance)
+        place_candidate(selected[0], selected[1], tolerance)
     return [placement for state in states for placement in state.placements]
+
+
+def selected_policy_allows(
+    state: ContainerState,
+    candidate: Placement,
+    tolerance: float,
+    policy: PlacementFeasibilityPolicy,
+) -> bool:
+    """Evaluate a concrete candidate so its orientation reaches the policy."""
+    return policy.allows(
+        state.container,
+        state.placements,
+        candidate,
+        loaded_weight_kg=state.loaded_weight_kg,
+        tolerance=tolerance,
+    )
 
 
 def constructive_search(

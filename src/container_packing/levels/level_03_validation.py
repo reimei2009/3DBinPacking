@@ -1,12 +1,16 @@
-"""Level 2 adapter for shared exact geometric support validation."""
+"""Planned Level 3 validator: horizontal orientation plus Level 2 support.
+
+This module is intentionally not registered as an executable level yet.  It
+exists so a future solver can be checked independently before Level 3 is
+exposed through the CLI or UI.
+"""
 
 from __future__ import annotations
 
-from ..geometry.support import rectangle_union_area
 from ..schemas import Container, Item, Placement
-from .support_validation import SupportRecord, SupportValidation, validate_supported_solution
+from .support_validation import SupportValidation, validate_supported_solution
 
-Level02Validation = SupportValidation
+Level03Validation = SupportValidation
 
 
 def validate_solution(
@@ -20,13 +24,13 @@ def validate_solution(
     dense_grid_y: int = 16,
     coordinate_tolerance: float = 1e-4,
     weight_tolerance: float = 1e-6,
-) -> Level02Validation:
-    """Validate the fixed-orientation, base-support Level 2 contract."""
+) -> Level03Validation:
+    """Validate horizontal `XYZ`/`YXZ` placements and exact base support."""
     return validate_supported_solution(
         items,
         containers,
         placements,
-        orientation_profile="fixed",
+        orientation_profile="horizontal_rotatable",
         support_threshold=support_threshold,
         support_epsilon_mm=support_epsilon_mm,
         dense_grid_x=dense_grid_x,
@@ -34,6 +38,3 @@ def validate_solution(
         coordinate_tolerance=coordinate_tolerance,
         weight_tolerance=weight_tolerance,
     )
-
-
-__all__ = ["Level02Validation", "SupportRecord", "rectangle_union_area", "validate_solution"]

@@ -76,6 +76,7 @@ def solver_payload(metadata: dict[str, Any]) -> dict[str, Any]:
         "item_ordering", "point_ordering",
         "mip_gap", "mip_dual_bound", "mip_node_count",
         "feasibility_policy", "candidate_feasibility_checks", "geometry_rejected_candidates",
+        "orientation_provider", "orientation_profile", "orientation_candidates_evaluated",
         "heuristic_support_threshold", "heuristic_support_epsilon_mm",
         "support_rejected_candidates", "support_valid_candidates",
         "container_selection_strategy", "candidate_scoring", "subset_enumeration_limit",
@@ -131,6 +132,7 @@ def metrics_payload(metadata: dict[str, Any], validation_valid: bool | None) -> 
         "support_threshold": metadata.get("support_threshold"),
         "minimum_exact_support_ratio": metadata.get("minimum_exact_support_ratio"),
         "all_centers_supported": metadata.get("all_centers_supported"),
+        "orientation_profile": metadata.get("orientation_profile"),
     }
 
 
@@ -167,6 +169,8 @@ def _initialize_run(
         "resolved_config_checksum": sha256_file(resolved_config_path),
         "config_overrides": metadata.get("config_overrides", {}),
         "support_threshold": metadata.get("support_threshold"),
+        "orientation_profile": metadata.get("orientation_profile"),
+        "orientation_data_status": metadata.get("orientation_data_status"),
         "random_seed": metadata["random_seed"],
         "time_limit_seconds": metadata.get("time_limit_seconds"),
         "active_constraints": metadata.get("active_constraints", [

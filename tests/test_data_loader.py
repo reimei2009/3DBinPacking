@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from container_packing.data_loader import DataValidationError, load_containers, load_items
+from container_packing.data_loader import DataValidationError, load_containers, load_items, load_placements
 
 ITEM_HEADER = "level1_order,id_item,length_mm,width_mm,height_mm,weight_kg,nesting_height_mm,stackability_code,forced_orientation,max_stackability,used_in_level1\n"
 ITEM_ROW = "1,A,10,20,30,4,0,0,n,1,1\n"
@@ -42,3 +42,17 @@ def test_rejects_wrong_container_volume(tmp_path):
     row = "C,1000,1000,1000,10,1,1,2.0,synthetic_level1\n"
     with pytest.raises(DataValidationError, match="does not match dimensions"):
         load_containers(write(tmp_path / "containers.csv", CONTAINER_HEADER + row))
+
+
+def test_load_placements_defaults_legacy_csv_to_xyz_orientation(tmp_path):
+    header = "item_id,container_id,x_mm,y_mm,z_mm,length_mm,width_mm,height_mm,weight_kg\n"
+    placements = load_placements(write(tmp_path / "placements.csv", header + "A,C,0,0,0,10,20,30,4\n"))
+
+    assert placements[0].orientation_code == "XYZ"
+
+
+def test_load_placements_reads_explicit_orientation(tmp_path):
+    header = "item_id,container_id,x_mm,y_mm,z_mm,length_mm,width_mm,height_mm,weight_kg,orientation_code\n"
+    placements = load_placements(write(tmp_path / "placements.csv", header + "A,C,0,0,0,20,10,30,4,YXZ\n"))
+
+    assert placements[0].orientation_code == "YXZ"

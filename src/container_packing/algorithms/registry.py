@@ -20,8 +20,8 @@ _ALGORITHMS = {
     "extreme_point_ffd": AlgorithmDefinition(
         algorithm_id="extreme_point_ffd",
         family="constructive_heuristic",
-        description="Deterministic fixed-orientation Extreme-Point First-Fit Decreasing",
-        supported_levels=("level_01", "level_02"),
+        description="Deterministic Extreme-Point First-Fit Decreasing with level-declared orientation",
+        supported_levels=("level_01", "level_02", "level_03"),
         local_friendly=True,
         display_name=LocalizedText(vi="Extreme Point — First Fit Decreasing", en="Extreme Point — First Fit Decreasing"),
         localized_description=LocalizedText(

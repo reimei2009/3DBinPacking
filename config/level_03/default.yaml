@@ -1,0 +1,19 @@
+extends: ../level_02/default.yaml
+project:
+  level_id: level_03
+  algorithm_id: extreme_point_ffd
+instance:
+  item_count: 10
+  container_count: 3
+paths:
+  processed_dir: data/processed/level_03
+  manifest_json: data/processed/level_03/latest_manifest.json
+model:
+  allow_rotation: true
+  enforce_support: true
+  enforce_stability: false
+  enforce_stackability: false
+orientation:
+  profile: horizontal_rotatable
+  data_status: synthetic_orientation_profile
+  allowed_codes: [XYZ, YXZ]

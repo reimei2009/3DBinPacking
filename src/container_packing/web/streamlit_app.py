@@ -127,7 +127,7 @@ def _algorithm_parameters(algorithm_id: str, defaults: dict[str, Any], language:
 
 def _level_config_overrides(level_id: str, config: dict[str, Any], language: str) -> dict[str, Any]:
     """Render level-owned settings and persist them with the immutable run."""
-    if level_id != "level_02":
+    if level_id not in {"level_02", "level_03"}:
         return {}
     support = config["support"]
     threshold = st.sidebar.number_input(
@@ -138,7 +138,7 @@ def _level_config_overrides(level_id: str, config: dict[str, Any], language: str
         step=0.01,
         format="%.2f",
         help=t("support_threshold_help", language),
-        key="level_02_support_threshold",
+        key=f"{level_id}_support_threshold",
     )
     st.sidebar.caption(t("base_center_support_enabled", language))
     return {"support": {"threshold": float(threshold)}}
