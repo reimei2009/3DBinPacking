@@ -84,6 +84,7 @@ def build_experiment_request(
     environment: str = "local",
     random_seed: int | None = None,
     algorithm_parameters: dict[str, Any] | None = None,
+    config_overrides: dict[str, Any] | None = None,
     config_path: str | Path | None = None,
     root: str | Path | None = None,
 ) -> ExperimentRequest:
@@ -112,6 +113,7 @@ def build_experiment_request(
         environment=environment,
         random_seed=random_seed,
         algorithm_parameters=dict(algorithm_parameters or {}),
+        config_overrides=dict(config_overrides or {}),
     )
 
 
@@ -140,6 +142,7 @@ def execute_benchmark_comparison(
     root: str | Path | None = None,
     item_selection_strategy: str = "prefix",
     item_selection_seed: int | None = None,
+    config_overrides: dict[str, Any] | None = None,
 ) -> BenchmarkResult:
     """Run selected algorithms on one strictly shared, independently validated instance."""
     algorithms = tuple(str(value) for value in algorithm_ids)
@@ -195,6 +198,7 @@ def execute_benchmark_comparison(
         project_root=project_root,
         scenarios=(scenario,),
         suite_id=f"{level_id}_interactive_comparison",
+        config_overrides=dict(config_overrides or {}),
     )
 
 

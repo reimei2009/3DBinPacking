@@ -115,6 +115,14 @@ def test_streamlit_exposes_level2_support_contract(root: Path):
     algorithms = next(value for value in page.selectbox if value.key == "algorithm_id")
     assert len(algorithms.options) == 6
     assert algorithms.value == "extreme_point_ffd"
+    threshold = next(value for value in page.number_input if value.key == "level_02_support_threshold")
+    assert threshold.value == 0.8
+    threshold.set_value(0.9)
+    next(value for value in page.number_input if value.key == "item_count").set_value(3)
+    next(value for value in page.number_input if value.key == "container_count").set_value(2)
+    next(value for value in page.button if value.key == "run_experiment").click().run()
+    assert not page.exception
+    assert any(value.value == "VALID" for value in page.metric)
     latex_values = [value.value for value in page.latex]
     assert any(r"Gf_{ik}+\sum_{j\ne i,p,q}s_{ijkpq}" in value for value in latex_values)
     assert page.info

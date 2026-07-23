@@ -125,6 +125,25 @@ def _algorithm_parameters(algorithm_id: str, defaults: dict[str, Any], language:
     return parameters
 
 
+def _level_config_overrides(level_id: str, config: dict[str, Any], language: str) -> dict[str, Any]:
+    """Render level-owned settings and persist them with the immutable run."""
+    if level_id != "level_02":
+        return {}
+    support = config["support"]
+    threshold = st.sidebar.number_input(
+        t("support_threshold", language),
+        min_value=0.01,
+        max_value=1.00,
+        value=float(support["threshold"]),
+        step=0.01,
+        format="%.2f",
+        help=t("support_threshold_help", language),
+        key="level_02_support_threshold",
+    )
+    st.sidebar.caption(t("base_center_support_enabled", language))
+    return {"support": {"threshold": float(threshold)}}
+
+
 def _render_level_contract(level_id: str, language: str) -> None:
     level = get_level(level_id)
     contract = level.contract
@@ -448,6 +467,7 @@ def _render_benchmark_comparison(
     default_item_count: int,
     default_container_count: int,
     default_environment: str,
+    config_overrides: dict[str, Any],
 ) -> None:
     level_algorithms = [value.algorithm_id for value in list_algorithms(level_id=level_id)]
     default_algorithms = [
@@ -521,6 +541,7 @@ def _render_benchmark_comparison(
                         root=root,
                         item_selection_strategy=item_selection_strategy,
                         item_selection_seed=item_selection_seed if item_selection_strategy == "stable_random" else None,
+                        config_overrides=config_overrides,
                     )
                 st.session_state["pending_benchmark_run_id"] = benchmark_result.benchmark_id
                 if benchmark_result.successful:
@@ -654,6 +675,7 @@ def main() -> None:
     environment = st.sidebar.selectbox(t("environment", language), ["local", "colab", "kaggle"], key="environment")
     default_parameters = config.get("solver", {}) if algorithm_id == "milp_big_m" else config.get("algorithms", {}).get(algorithm_id, {})
     algorithm_parameters = _algorithm_parameters(algorithm_id, default_parameters, language)
+    config_overrides = _level_config_overrides(level_id, config, language)
     run_clicked = st.sidebar.button(t("run", language), type="primary", width="stretch", key="run_experiment")
 
     if run_clicked:
@@ -663,6 +685,7 @@ def main() -> None:
                 item_count=item_count, container_count=container_count,
                 environment=environment, random_seed=random_seed,
                 algorithm_parameters=algorithm_parameters,
+                config_overrides=config_overrides,
                 config_path=config_path, root=root,
             )
             with st.spinner(t("running", language)):
@@ -698,6 +721,7 @@ def main() -> None:
             default_item_count=item_count,
             default_container_count=container_count,
             default_environment=environment,
+            config_overrides=config_overrides,
         )
     with history_tab:
         runs = discover_runs(level_id, root=root, limit=100)

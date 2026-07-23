@@ -111,6 +111,9 @@ _TEXT = {
     "annealing_iterations": {"vi": "Số vòng lặp Simulated Annealing", "en": "Annealing iterations"},
     "temperature": {"vi": "Nhiệt độ ban đầu", "en": "Initial temperature"},
     "cooling": {"vi": "Tốc độ làm nguội", "en": "Cooling rate"},
+    "support_threshold": {"vi": "Ng\u01b0\u1ee1ng di\u1ec7n t\u00edch \u0111\u01b0\u1ee3c h\u1ed7 tr\u1ee3 \u03b1", "en": "Minimum supported-area ratio \u03b1"},
+    "support_threshold_help": {"vi": "Ki\u1ec7n kh\u00f4ng n\u1eb1m tr\u00ean s\u00e0n ph\u1ea3i c\u00f3 \u00edt nh\u1ea5t \u03b1 ph\u1ea7n di\u1ec7n t\u00edch \u0111\u00e1y \u0111\u01b0\u1ee3c \u0111\u1ee1. Gi\u00e1 tr\u1ecb n\u00e0y \u0111\u01b0\u1ee3c l\u01b0u trong resolved_config.yaml c\u1ee7a run.", "en": "An item above the floor needs at least this fraction of its base area supported. The value is saved in the run's resolved_config.yaml."},
+    "base_center_support_enabled": {"vi": "H\u1ed7 tr\u1ee3 t\u00e2m \u0111\u00e1y: b\u1eadt theo contract Level 2", "en": "Base-center support: enabled by the Level 2 contract"},
 }
 
 

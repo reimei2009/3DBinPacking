@@ -21,6 +21,7 @@ def run(request: ExperimentRequest):
         environment=request.environment,
         random_seed=request.random_seed,
         algorithm_parameters=request.algorithm_parameters,
+        config_overrides=request.config_overrides,
         item_selection_strategy=request.item_selection_strategy,
         item_selection_seed=request.item_selection_seed,
     )

@@ -19,6 +19,7 @@ def run(request: ExperimentRequest):
         request.config_path, item_count=request.item_count, container_count=request.container_count,
         level_id=request.level_id, algorithm_id=request.algorithm_id, environment=request.environment,
         random_seed=request.random_seed, algorithm_parameters=request.algorithm_parameters,
+        config_overrides=request.config_overrides,
         item_selection_strategy=request.item_selection_strategy, item_selection_seed=request.item_selection_seed,
     )
 
@@ -44,4 +45,3 @@ def validate_run(run_dir: Path):
         weight_tolerance=float(config["validation"]["weight_tolerance_kg"]),
     )
     return details.result
-

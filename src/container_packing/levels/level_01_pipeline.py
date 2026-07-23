@@ -61,11 +61,13 @@ def run_from_config(
     write_outputs: bool = True, level_id: str = "level_01", algorithm_id: str = "milp_big_m",
     environment: str = "local", random_seed: int | None = None,
     algorithm_parameters: dict[str, Any] | None = None,
+    config_overrides: dict[str, Any] | None = None,
     item_selection_strategy: str | None = None, item_selection_seed: int | None = None,
 ):
     return run_configured_level(
         config_path, strategy=STRATEGY, item_count=item_count, container_count=container_count,
         write_outputs=write_outputs, level_id=level_id, algorithm_id=algorithm_id,
         environment=environment, random_seed=random_seed, algorithm_parameters=algorithm_parameters,
+        config_overrides=config_overrides,
         item_selection_strategy=item_selection_strategy, item_selection_seed=item_selection_seed,
     )

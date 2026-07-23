@@ -165,6 +165,8 @@ def _initialize_run(
         },
         "config_file": metadata.get("config_file"),
         "resolved_config_checksum": sha256_file(resolved_config_path),
+        "config_overrides": metadata.get("config_overrides", {}),
+        "support_threshold": metadata.get("support_threshold"),
         "random_seed": metadata["random_seed"],
         "time_limit_seconds": metadata.get("time_limit_seconds"),
         "active_constraints": metadata.get("active_constraints", [
