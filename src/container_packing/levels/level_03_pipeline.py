@@ -91,7 +91,14 @@ STRATEGY = LevelRuntimeStrategy(
         "stackability_enabled": False,
         "containers_data_status": "synthetic_level3",
     },
-    algorithm_roles={"extreme_point_ffd": "practical_default"},
+    algorithm_roles={
+        "extreme_point_ffd": "practical_default",
+        "milp_big_m": "exact_reference",
+        "extreme_point_best_fit": "alternative_method",
+        "extreme_point_hill_climbing": "alternative_method",
+        "extreme_point_simulated_annealing": "alternative_method",
+        "maximal_space_best_fit": "alternative_method",
+    },
 )
 
 

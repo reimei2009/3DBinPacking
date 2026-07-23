@@ -330,7 +330,11 @@ _LEVELS["level_03"] = LevelDefinition(
     level_id="level_03",
     description="Horizontal item orientation plus Level 2 geometric support constraints",
     default_config=Path("config/level_03/default.yaml"),
-    supported_algorithms=("extreme_point_ffd",),
+    supported_algorithms=(
+        "milp_big_m", "extreme_point_ffd", "extreme_point_best_fit", "extreme_point_hill_climbing",
+        "extreme_point_simulated_annealing",
+        "maximal_space_best_fit",
+    ),
     run=level_03.run,
     prepare=level_03.prepare,
     validate_run=level_03.validate_run,
@@ -404,8 +408,8 @@ _LEVELS["level_03"] = LevelDefinition(
         ),
         limitations=(
             LocalizedText(
-                vi="Hiện chỉ có FFD thực tế; MILP orientation reference và các heuristic khác chưa được kích hoạt cho Level 3.",
-                en="Only practical FFD is currently enabled; an orientation MILP reference and other heuristics are not active for Level 3.",
+                vi="FFD là default thực tế; MILP orientation chỉ là exact reference cho instance nhỏ (tối đa 5 kiện).",
+                en="FFD is the practical default; orientation MILP is an exact reference for small instances only (up to 5 items).",
             ),
             LocalizedText(
                 vi="Support hình học không chứng minh ổn định cơ học hoặc khả năng chịu tải.",

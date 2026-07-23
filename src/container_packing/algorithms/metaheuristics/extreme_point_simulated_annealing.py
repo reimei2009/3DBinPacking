@@ -11,6 +11,7 @@ from scipy.optimize import OptimizeResult
 
 from ..contracts import AlgorithmOutcome
 from ..feasibility import FixedOrientationFeasibilityPolicy, PlacementFeasibilityPolicy
+from ..orientation import OrientationProvider, fixed_orientation_provider
 from ..heuristics.extreme_point_core import item_sort_key
 from ..heuristics.extreme_point_ffd import solve as solve_extreme_point_ffd
 from ..heuristics.extreme_point_neighborhood import (
@@ -76,6 +77,7 @@ def _failure(baseline: AlgorithmOutcome) -> AlgorithmOutcome:
 def solve(
     items: list[Item], containers: list[Container], settings: dict[str, Any] | None = None,
     *, policy: PlacementFeasibilityPolicy | None = None,
+    orientation_provider: OrientationProvider | None = None,
 ) -> AlgorithmOutcome:
     """Search item permutations while retaining the best valid packing found."""
     settings = settings or {}
@@ -97,7 +99,11 @@ def solve(
         raise ValueError("cooling_rate must be between 0 and 1")
 
     selected_policy = policy or FixedOrientationFeasibilityPolicy()
-    baseline = solve_extreme_point_ffd(items, containers, settings, policy=selected_policy)
+    selected_orientation_provider = orientation_provider or fixed_orientation_provider()
+    baseline = solve_extreme_point_ffd(
+        items, containers, settings,
+        policy=selected_policy, orientation_provider=selected_orientation_provider,
+    )
     if baseline.solve.status != "FEASIBLE":
         return _failure(baseline)
 
@@ -127,6 +133,7 @@ def solve(
             stats.neighbors_evaluated += 1
             candidate = repack_neighbor(
                 neighbor_order, containers, current, annealing_settings, stats, selected_policy,
+                orientation_provider=selected_orientation_provider,
             )
             if candidate is not None:
                 candidate_data = operator, neighbor_order, candidate
@@ -190,6 +197,7 @@ def solve(
             "improved": best_score < initial_score,
             "n_items": len(items),
             "n_containers": len(containers),
+            **selected_orientation_provider.metadata(),
             **selected_policy.metadata(),
         },
     )

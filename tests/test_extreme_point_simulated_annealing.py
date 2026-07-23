@@ -4,11 +4,14 @@ import pytest
 
 from container_packing.algorithms.heuristics.extreme_point_ffd import solve_level1 as solve_ffd
 from container_packing.algorithms.heuristics.extreme_point_neighborhood import solution_score
+from container_packing.algorithms.feasibility import ExactSupportFeasibilityPolicy
+from container_packing.algorithms.orientation import horizontal_orientation_provider
 from container_packing.algorithms.metaheuristics.extreme_point_simulated_annealing import (
     acceptance_probability,
     solve_level1 as solve_simulated_annealing,
 )
 from container_packing.levels.level_01_validation import validate_solution
+from container_packing.levels.level_03_validation import validate_solution as validate_level3
 from container_packing.schemas import Container, Item
 
 
@@ -68,3 +71,20 @@ def test_failed_initial_construction_is_not_claimed_infeasible_proof():
     outcome = solve_simulated_annealing([item], [container])
     assert outcome.solve.status == "INFEASIBLE_HEURISTIC"
     assert outcome.metadata["optimality_proven"] is False
+
+
+def test_simulated_annealing_repacking_preserves_horizontal_orientation_and_support():
+    items = [Item("BOTTOM", 10, 20, 5, 1), Item("TOP", 10, 20, 5, 1)]
+    containers = [Container("C", 20, 10, 10, 10, 1, volume_m3=0.000002)]
+    outcome = solve_simulated_annealing(
+        items, containers,
+        {"random_seed": 7, "max_iterations": 1, "max_neighbors": 4, "neighbors_per_iteration": 2},
+        policy=ExactSupportFeasibilityPolicy(0.8, 1e-4),
+        orientation_provider=horizontal_orientation_provider(),
+    )
+
+    assert outcome.solve.status == "FEASIBLE"
+    assert outcome.metadata["repacking_attempts"] > 0
+    assert outcome.metadata["orientation_profile"] == "horizontal_rotatable"
+    assert {placement.orientation_code for placement in outcome.placements} == {"YXZ"}
+    assert validate_level3(items, containers, outcome.placements).result.valid

@@ -2,6 +2,8 @@ import pytest
 
 from container_packing.algorithms.heuristics.extreme_point_best_fit import solve_level1 as solve_extreme_point
 from container_packing.algorithms.heuristics.maximal_space_best_fit import solve_level1
+from container_packing.algorithms.feasibility import ExactSupportFeasibilityPolicy
+from container_packing.algorithms.orientation import horizontal_orientation_provider
 from container_packing.algorithms.heuristics.maximal_space_core import (
     EmptySpace,
     contains_space,
@@ -11,6 +13,7 @@ from container_packing.algorithms.heuristics.maximal_space_core import (
     update_maximal_spaces,
 )
 from container_packing.levels.level_01_validation import validate_solution
+from container_packing.levels.level_03_validation import validate_solution as validate_level3
 from container_packing.schemas import Container, Item, Placement
 
 
@@ -106,3 +109,19 @@ def test_rejects_invalid_subset_limit():
             [Container("C1", 2, 2, 2, 10, 10, volume_m3=8e-9)],
             {"subset_enumeration_limit": 0},
         )
+
+
+def test_maximal_spaces_use_horizontal_orientation_and_exact_support():
+    items = [Item("BOTTOM", 10, 20, 5, 1), Item("TOP", 10, 20, 5, 1)]
+    containers = [Container("C", 20, 10, 10, 10, 1, volume_m3=0.000002)]
+    outcome = solve_level1(
+        items, containers,
+        policy=ExactSupportFeasibilityPolicy(0.8, 1e-4),
+        orientation_provider=horizontal_orientation_provider(),
+    )
+
+    assert outcome.solve.status == "FEASIBLE"
+    assert outcome.metadata["orientation_profile"] == "horizontal_rotatable"
+    assert outcome.metadata["orientation_candidates_evaluated"] >= 3
+    assert {placement.orientation_code for placement in outcome.placements} == {"YXZ"}
+    assert validate_level3(items, containers, outcome.placements).result.valid

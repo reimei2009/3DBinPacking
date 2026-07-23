@@ -9,6 +9,7 @@ from scipy.optimize import OptimizeResult
 
 from ..contracts import AlgorithmOutcome
 from ..feasibility import FixedOrientationFeasibilityPolicy, PlacementFeasibilityPolicy
+from ..orientation import OrientationProvider, fixed_orientation_provider
 from ...schemas import Container, Item, SolveResult
 from .extreme_point_core import item_sort_key
 from .extreme_point_ffd import solve as solve_extreme_point_ffd
@@ -30,6 +31,7 @@ class HillClimbingStats(RepackingStats):
 def solve(
     items: list[Item], containers: list[Container], settings: dict[str, Any] | None = None,
     *, policy: PlacementFeasibilityPolicy | None = None,
+    orientation_provider: OrientationProvider | None = None,
 ) -> AlgorithmOutcome:
     settings = settings or {}
     max_iterations = int(settings.get("max_iterations", 10))
@@ -39,7 +41,11 @@ def solve(
         raise ValueError("Hill-climbing limits must be non-negative/positive")
 
     selected_policy = policy or FixedOrientationFeasibilityPolicy()
-    baseline = solve_extreme_point_ffd(items, containers, settings, policy=selected_policy)
+    selected_orientation_provider = orientation_provider or fixed_orientation_provider()
+    baseline = solve_extreme_point_ffd(
+        items, containers, settings,
+        policy=selected_policy, orientation_provider=selected_orientation_provider,
+    )
     if baseline.solve.status != "FEASIBLE":
         return AlgorithmOutcome(
             solve=SolveResult(
@@ -65,7 +71,10 @@ def solve(
         best: tuple[tuple[float, ...], str, list[Item], list[Placement]] | None = None
         for operator, neighbor_order in generate_neighbor_orders(current_order, current, max_neighbors):
             stats.neighbors_evaluated += 1
-            candidate = repack_neighbor(neighbor_order, containers, current, settings, stats, selected_policy)
+            candidate = repack_neighbor(
+                neighbor_order, containers, current, settings, stats, selected_policy,
+                orientation_provider=selected_orientation_provider,
+            )
             if candidate is None:
                 continue
             score = solution_score(candidate, containers)
@@ -106,6 +115,7 @@ def solve(
             "improved": current_score < initial_score,
             "n_items": len(items),
             "n_containers": len(containers),
+            **selected_orientation_provider.metadata(),
             **selected_policy.metadata(),
         },
     )

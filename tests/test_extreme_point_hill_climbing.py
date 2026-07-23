@@ -2,11 +2,14 @@ from container_packing.algorithms.heuristics.extreme_point_ffd import solve_leve
 from container_packing.algorithms.heuristics.extreme_point_hill_climbing import (
     solve_level1 as solve_hill_climbing,
 )
+from container_packing.algorithms.feasibility import ExactSupportFeasibilityPolicy
+from container_packing.algorithms.orientation import horizontal_orientation_provider
 from container_packing.algorithms.heuristics.extreme_point_neighborhood import (
     generate_neighbor_orders,
     solution_score,
 )
 from container_packing.levels.level_01_validation import validate_solution
+from container_packing.levels.level_03_validation import validate_solution as validate_level3
 from container_packing.schemas import Container, Item
 
 
@@ -49,3 +52,20 @@ def test_zero_iterations_preserves_valid_baseline():
     assert outcome.solve.status == "FEASIBLE"
     assert outcome.metadata["hill_climbing_iterations"] == 0
     assert validate_solution(items, containers, outcome.placements).valid
+
+
+def test_hill_climbing_repack_neighborhoods_preserve_horizontal_orientation_and_support():
+    items = [Item("BOTTOM", 10, 20, 5, 1), Item("TOP", 10, 20, 5, 1)]
+    containers = [Container("C", 20, 10, 10, 10, 1, volume_m3=0.000002)]
+    outcome = solve_hill_climbing(
+        items, containers,
+        {"max_iterations": 1, "max_neighbors": 4, "subset_candidate_limit": 4},
+        policy=ExactSupportFeasibilityPolicy(0.8, 1e-4),
+        orientation_provider=horizontal_orientation_provider(),
+    )
+
+    assert outcome.solve.status == "FEASIBLE"
+    assert outcome.metadata["repacking_attempts"] > 0
+    assert outcome.metadata["orientation_profile"] == "horizontal_rotatable"
+    assert {placement.orientation_code for placement in outcome.placements} == {"YXZ"}
+    assert validate_level3(items, containers, outcome.placements).result.valid

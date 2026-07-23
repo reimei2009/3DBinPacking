@@ -129,7 +129,7 @@ def test_streamlit_exposes_level2_support_contract(root: Path):
     assert page.info
 
 
-def test_streamlit_exposes_level3_ffd_and_orientation_contract(root: Path):
+def test_streamlit_exposes_level3_constructive_solvers_and_orientation_contract(root: Path):
     app = root / "src/container_packing/web/streamlit_app.py"
     page = AppTest.from_file(str(app), default_timeout=30).run()
     level = next(value for value in page.selectbox if value.key == "level_id")
@@ -137,7 +137,7 @@ def test_streamlit_exposes_level3_ffd_and_orientation_contract(root: Path):
 
     assert not page.exception
     algorithms = next(value for value in page.selectbox if value.key == "algorithm_id")
-    assert len(algorithms.options) == 1
+    assert len(algorithms.options) == 5
     assert algorithms.value == "extreme_point_ffd"
     threshold = next(value for value in page.number_input if value.key == "level_03_support_threshold")
     assert threshold.value == 0.8

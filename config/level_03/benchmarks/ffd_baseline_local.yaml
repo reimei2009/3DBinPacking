@@ -1,0 +1,54 @@
+# Promotion gate for the practical Level 3 horizontal-orientation FFD solver.
+# Run manually: python scripts\run_benchmark.py --suite config\level_03\benchmarks\ffd_baseline_local.yaml
+suite_id: level_03_ffd_baseline_local_v1
+level_id: level_03
+description: >
+  Validate deterministic horizontal-orientation FFD. Repeats verify identical
+  placement signatures, orientation choices, and objectives; they are not
+  random-search trajectories.
+config: config/level_03/default.yaml
+environment: local
+algorithms: [extreme_point_ffd]
+seeds: [42]
+repeats: 3
+scenarios:
+  - scenario_id: sanity_prefix_i3_c2
+    description: "Short orientation-aware FFD smoke baseline."
+    item_count: 3
+    container_count: 2
+    item_selection: prefix
+    algorithms: [extreme_point_ffd]
+    tags: [smoke, deterministic, horizontal_orientation, support]
+
+  - scenario_id: practical_prefix_i20_c5
+    description: "Practical prefix instance; run manually."
+    item_count: 20
+    container_count: 5
+    item_selection: prefix
+    algorithms: [extreme_point_ffd]
+    tags: [practical, horizontal_orientation, support]
+
+  - scenario_id: stable_random_101_i20_c5
+    description: "Stable random profile with selection seed 101; run manually."
+    item_count: 20
+    container_count: 5
+    item_selection: stable_random
+    selection_seed: 101
+    algorithms: [extreme_point_ffd]
+    tags: [practical, stable_random, horizontal_orientation, support]
+
+  - scenario_id: diverse_volume_i40_c8
+    description: "Volume-diverse scale profile; run manually."
+    item_count: 40
+    container_count: 8
+    item_selection: volume_stratified
+    algorithms: [extreme_point_ffd]
+    tags: [scale, volume_diverse, horizontal_orientation, support]
+
+  - scenario_id: scale_prefix_i100_c12
+    description: "Large deterministic scale profile; run manually."
+    item_count: 100
+    container_count: 12
+    item_selection: prefix
+    algorithms: [extreme_point_ffd]
+    tags: [scale, large, horizontal_orientation, support]

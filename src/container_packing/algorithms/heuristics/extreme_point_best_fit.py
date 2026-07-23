@@ -8,44 +8,45 @@ from scipy.optimize import OptimizeResult
 
 from ..contracts import AlgorithmOutcome
 from ..feasibility import FixedOrientationFeasibilityPolicy, PlacementFeasibilityPolicy
+from ..orientation import OrientationProvider, fixed_orientation_provider
 from .extreme_point_core import (
     ContainerState,
-    Point,
     SearchStats,
+    candidate_placement,
     constructive_search,
-    fits,
     item_sort_key,
-    place_item,
+    place_candidate,
+    selected_policy_allows,
 )
 from ...schemas import Container, Item, Placement, SolveResult
 
 
-def _bounding_volume(placements: list[Placement], item: Item | None = None, point: Point | None = None) -> float:
-    if not placements and item is None:
+def _bounding_volume(placements: list[Placement], candidate: Placement | None = None) -> float:
+    if not placements and candidate is None:
         return 0.0
     max_x = max((value.x_mm + value.length_mm for value in placements), default=0.0)
     max_y = max((value.y_mm + value.width_mm for value in placements), default=0.0)
     max_z = max((value.z_mm + value.height_mm for value in placements), default=0.0)
-    if item is not None and point is not None:
-        max_x = max(max_x, point[0] + item.length_mm)
-        max_y = max(max_y, point[1] + item.width_mm)
-        max_z = max(max_z, point[2] + item.height_mm)
+    if candidate is not None:
+        max_x = max(max_x, candidate.x_mm + candidate.length_mm)
+        max_y = max(max_y, candidate.y_mm + candidate.width_mm)
+        max_z = max(max_z, candidate.z_mm + candidate.height_mm)
     return max_x * max_y * max_z
 
 
 def best_fit_candidate_score(
-    state: ContainerState, item: Item, point: Point, container_rank: int,
+    state: ContainerState, candidate: Placement, container_rank: int,
 ) -> tuple[float, ...]:
     """Score one feasible placement; lower is better in objective-aware lexicographic order."""
     is_open = bool(state.placements)
-    item_volume = item.length_mm * item.width_mm * item.height_mm
+    item_volume = candidate.length_mm * candidate.width_mm * candidate.height_mm
     container_volume = (
         state.container.length_mm * state.container.width_mm * state.container.height_mm
     )
     remaining_volume = container_volume - state.loaded_volume_mm3 - item_volume
-    remaining_payload = state.container.max_weight_kg - state.loaded_weight_kg - item.weight_kg
+    remaining_payload = state.container.max_weight_kg - state.loaded_weight_kg - candidate.weight_kg
     before = _bounding_volume(state.placements)
-    after = _bounding_volume(state.placements, item, point)
+    after = _bounding_volume(state.placements, candidate)
     return (
         0.0 if is_open else 1.0,
         0.0 if is_open else float(state.container.cost),
@@ -53,36 +54,41 @@ def best_fit_candidate_score(
         float(remaining_payload),
         float(after - before),
         float(after),
-        float(point[2]), float(point[1]), float(point[0]),
+        float(candidate.z_mm), float(candidate.y_mm), float(candidate.x_mm),
         float(container_rank),
     )
 
 
 def pack_order_best_fit(
     items: list[Item], containers: tuple[Container, ...], tolerance: float, stats: SearchStats,
-    policy: PlacementFeasibilityPolicy,
+    policy: PlacementFeasibilityPolicy, *, orientation_provider: OrientationProvider | None = None,
 ) -> list[Placement] | None:
     """Place each item at the best feasible container/extreme-point candidate."""
+    selected_provider = orientation_provider or fixed_orientation_provider()
     states = [ContainerState(container) for container in containers]
     for item in items:
-        selected: tuple[tuple[float, ...], ContainerState, Point] | None = None
+        selected: tuple[tuple[float, ...], ContainerState, Placement] | None = None
         for container_rank, state in enumerate(states):
             for point in sorted(state.extreme_points, key=lambda value: (value[2], value[1], value[0])):
                 stats.extreme_points_evaluated += 1
-                if not fits(state, item, point, tolerance, policy):
-                    continue
-                candidate = best_fit_candidate_score(state, item, point, container_rank)
-                if selected is None or candidate < selected[0]:
-                    selected = candidate, state, point
+                for dimensions in selected_provider.candidates(item):
+                    stats.orientation_candidates_evaluated += 1
+                    placement = candidate_placement(state, item, point, dimensions)
+                    if not selected_policy_allows(state, placement, tolerance, policy):
+                        continue
+                    candidate = best_fit_candidate_score(state, placement, container_rank)
+                    if selected is None or candidate < selected[0]:
+                        selected = candidate, state, placement
         if selected is None:
             return None
-        place_item(selected[1], item, selected[2], tolerance)
+        place_candidate(selected[1], selected[2], tolerance)
     return [placement for state in states for placement in state.placements]
 
 
 def solve(
     items: list[Item], containers: list[Container], settings: dict[str, Any] | None = None,
     *, policy: PlacementFeasibilityPolicy | None = None,
+    orientation_provider: OrientationProvider | None = None,
 ) -> AlgorithmOutcome:
     """Pack all items with deterministic Best Fit; FEASIBLE is not proof of optimality."""
     settings = settings or {}
@@ -91,9 +97,15 @@ def solve(
     if subset_limit <= 0:
         raise ValueError("subset_enumeration_limit must be positive")
     selected_policy = policy or FixedOrientationFeasibilityPolicy()
+    selected_orientation_provider = orientation_provider or fixed_orientation_provider()
     ordered_items = sorted(items, key=item_sort_key)
+    def pack_order(items, containers, tolerance, stats, policy):
+        return pack_order_best_fit(
+            items, containers, tolerance, stats, policy,
+            orientation_provider=selected_orientation_provider,
+        )
     search = constructive_search(
-        ordered_items, containers, tolerance, subset_limit, pack_order_best_fit, selected_policy,
+        ordered_items, containers, tolerance, subset_limit, pack_order, selected_policy,
     )
 
     priority = 1.0 + sum(value.cost for value in containers)
@@ -130,9 +142,11 @@ def solve(
             "candidate_subsets_evaluated": search.stats.candidate_subsets_evaluated,
             "packing_attempts": search.stats.packing_attempts,
             "extreme_points_evaluated": search.stats.extreme_points_evaluated,
+            "orientation_candidates_evaluated": search.stats.orientation_candidates_evaluated,
             "candidate_container_ids": [value.container_id for value in search.chosen_containers],
             "n_items": len(items),
             "n_containers": len(containers),
+            **selected_orientation_provider.metadata(),
             **selected_policy.metadata(),
         },
     )

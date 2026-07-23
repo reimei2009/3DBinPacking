@@ -32,8 +32,15 @@ def test_registry_only_exposes_runnable_implementations():
         "extreme_point_hill_climbing", "extreme_point_simulated_annealing",
         "maximal_space_best_fit",
     )
-    assert [value.algorithm_id for value in list_algorithms(level_id="level_03")] == ["extreme_point_ffd"]
-    assert get_level("level_03").supported_algorithms == ("extreme_point_ffd",)
+    assert [value.algorithm_id for value in list_algorithms(level_id="level_03")] == [
+        "extreme_point_best_fit", "extreme_point_ffd", "extreme_point_hill_climbing",
+        "extreme_point_simulated_annealing", "maximal_space_best_fit",
+        "milp_big_m",
+    ]
+    assert get_level("level_03").supported_algorithms == (
+        "milp_big_m", "extreme_point_ffd", "extreme_point_best_fit", "extreme_point_hill_climbing",
+        "extreme_point_simulated_annealing", "maximal_space_best_fit",
+    )
     assert {value.symbol for value in get_level("level_03").contract.variables} >= {"r[i,o]"}
     assert {value.constraint_id for value in get_level("level_03").contract.active_constraints} >= {
         "horizontal_orientation_selection", "orientation_dependent_dimensions",
@@ -82,6 +89,12 @@ def test_config_inheritance(root):
         **level2_default["instance"], "item_count": 3, "container_count": 2,
     }
     assert reference["solver"]["time_limit_seconds"] == 120
+    level3_reference = load_config(root / "config/level_03/experiments/milp_big_m_reference.yaml")
+    assert level3_reference["project"]["algorithm_id"] == "milp_big_m"
+    assert level3_reference["instance"] == {
+        **level3_default["instance"], "item_count": 3, "container_count": 2,
+    }
+    assert level3_reference["solver"]["time_limit_seconds"] == 60
     config = load_config(root / "config/level_01/experiments/milp_big_m_local.yaml")
     assert config["project"]["level_id"] == "level_01"
     assert config["solver"]["backend"] == "scipy_highs"

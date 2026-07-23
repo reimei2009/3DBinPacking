@@ -65,11 +65,57 @@ and FFD produces deterministic valid solutions on the frozen Level 3 fixtures.
 
 ## Current solver scope
 
-`extreme_point_ffd` is the only Level 3 solver currently registered. It is the
-practical default and evaluates `XYZ` then `YXZ` candidates at each extreme
-point using the same exact-support feasibility policy as Level 2. It reports
+`extreme_point_ffd` is the practical default. `extreme_point_best_fit` is an
+alternative deterministic constructive method that scores every feasible
+extreme-point/orientation candidate. `extreme_point_hill_climbing` starts from
+orientation-aware FFD and uses the same provider during every destroy/repack
+neighborhood. `extreme_point_simulated_annealing` uses the same orientation-
+aware neighborhood with seeded Metropolis acceptance. `maximal_space_best_fit`
+evaluates both horizontal orientations at each maximal-empty-space origin. All
+five use the same
+exact-support feasibility policy as Level 2 and report
 `INFEASIBLE_HEURISTIC` as a search failure, never a proof of mathematical
 infeasibility.
 
-MILP orientation reference, Best Fit, Hill Climbing, Simulated Annealing and
-Maximal Empty Spaces are intentionally not yet registered for Level 3.
+`milp_big_m` is also available as an exact reference for at most five items.
+It uses sparse Big-M constraints with `XYZ`/`YXZ` binary variables and the
+same floor/support grid as Level 2; decoded placements are still validated by
+the independent exact-union support validator. It is deliberately rejected
+above five items, so it cannot accidentally replace FFD in practical runs.
+
+Run the reference only on its small config:
+
+```powershell
+.\.venv\Scripts\python.exe .\scripts\run_experiment.py `
+  --level level_03 `
+  --algorithm milp_big_m `
+  --config config\level_03\experiments\milp_big_m_reference.yaml `
+  --non-interactive --preview-limit 0
+```
+
+## FFD baseline protocol
+
+The reproducible promotion suite is
+`config/level_03/benchmarks/ffd_baseline_local.yaml`. It records the synthetic
+orientation profile, selected orientation codes, placement signature, objective,
+support validation, and runtime. The `i3/c2` scenario is safe for automated
+tests. Run the `i20+` scenarios manually:
+
+```powershell
+.\.venv\Scripts\python.exe .\scripts\run_benchmark.py `
+  --suite config\level_03\benchmarks\ffd_baseline_local.yaml
+```
+
+Inspect `benchmark/results.csv` for repeated `placement_signature`, objective,
+`orientation_profile`, and `minimum_exact_support_ratio`; inspect
+`benchmark/summary.csv` for timing aggregates. This suite does not compare
+against Level 2 directly because benchmark fingerprints intentionally include
+the active level contract. The frozen unit fixture in
+`tests/test_extreme_point_ffd.py` is the controlled proof that `YXZ` solves a
+case where Level 1/2 fixed orientation cannot fit the item.
+
+For the five-method Level 3 comparison, use
+`config/level_03/benchmarks/core_heuristics_local.yaml` and follow
+`docs/reports/manual/level_03_heuristic_acceptance.md`. It deliberately keeps
+the large scale case constructive-only, because local search and SA are not
+the practical default at that size.

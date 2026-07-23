@@ -11,6 +11,7 @@ from ..contracts import AlgorithmOutcome
 from ...models.common.fixed_orientation_milp import MilpProblem
 from ...models.level_01.milp_model import build_level1_model
 from ...models.level_02.milp_model import build_level2_model
+from ...models.level_03.milp_model import build_level3_model
 from ...schemas import Container, Item, Placement, SolveResult
 
 
@@ -121,6 +122,77 @@ def solve_level2(
         metadata={
             **problem.metadata,
             "algorithm_kind": "exact_milp_support",
+            "optimality_proven": result.status == "OPTIMAL",
+            **_solver_diagnostics(result),
+            **decision_audit,
+        },
+    )
+
+
+def extract_level3_placements(
+    result: SolveResult, problem: MilpProblem, items: list[Item], containers: list[Container], *, tolerance: float,
+) -> list[Placement]:
+    """Decode the selected horizontal orientation alongside each placement."""
+    if result.vector is None or result.status not in {"OPTIMAL", "FEASIBLE_TIME_LIMIT"}:
+        raise ValueError(f"Cannot extract placements from solver status {result.status}")
+    vector = result.vector
+    placements: list[Placement] = []
+    for i, item in enumerate(items):
+        assignments = [k for k in range(len(containers)) if vector[problem.indices.a(i, k)] > 0.5]
+        if len(assignments) != 1:
+            raise ValueError(f"Solver vector assigns item {item.item_id} to {len(assignments)} containers")
+        orientations = [code for code in (0, 1) if vector[problem.indices.orientation(i, code)] > 0.5]
+        if len(orientations) != 1:
+            raise ValueError(f"Solver vector selects {len(orientations)} orientations for item {item.item_id}")
+        orientation_code = ("XYZ", "YXZ")[orientations[0]]
+        length_mm, width_mm = (
+            (item.length_mm, item.width_mm)
+            if orientation_code == "XYZ"
+            else (item.width_mm, item.length_mm)
+        )
+        coordinates = [float(vector[index]) for index in (problem.indices.x(i), problem.indices.y(i), problem.indices.z(i))]
+        coordinates = [0.0 if abs(value) < tolerance else value for value in coordinates]
+        placements.append(Placement(
+            item_id=item.item_id,
+            container_id=containers[assignments[0]].container_id,
+            x_mm=coordinates[0],
+            y_mm=coordinates[1],
+            z_mm=coordinates[2],
+            length_mm=length_mm,
+            width_mm=width_mm,
+            height_mm=item.height_mm,
+            weight_kg=item.weight_kg,
+            orientation_code=orientation_code,
+        ))
+    return placements
+
+
+def solve_level3(
+    items: list[Item], containers: list[Container], settings: dict[str, Any] | None = None,
+) -> AlgorithmOutcome:
+    """Solve a small Level 3 instance as an exact orientation reference.
+
+    This reference is intentionally capped by the Level 3 dispatcher; it is
+    not the practical solver for medium or large experiments.
+    """
+    settings = settings or {}
+    problem = build_level3_model(items, containers, settings.get("support", {}))
+    result = solve_milp(problem, settings)
+    tolerance = float(settings.get("coordinate_tolerance_mm", 1e-4))
+    placements = [] if result.vector is None else extract_level3_placements(
+        result, problem, items, containers, tolerance=tolerance,
+    )
+    decision_audit = _audit_level2_support_vector(
+        result.vector, problem, items, containers, placements, tolerance=tolerance,
+    ) if result.vector is not None else {"model_support_audit_valid": None, "model_support_audit_issue_count": 0}
+    return AlgorithmOutcome(
+        solve=result,
+        placements=placements,
+        backend="scipy.optimize.milp/HiGHS",
+        metadata={
+            **problem.metadata,
+            "algorithm_kind": "exact_milp_horizontal_orientation_support",
+            "algorithm_role": "exact_reference",
             "optimality_proven": result.status == "OPTIMAL",
             **_solver_diagnostics(result),
             **decision_audit,

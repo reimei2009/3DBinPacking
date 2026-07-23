@@ -18,6 +18,13 @@
 - Extracted exact base-support validation into a reusable orientation-profile-aware core and added the inactive Level 3 independent validator; Level 2 remains fixed orientation.
 - Refactored Extreme-Point FFD to use a reusable orientation provider; existing levels keep `XYZ`, while the planned Level 3 provider evaluates `XYZ` and `YXZ` candidates through the same support policy.
 - Registered Level 3 with isolated configuration, outputs, contract, CLI, Streamlit, exact orientation-plus-support validation, and practical FFD only.
+- Added a Level 3 FFD baseline suite with deterministic signature/orientation checks and orientation-aware benchmark provenance.
+- Ported Extreme Point Best Fit to the Level 3 horizontal-orientation provider and exact-support policy as an alternative deterministic constructive solver.
+- Ported Extreme Point Hill Climbing to reuse the Level 3 horizontal-orientation provider through every destroy-and-repack neighborhood.
+- Ported seeded Extreme Point Simulated Annealing to Level 3, preserving horizontal orientation and exact support through each sampled neighborhood.
+- Ported Maximal Empty Spaces Best Fit to Level 3 with horizontal orientation candidates and exact support checks at empty-space origins.
+- Added a manual, fair Level 3 five-method heuristic acceptance suite and reporting procedure before the exact MILP reference stage.
+- Added a small-instance Level 3 MILP Big-M orientation reference with binary `XYZ`/`YXZ` selection, orientation-dependent bounds/non-overlap/support grid, independent exact-support validation, and a five-item execution guard.
 
 ## 0.12.0 - 2026-07-21
 
