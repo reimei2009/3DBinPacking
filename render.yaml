@@ -1,0 +1,16 @@
+# Render Blueprint for the public Streamlit demo.
+# Runtime outputs are intentionally ephemeral; see docs/guides/deploy_render.md.
+services:
+  - type: web
+    name: 3d-container-packing-demo
+    runtime: docker
+    region: singapore
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /
+    autoDeploy: true
+    envVars:
+      - key: STREAMLIT_BROWSER_GATHER_USAGE_STATS
+        value: "false"
+      - key: PYTHONUNBUFFERED
+        value: "1"
