@@ -42,6 +42,7 @@ def test_streamlit_app_runs_valid_experiment_and_renders_3d(root: Path):
     assert selects["Chế độ hiển thị"].options == ["Rõ khối", "Cân bằng", "X-Ray"]
     sliders = {value.label: value for value in page.slider}
     assert sliders["Độ đục của kiện"].value == 0.92
+    assert not any(value.key == "level_02_support_threshold" for value in page.number_input)
     assert {value.label for value in page.multiselect} >= {"Ẩn các kiện"}
     item_selector = next(value for value in page.selectbox if "I0006" in value.options)
     item_selector.set_value("I0006").run()
