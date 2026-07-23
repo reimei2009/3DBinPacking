@@ -53,6 +53,10 @@ Render provides the `PORT` variable for web services. The container binds
 Streamlit to `0.0.0.0:$PORT`; do not replace the Docker command with one that
 hard-codes localhost or port 8501.
 
+The image also sets `CONTAINER_PACKING_PROJECT_ROOT=/app`. This lets an
+installed Python package resolve the repository's tracked `config/` and
+`data/` assets instead of incorrectly searching from `site-packages`.
+
 ## Redeploy and rollback
 
 With `autoDeploy: true`, a push to the selected branch triggers a new build.
