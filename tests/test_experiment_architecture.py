@@ -14,7 +14,7 @@ from container_packing.runtime.inputs import prompt_choice, prompt_positive
 
 def test_registry_only_exposes_runnable_implementations():
     assert [value.level_id for value in list_levels()] == [
-        "level_01", "level_02", "level_03", "level_04", "level_05",
+        "level_01", "level_02", "level_03", "level_04", "level_05", "level_06",
     ]
     assert [value.algorithm_id for value in list_algorithms(level_id="level_01")] == [
         "extreme_point_best_fit", "extreme_point_ffd", "extreme_point_hill_climbing",
@@ -61,6 +61,13 @@ def test_registry_only_exposes_runnable_implementations():
         "extreme_point_best_fit", "extreme_point_ffd", "extreme_point_hill_climbing",
         "extreme_point_simulated_annealing",
     )
+    assert [value.algorithm_id for value in list_algorithms(level_id="level_06")] == [
+        "extreme_point_ffd_nesting_fixture",
+    ]
+    assert get_level("level_06").supported_algorithms == (
+        "extreme_point_ffd_nesting_fixture",
+    )
+    assert get_level("level_06").contract.title.resolve("en").endswith("(experimental)")
     assert {value.symbol for value in get_level("level_05").contract.variables} >= {
         "T[i]", "L[i]",
     }

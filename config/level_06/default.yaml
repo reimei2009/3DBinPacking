@@ -1,0 +1,11 @@
+extends: ../level_05/default.yaml
+project:
+  level_id: level_06
+  algorithm_id: extreme_point_best_fit
+paths:
+  processed_dir: data/processed/level_06
+  manifest_json: data/processed/level_06/latest_manifest.json
+model:
+  enforce_nesting: false
+nesting:
+  rules_file: config/level_06/nesting_rules.yaml

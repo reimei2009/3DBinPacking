@@ -7,8 +7,6 @@ import json
 from pathlib import Path
 from typing import Any
 
-import pandas as pd
-
 from ..algorithms.registry import get_algorithm
 from ..benchmarks import BenchmarkResult, BenchmarkScenario, run_benchmark
 from ..data_loader import load_config
@@ -17,6 +15,7 @@ from ..experiments.runner import run_experiment
 from ..instance_data import ITEM_SELECTION_STRATEGIES
 from ..levels.registry import get_level
 from ..runtime.project import find_project_root
+from ..source_adapter import SourceAdapterError, load_csv_source
 from ..schemas import RunResult
 
 
@@ -65,9 +64,11 @@ def get_instance_limits(config_path: str | Path, *, root: str | Path | None = No
     project_root = _root(root)
     config = load_config(_resolve(project_root, config_path))
     raw_items = _resolve(project_root, config["paths"]["raw_items_csv"])
+    mapping_value = config["paths"].get("items_source_mapping")
+    mapping = _resolve(project_root, mapping_value) if mapping_value else None
     try:
-        available_items = len(pd.read_csv(raw_items, encoding="utf-8-sig", usecols=["id_item"]))
-    except (OSError, ValueError, pd.errors.ParserError) as exc:
+        available_items = len(load_csv_source(raw_items, mapping).frame)
+    except SourceAdapterError as exc:
         raise ValueError(f"Cannot determine item limit from {raw_items}: {exc}") from exc
     configured_containers = len(config.get("containers", []))
     if configured_containers <= 0:

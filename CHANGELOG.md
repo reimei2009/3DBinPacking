@@ -2,6 +2,36 @@
 
 ## Unreleased
 
+- Added a configurable CSV source adapter and the Level 6 explicit nesting
+  data contract; nesting remains inactive until declared compatibility data and
+  a future runtime integration are implemented.
+- Added the Level 6 pure explicit-nesting chain/effective-height engine and
+  independent relation validator; no Level 6 solver or geometry relaxation is
+  active.
+- Added fixture-only composition of Level 5 and Level 6 nesting validation,
+  including isolated nesting relation/height artifacts through the shared writer.
+- Defined the inactive Level 6 compound nesting projection contract for future
+  geometry, support, stackability, and external load-transfer composition.
+- Added an independent Level 6 compound geometry fixture validator for projected
+  bounds, non-overlap, exact support, and base-center support.
+- Switched the Level 6 fixture bundle to compound geometry/support and compound
+  stackability/load-transfer validation without activating a solver runtime.
+- Added deterministic fixture-only Level 6 nesting relation construction using
+  explicit metadata, best-fit host ranking, and canonical chain validation;
+  no nesting-aware solver is active yet.
+- Added a fixture-only nesting-aware FFD adapter that packs compound roots then
+  validates expanded logical members through independent compound validation.
+- Added a fixture-only Level 6 compound candidate policy that reuses Level 5
+  exact support, stackability and load-bearing checks during FFD construction.
+- Added an isolated Level 6 fixture FFD output writer with compound-validation
+  artifacts and nesting-construction provenance; no Level 6 CLI/UI exists.
+- Frozen a typed Level 6 runtime-candidate contract, isolated output schema and
+  deterministic acceptance fixture gate before any registry/CLI/UI promotion.
+- Registered the single Level 6 compound-root FFD candidate as experimental,
+  with no practical default, additional solver portfolio, or large benchmark.
+- Added a tracked Level 6 explicit host-child CSV fixture, source mapping and
+  small experiment config for observable nesting acceptance evidence.
+
 - Activated the isolated Level 5 runtime with Extreme Point Best Fit, recursive
   contact-area load transfer, candidate load-bearing feasibility, and final
   independent validation.

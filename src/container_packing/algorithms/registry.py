@@ -80,6 +80,21 @@ _ALGORITHMS = {
             en="Sparse Big-M non-overlap MILP solved with SciPy/HiGHS.",
         ),
     ),
+    "extreme_point_ffd_nesting_fixture": AlgorithmDefinition(
+        algorithm_id="extreme_point_ffd_nesting_fixture",
+        family="experimental_constructive_heuristic",
+        description="Experimental compound-root Extreme-Point FFD for explicitly declared nesting fixtures",
+        supported_levels=("level_06",),
+        local_friendly=True,
+        display_name=LocalizedText(
+            vi="Experimental â€” Compound Nesting FFD",
+            en="Experimental â€” Compound Nesting FFD",
+        ),
+        localized_description=LocalizedText(
+            vi="FFD thí nghiệm chỉ cho nesting metadata khai báo rõ; dùng compound root và validator độc lập.",
+            en="Experimental FFD for explicitly declared nesting metadata using compound roots and independent validation.",
+        ),
+    ),
 }
 
 

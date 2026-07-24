@@ -106,30 +106,7 @@ def execute_level_05(
             "and Simulated Annealing; "
             "other solvers remain inactive."
         ) from exc
-    support = settings.get("support", {})
-    stackability = settings.get("stackability", {})
-    load_bearing = settings.get("load_bearing", {})
-    stack_settings = StackabilitySettings.from_config(stackability)
-    stack_attributes = {
-        item.item_id: attributes_for_item(item, stack_settings) for item in items
-    }
-    support_policy = ExactSupportFeasibilityPolicy(
-        threshold=float(support.get("threshold", 0.8)),
-        epsilon_mm=float(support.get("epsilon_mm", 1e-4)),
-        policy_id="horizontal_orientation_geometry_payload_exact_support",
-    )
-    stack_policy = ExactSupportStackabilityPolicy(
-        attributes=stack_attributes,
-        epsilon_mm=float(support.get("epsilon_mm", 1e-4)),
-        base=support_policy,
-    )
-    load_policy = LoadBearingFeasibilityPolicy(
-        attributes=resolve_load_bearing_attributes(items, load_bearing),
-        epsilon_mm=float(support.get("epsilon_mm", 1e-4)),
-        load_tolerance_kg=float(settings.get("load_tolerance_kg", 1e-6)),
-        base=stack_policy,
-        capacity_profile=str(load_bearing.get("capacity_profile", {}).get("mode", "")),
-    )
+    load_policy = build_level_05_feasibility_policy(items, settings)
     solver_settings = dict(settings)
     if algorithm_id in {
         "extreme_point_hill_climbing", "extreme_point_simulated_annealing",
@@ -142,4 +119,39 @@ def execute_level_05(
         solver_settings,
         policy=load_policy,
         orientation_provider=horizontal_orientation_provider(),
+    )
+
+
+def build_level_05_feasibility_policy(
+    items: list[Item],
+    settings: dict[str, Any],
+    *,
+    support_policy_id: str = "horizontal_orientation_geometry_payload_exact_support",
+    policy_id: str = "horizontal_orientation_geometry_payload_exact_support_stackability_load_bearing",
+) -> LoadBearingFeasibilityPolicy:
+    """Create the shared Level 5 external feasibility stack for compound consumers too."""
+    support = settings.get("support", {})
+    stackability = settings.get("stackability", {})
+    load_bearing = settings.get("load_bearing", {})
+    stack_settings = StackabilitySettings.from_config(stackability)
+    stack_attributes = {
+        item.item_id: attributes_for_item(item, stack_settings) for item in items
+    }
+    support_policy = ExactSupportFeasibilityPolicy(
+        threshold=float(support.get("threshold", 0.8)),
+        epsilon_mm=float(support.get("epsilon_mm", 1e-4)),
+        policy_id=support_policy_id,
+    )
+    stack_policy = ExactSupportStackabilityPolicy(
+        attributes=stack_attributes,
+        epsilon_mm=float(support.get("epsilon_mm", 1e-4)),
+        base=support_policy,
+    )
+    return LoadBearingFeasibilityPolicy(
+        attributes=resolve_load_bearing_attributes(items, load_bearing),
+        epsilon_mm=float(support.get("epsilon_mm", 1e-4)),
+        load_tolerance_kg=float(settings.get("load_tolerance_kg", 1e-6)),
+        base=stack_policy,
+        capacity_profile=str(load_bearing.get("capacity_profile", {}).get("mode", "")),
+        policy_id=policy_id,
     )

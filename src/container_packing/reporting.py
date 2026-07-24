@@ -101,6 +101,12 @@ def solver_payload(metadata: dict[str, Any]) -> dict[str, Any]:
           "stackability_parent_selection", "stackability_max_layers_semantics",
           "load_bearing_rejected_candidates", "load_bearing_valid_candidates",
           "load_bearing_capacity_profile", "load_transfer_model",
+          "nesting_contract_version", "nesting_validation_model", "nesting_relation_count",
+          "compound_geometry_model", "compound_count",
+          "fixture_adapter", "nesting_construction_policy",
+          "nesting_eligible_child_count", "nesting_candidate_relation_count",
+          "nesting_accepted_relation_count", "nesting_rejected_candidate_count",
+          "compound_candidate_count", "compound_validation_status",
           "algorithm_parameters",
       )
     return {
@@ -152,6 +158,14 @@ def metrics_payload(metadata: dict[str, Any], validation_valid: bool | None) -> 
         "overloaded_item_count": metadata.get("overloaded_item_count"),
         "fragile_item_count": metadata.get("fragile_item_count"),
         "load_transfer_edge_count": metadata.get("load_transfer_edge_count"),
+        "nesting_runtime_enabled": metadata.get("nesting_runtime_enabled", False),
+        "nesting_relation_count": metadata.get("nesting_relation_count"),
+        "maximum_nesting_depth": metadata.get("maximum_nesting_depth"),
+        "compound_geometry_model": metadata.get("compound_geometry_model"),
+        "compound_count": metadata.get("compound_count"),
+        "nesting_construction_policy": metadata.get("nesting_construction_policy"),
+        "nesting_accepted_relation_count": metadata.get("nesting_accepted_relation_count"),
+        "compound_validation_status": metadata.get("compound_validation_status"),
     }
 
 
@@ -196,6 +210,13 @@ def _initialize_run(
         "load_bearing_data_status": metadata.get("load_bearing_data_status"),
         "load_bearing_capacity_profile": metadata.get("load_bearing_capacity_profile"),
         "load_transfer_model": metadata.get("load_transfer_model"),
+        "nesting_contract_version": metadata.get("nesting_contract_version"),
+        "nesting_data_status": metadata.get("nesting_data_status"),
+        "nesting_validation_model": metadata.get("nesting_validation_model"),
+        "compound_geometry_model": metadata.get("compound_geometry_model"),
+        "compound_count": metadata.get("compound_count"),
+        "fixture_adapter": metadata.get("fixture_adapter"),
+        "nesting_construction_policy": metadata.get("nesting_construction_policy"),
         "random_seed": metadata["random_seed"],
         "time_limit_seconds": metadata.get("time_limit_seconds"),
         "active_constraints": metadata.get("active_constraints", [

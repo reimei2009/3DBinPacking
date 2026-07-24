@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 from ..experiments.contracts import (
@@ -12,7 +13,7 @@ from ..experiments.contracts import (
     MathematicalExpression,
     VariableDefinition,
 )
-from . import level_01, level_02, level_03, level_04, level_05
+from . import level_01, level_02, level_03, level_04, level_05, level_06
 
 _LEVELS = {
     "level_01": LevelDefinition(
@@ -185,6 +186,105 @@ _LEVELS = {
         ),
     ),
 }
+
+
+# Level 5 is registered later in this declarative module. The Level 6 entry is
+# completed from that contract after all prior levels have been constructed.
+_LEVEL_05_CONTRACT = _LEVELS["level_01"].contract
+_LEVELS["level_06"] = LevelDefinition(
+    level_id="level_06",
+    description="Experimental explicit nesting through deterministic compound-root FFD",
+    default_config=Path("config/level_06/experimental.yaml"),
+    supported_algorithms=("extreme_point_ffd_nesting_fixture",),
+    run=level_06.run,
+    prepare=level_06.prepare,
+    validate_run=level_06.validate_run,
+    contract=LevelContract(
+        title=LocalizedText(
+            vi="Level 6 — Nesting tường minh (thử nghiệm)",
+            en="Level 6 — Explicit nesting (experimental)",
+        ),
+        problem=LocalizedText(
+            vi="Xếp compound root tạo từ các quan hệ host–child đã khai báo rõ; child là logical member.",
+            en="Pack compound roots formed from explicit host-child relations; children are logical members.",
+        ),
+        notation=_LEVEL_05_CONTRACT.notation + (
+            MathematicalExpression(
+                "nesting_relation",
+                LocalizedText(vi="Quan hệ lồng", en="Nesting relation"),
+                r"n_{hi}=1\Longleftrightarrow i\text{ is nested in host }h",
+                LocalizedText(
+                    vi="Quan hệ chỉ được tạo khi metadata compatibility, kích thước trong và depth hợp lệ.",
+                    en="A relation exists only with compatible metadata, inner dimensions and valid depth.",
+                ),
+                "src/container_packing/levels/nesting_construction.py::construct_nesting_relations",
+            ),
+        ),
+        objective=_LEVEL_05_CONTRACT.objective,
+        variables=_LEVEL_05_CONTRACT.variables + (
+            VariableDefinition(
+                "n[h,i]",
+                r"n_{hi}\in\{0,1\}",
+                LocalizedText(vi="Quan hệ rời rạc suy ra", en="Derived discrete relation"),
+                LocalizedText(vi="host h, child i", en="host h, child i"),
+                LocalizedText(
+                    vi="Biểu diễn child i là thành viên logical của host h trong compound.",
+                    en="Represents child i as a logical member of host h's compound.",
+                ),
+                "src/container_packing/levels/nesting_engine.py::NestingRelation",
+            ),
+        ),
+        active_constraints=_LEVEL_05_CONTRACT.active_constraints + (
+            ConstraintDefinition(
+                "explicit_nesting_compatibility",
+                LocalizedText(vi="Tương thích lồng tường minh", en="Explicit nesting compatibility"),
+                r"n_{hi}=1\Rightarrow g_h=g_i,\;d_i\preceq d_h^{inner},\;\operatorname{depth}(i)\le D_h",
+                LocalizedText(
+                    vi="Group, role, kích thước trong và giới hạn depth phải hợp lệ trước khi tạo compound.",
+                    en="Group, role, inner dimensions and depth must be valid before creating a compound.",
+                ),
+                "src/container_packing/levels/nesting.py::NestingCapabilityProvider",
+            ),
+            ConstraintDefinition(
+                "compound_root_external_geometry",
+                LocalizedText(vi="Hình học ngoài theo compound root", en="Compound-root external geometry"),
+                r"H_{root}^{eff}=h_{root}+\sum_{i\in chain(root)\setminus\{root\}}\Delta h_i",
+                LocalizedText(
+                    vi="Chỉ envelope root là đối tượng boundary, non-overlap, support, stack và load ở bên ngoài.",
+                    en="Only the root envelope participates in external boundary, non-overlap, support, stack and load checks.",
+                ),
+                "src/container_packing/levels/level_06_compound_validation.py::validate_compound_geometry",
+            ),
+        ),
+        inactive_constraints=tuple(
+            value for value in _LEVEL_05_CONTRACT.inactive_constraints if value.en != "nesting"
+        ) + (
+            LocalizedText(vi="truyền tải nội bộ khi lồng", en="internal nesting load transfer"),
+            LocalizedText(vi="xoay orientation-aware khi lồng", en="orientation-aware nesting"),
+            LocalizedText(vi="ổn định vật lý đầy đủ", en="full physical stability"),
+        ),
+        assumptions=_LEVEL_05_CONTRACT.assumptions + (
+            LocalizedText(
+                vi="Chỉ metadata nesting khai báo rõ được kích hoạt; dữ liệu thiếu metadata vẫn là non-nesting.",
+                en="Only explicitly declared nesting metadata is active; missing metadata remains non-nesting.",
+            ),
+        ),
+        limitations=(
+            LocalizedText(
+                vi="Chỉ FFD experimental được đăng ký; không phải default thực tế và không có benchmark quy mô lớn.",
+                en="Only experimental FFD is registered; it is not a practical default and has no large-scale benchmark.",
+            ),
+            LocalizedText(
+                vi="Chưa mô hình hóa lực, áp suất, contact nội bộ hoặc orientation-aware nesting.",
+                en="Internal forces, pressure, internal contacts and orientation-aware nesting are not modeled.",
+            ),
+        ),
+        solution_claim=LocalizedText(
+            vi="Nghiệm experimental hợp lệ độc lập theo compound geometry và ràng buộc ngoài kế thừa.",
+            en="An independently valid experimental solution under compound geometry and inherited external constraints.",
+        ),
+    ),
+)
 
 
 _LEVEL_01_CONTRACT = _LEVELS["level_01"].contract
@@ -649,6 +749,27 @@ _LEVELS["level_05"] = LevelDefinition(
                 "research profile."
             ),
         ),
+    ),
+)
+
+
+_level_05_contract = _LEVELS["level_05"].contract
+_level_06_definition = _LEVELS["level_06"]
+_level_06_contract = _level_06_definition.contract
+_LEVELS["level_06"] = replace(
+    _level_06_definition,
+    contract=replace(
+        _level_06_contract,
+        notation=_level_05_contract.notation + _level_06_contract.notation[-1:],
+        objective=_level_05_contract.objective,
+        variables=_level_05_contract.variables + _level_06_contract.variables[-1:],
+        active_constraints=(
+            _level_05_contract.active_constraints + _level_06_contract.active_constraints[-2:]
+        ),
+        inactive_constraints=tuple(
+            value for value in _level_05_contract.inactive_constraints if value.en != "nesting"
+        ) + _level_06_contract.inactive_constraints[-3:],
+        assumptions=_level_05_contract.assumptions + _level_06_contract.assumptions[-1:],
     ),
 )
 

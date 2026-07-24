@@ -90,6 +90,10 @@ def _input_fingerprint(
     selection = selection or item_selection_fingerprint(
         raw_items, scenario.item_count,
         strategy=scenario.item_selection_strategy, seed=scenario.item_selection_seed,
+        mapping_path=(
+            _resolve(root, config["paths"]["items_source_mapping"])
+            if config["paths"].get("items_source_mapping") else None
+        ),
     )
     payload = {
         "level": level_id,
@@ -283,12 +287,17 @@ def run_benchmark(
     config = load_config(config_file)
     config = merge_config(config, dict(config_overrides or {}))
     raw_items_path = _resolve(root, config["paths"]["raw_items_csv"])
+    mapping_path = (
+        _resolve(root, config["paths"]["items_source_mapping"])
+        if config["paths"].get("items_source_mapping") else None
+    )
     scenario_selections = {
         scenario.scenario_id: item_selection_fingerprint(
             raw_items_path,
             scenario.item_count,
             strategy=scenario.item_selection_strategy,
             seed=scenario.item_selection_seed,
+            mapping_path=mapping_path,
         )
         for scenario in selected_scenarios
     }

@@ -154,5 +154,5 @@ def test_level5_contract_is_active_with_isolated_best_fit_runtime(root: Path) ->
         "validation_document": "load_bearing_validation.json",
     }
     assert [value.level_id for value in list_levels()] == [
-        "level_01", "level_02", "level_03", "level_04", "level_05",
+        "level_01", "level_02", "level_03", "level_04", "level_05", "level_06",
     ]

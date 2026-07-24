@@ -163,6 +163,15 @@ def terminal_preview(result: RunResult, *, placement_limit: int = 20) -> str:
             f"Minimum load safety margin: {metadata.get('minimum_load_safety_margin_kg')} kg",
             f"Load-transfer edges: {metadata.get('load_transfer_edge_count')}",
         ])
+    if metadata.get("nesting_runtime_enabled"):
+        relation_count = int(metadata.get("nesting_relation_count", 0) or 0)
+        compound_count = int(metadata.get("compound_count", 0) or 0)
+        relation_note = "declared relation(s) selected" if relation_count else "no compatible declared relation in selected input"
+        lines.extend([
+            f"Nesting relations: {relation_count} ({relation_note})",
+            f"Compound envelopes: {compound_count}",
+            f"Maximum nesting depth: {metadata.get('maximum_nesting_depth', 0)}",
+        ])
     if result.placements:
         groups: dict[str, list] = defaultdict(list)
         for placement in result.placements:

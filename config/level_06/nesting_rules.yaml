@@ -1,0 +1,34 @@
+# Data-contract-only checkpoint. No solver consumes these rules yet.
+contract_version: 1
+level_id: level_06
+status: contract_and_validator_ready_experimental_runtime
+activation: explicit_compatibility
+missing_metadata_behavior: nesting_disabled_undeclared
+roles: [none, host, child, both]
+dimension_clearance_mm: 0.0
+increment_semantics: child_declared_increment_height_mm
+runtime_semantics:
+  status: designed_not_active
+  relation_source: explicit_solution_relation
+  child_coordinate_mode: logical_member_no_global_box
+  external_occupancy: compound_root_effective_envelope
+  effective_height: root_outer_height_plus_member_increments
+  boundary_and_non_overlap: compound_projection_only
+  support_and_stackability: compound_root_external_faces_only
+  load_transfer: compound_weight_through_root_external_contacts
+  internal_load_transfer: inactive_not_claimed
+construction_policy:
+  policy_id: explicit_nesting_best_fit_chain_v1
+  child_order: descending_outer_volume_then_item_id
+  host_ranking: minimum_remaining_inner_volume_then_item_id
+  max_direct_children_per_host: 1
+  relation_source: explicit_metadata_fixture_only
+inactive_physics:
+  - placement_dimension_reduction
+  - nesting_aware_support
+  - nesting_aware_load_transfer
+  - nesting_aware_solver
+future_output:
+  relation_table: nesting_relations.csv
+  item_table: nesting_height.csv
+  validation_document: nesting_validation.json

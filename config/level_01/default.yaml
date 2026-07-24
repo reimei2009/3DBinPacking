@@ -11,6 +11,7 @@ instance:
   item_selection_seed: null
 paths:
   raw_items_csv: data/raw/dataset_small_items_original.csv
+  items_source_mapping: config/common/data_sources/3dbppsi_dataset_small.yaml
   processed_dir: data/processed/level_01
   manifest_json: data/processed/level_01/latest_manifest.json
   output_root: outputs

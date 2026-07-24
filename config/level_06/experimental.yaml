@@ -1,0 +1,9 @@
+# The only runnable Level 6 configuration. It remains explicitly experimental.
+extends: runtime_candidate.yaml
+project:
+  level_id: level_06
+  algorithm_id: extreme_point_ffd_nesting_fixture
+model:
+  enforce_nesting: true
+runtime_candidate:
+  status: experimental_registered_not_default
