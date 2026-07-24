@@ -8,7 +8,10 @@ from container_packing.data_loader import load_config
 from container_packing.sweeps import run_parameter_sweep
 
 
-def write_sweep(root: Path, tmp_path: Path, parameters: dict, *, max_sets: int = 10) -> Path:
+def write_sweep(
+    root: Path, tmp_path: Path, parameters: dict, *, max_sets: int = 10,
+    item_selection_strategy: str = "prefix", item_selection_seed: int | None = None,
+) -> Path:
     base = load_config(root / "config/level_01/default.yaml")
     base["paths"]["raw_items_csv"] = str(root / "data/raw/dataset_small_items_original.csv")
     base["paths"]["processed_dir"] = str(tmp_path / "processed/level_01")
@@ -22,7 +25,11 @@ def write_sweep(root: Path, tmp_path: Path, parameters: dict, *, max_sets: int =
             "algorithm_id": "extreme_point_simulated_annealing",
         },
         "base_config": str(base_file),
-        "instance": {"item_counts": [1], "container_counts": [2]},
+        "instance": {
+            "item_counts": [1], "container_counts": [2],
+            "item_selection_strategy": item_selection_strategy,
+            "item_selection_seed": item_selection_seed,
+        },
         "execution": {"environment": "local", "seeds": [7, 11], "repeats": 2},
         "sweep": {"max_parameter_sets": max_sets, "parameters": parameters},
     }
@@ -124,3 +131,61 @@ def test_parameter_sweep_rejects_unknown_config_parameter(root: Path, tmp_path: 
 
     with pytest.raises(ValueError, match="must be under model, support, solver, or validation"):
         run_parameter_sweep(path, project_root=root)
+
+
+def test_parameter_sweep_persists_stable_random_profile_in_every_source_run(root: Path, tmp_path: Path):
+    path = write_sweep(
+        root, tmp_path, {"max_iterations": [0, 2]},
+        item_selection_strategy="stable_random", item_selection_seed=101,
+    )
+
+    result = run_parameter_sweep(path, project_root=root)
+
+    assert result.successful
+    assert set(result.results["item_selection_strategy"]) == {"stable_random"}
+    assert set(result.results["item_selection_seed"]) == {101}
+    assert result.results["selected_item_ids_checksum"].nunique() == 1
+    request = json.loads((result.run_dir / "sweep/request.json").read_text(encoding="utf-8"))
+    manifest = json.loads((result.run_dir / "manifest.json").read_text(encoding="utf-8"))
+    assert request["item_selection_strategy"] == "stable_random"
+    assert request["item_selection_seed"] == 101
+    assert manifest["item_selection"] == {"strategy": "stable_random", "seed": 101}
+    for run_dir in result.results["experiment_run_dir"]:
+        resolved = yaml.safe_load((Path(run_dir) / "resolved_config.yaml").read_text(encoding="utf-8"))
+        assert resolved["instance"]["item_selection_strategy"] == "stable_random"
+        assert resolved["instance"]["item_selection_seed"] == 101
+
+
+def test_parameter_sweep_rejects_stable_random_without_selection_seed(root: Path, tmp_path: Path):
+    path = write_sweep(root, tmp_path, {"max_iterations": [1]}, item_selection_strategy="stable_random")
+
+    with pytest.raises(ValueError, match="requires item_selection_seed"):
+        run_parameter_sweep(path, project_root=root)
+
+
+def test_level4_sa_sensitivity_configs_declare_frozen_profiles(root: Path):
+    prefix = load_config(root / "config/level_04/sweeps/sa_prefix_i20_c5_local.yaml")
+    random_profile = load_config(root / "config/level_04/sweeps/sa_stable_random_101_i20_c5_local.yaml")
+
+    for definition in (prefix, random_profile):
+        assert definition["project"] == {
+            "level_id": "level_04",
+            "algorithm_id": "extreme_point_simulated_annealing",
+        }
+        assert definition["instance"]["item_counts"] == [20]
+        assert definition["instance"]["container_counts"] == [5]
+        assert definition["execution"] == {
+            "environment": "local", "seeds": [7, 11, 19], "repeats": 1,
+        }
+        assert definition["sweep"]["max_parameter_sets"] == 8
+        assert definition["sweep"]["parameters"] == {
+            "max_iterations": [50, 200],
+            "initial_temperature": [0.05, 0.25],
+            "cooling_rate": [0.95, 0.99],
+        }
+    assert prefix["instance"]["item_selection_strategy"] == "prefix"
+    assert "item_selection_seed" not in prefix["instance"]
+    assert random_profile["instance"] == {
+        "item_counts": [20], "container_counts": [5],
+        "item_selection_strategy": "stable_random", "item_selection_seed": 101,
+    }

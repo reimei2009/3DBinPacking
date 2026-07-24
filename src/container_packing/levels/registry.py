@@ -12,7 +12,7 @@ from ..experiments.contracts import (
     MathematicalExpression,
     VariableDefinition,
 )
-from . import level_01, level_02, level_03
+from . import level_01, level_02, level_03, level_04
 
 _LEVELS = {
     "level_01": LevelDefinition(
@@ -419,6 +419,77 @@ _LEVELS["level_03"] = LevelDefinition(
         solution_claim=LocalizedText(
             vi="Nghiệm hợp lệ về hình học, tải trọng, support đáy và xoay ngang theo giả định Level 3.",
             en="A geometry, payload, base-support, and horizontal-orientation-feasible solution under Level 3 assumptions.",
+        ),
+    ),
+)
+
+
+_LEVEL_03_CONTRACT = _LEVELS["level_03"].contract
+_LEVELS["level_04"] = LevelDefinition(
+    level_id="level_04",
+    description="Horizontal orientation, exact support, and same-code stackability rules",
+    default_config=Path("config/level_04/default.yaml"),
+    supported_algorithms=(
+        "extreme_point_ffd", "extreme_point_best_fit", "extreme_point_hill_climbing",
+        "extreme_point_simulated_annealing",
+        "maximal_space_best_fit",
+    ),
+    run=level_04.run,
+    prepare=level_04.prepare,
+    validate_run=level_04.validate_run,
+    contract=LevelContract(
+        title=LocalizedText(vi="Level 4 — Quy tắc chồng kiện", en="Level 4 — Stackability rules"),
+        problem=LocalizedText(
+            vi="Kế thừa Level 3 và chỉ cho phép quan hệ chồng trực tiếp giữa các kiện cùng nhóm stackability.",
+            en="Extend Level 3 by allowing declared direct stack relations only for compatible stackability groups.",
+        ),
+        notation=_LEVEL_03_CONTRACT.notation + (
+            MathematicalExpression(
+                "stack_parent_relation", LocalizedText(vi="Quan hệ đỡ trực tiếp", en="Direct stack-parent relation"),
+                r"p_{jik}\in\{0,1\}",
+                LocalizedText(vi="Bằng 1 khi j là parent trực tiếp của i trong container k.", en="Equals one when j is the declared direct parent of i in container k."),
+                "src/container_packing/levels/stackability.py::StackParentRelation",
+            ),
+        ),
+        objective=_LEVEL_03_CONTRACT.objective,
+        variables=_LEVEL_03_CONTRACT.variables + (
+            VariableDefinition(
+                "p[j,i,k]", r"p_{jik}\in\{0,1\}", LocalizedText(vi="Nhị phân", en="Binary"),
+                LocalizedText(vi="parent j, child i, container k", en="parent j, child i, container k"),
+                LocalizedText(vi="Quan hệ stack trực tiếp được khai báo từ nghiệm cuối.", en="Declared direct stack relation reconstructed from the final solution."),
+                "src/container_packing/levels/stackability.py::StackParentRelation",
+            ),
+        ),
+        active_constraints=_LEVEL_03_CONTRACT.active_constraints + (
+            ConstraintDefinition(
+                "stackability_same_group", LocalizedText(vi="Tương thích nhóm stack", en="Same-group stack compatibility"),
+                r"p_{jik}=1\Rightarrow g_i=g_j",
+                LocalizedText(vi="Parent và child trực tiếp phải có cùng stackability code.", en="Direct parent and child must have the same stackability code."),
+                "src/container_packing/levels/level_04_validation.py::_validate_relation",
+            ),
+            ConstraintDefinition(
+                "maximum_stack_layers", LocalizedText(vi="Giới hạn tầng stack", en="Maximum stack layers"),
+                r"|\operatorname{chain}(i)|\le\min_{v\in\operatorname{chain}(i)}m_v",
+                LocalizedText(vi="Số tầng của chain không vượt cap hiệu lực nhỏ nhất.", en="A parent chain cannot exceed its minimum effective cap."),
+                "src/container_packing/levels/level_04_validation.py::_stack_records",
+            ),
+        ),
+        inactive_constraints=tuple(LocalizedText(vi=vi, en=en) for vi, en in (
+            ("xoay làm đổi trục đứng", "vertical-axis rotation"), ("chịu tải", "load bearing"),
+            ("truyền tải", "load transfer"), ("ổn định vật lý đầy đủ", "full physical stability"),
+            ("hàng dễ vỡ", "fragility"), ("trọng tâm", "center of gravity"),
+            ("thứ tự xếp/dỡ", "loading/unloading order"), ("lồng kiện", "nesting"),
+        )),
+        assumptions=_LEVEL_03_CONTRACT.assumptions + (
+            LocalizedText(vi="Stackability code tương thích theo equality; max_stackability dùng convention versioned của Level 4.", en="Stackability compatibility uses code equality; max_stackability uses the versioned Level 4 convention."),
+        ),
+        limitations=(
+            LocalizedText(vi="FFD là practical default; chưa có Level 4 MILP reference.", en="FFD is the practical default; no Level 4 MILP reference exists yet."),
+            LocalizedText(vi="Không tính tải truyền qua stack hoặc độ bền chịu tải.", en="No stack load transfer or load-bearing capacity is modeled."),
+        ),
+        solution_claim=LocalizedText(
+            vi="Nghiệm hợp lệ về hình học, tải trọng, support, xoay ngang và quy tắc stack theo Level 4.",
+            en="A geometry, payload, support, horizontal-orientation, and stackability-feasible solution under Level 4 assumptions.",
         ),
     ),
 )

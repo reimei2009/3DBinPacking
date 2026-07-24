@@ -186,6 +186,120 @@ def test_level3_ffd_baseline_suite_declares_deterministic_orientation_protocol(r
     ]
 
 
+def test_level4_ffd_baseline_suite_declares_stackability_protocol(root: Path):
+    suite = load_benchmark_suite(root / "config/level_04/benchmarks/ffd_baseline_local.yaml")
+
+    assert suite.level_id == "level_04"
+    assert suite.suite_id == "level_04_ffd_baseline_local_v1"
+    assert suite.algorithms == ("extreme_point_ffd",)
+    assert suite.seeds == (42,)
+    assert suite.repeats == 3
+    assert [scenario.scenario_id for scenario in suite.scenarios] == [
+        "sanity_prefix_i3_c2", "practical_prefix_i10_c3", "practical_prefix_i20_c5",
+        "stable_random_101_i20_c5", "diverse_volume_i40_c8", "scale_prefix_i100_c12",
+    ]
+    assert suite.scenarios[3].item_selection_strategy == "stable_random"
+    assert suite.scenarios[3].item_selection_seed == 101
+
+
+def test_level4_best_fit_baseline_suite_declares_practical_default_protocol(root: Path):
+    suite = load_benchmark_suite(root / "config/level_04/benchmarks/best_fit_baseline_local.yaml")
+
+    assert suite.level_id == "level_04"
+    assert suite.suite_id == "level_04_best_fit_baseline_local_v1"
+    assert suite.algorithms == ("extreme_point_best_fit",)
+    assert suite.seeds == (42,)
+    assert suite.repeats == 3
+    assert len(suite.scenarios) == 6
+    assert all(scenario.algorithm_ids == suite.algorithms for scenario in suite.scenarios)
+
+
+def test_level4_core_constructive_suite_uses_shared_stackability_inputs(root: Path):
+    suite = load_benchmark_suite(root / "config/level_04/benchmarks/core_constructive_local.yaml")
+
+    assert suite.level_id == "level_04"
+    assert suite.suite_id == "level_04_core_constructive_local_v1"
+    assert suite.algorithms == (
+        "extreme_point_ffd", "extreme_point_best_fit", "maximal_space_best_fit",
+    )
+    assert suite.repeats == 3
+    assert all(scenario.algorithm_ids == suite.algorithms for scenario in suite.scenarios)
+    assert suite.scenarios[-1].item_selection_strategy == "volume_stratified"
+
+
+def test_level4_local_search_suite_compares_best_fit_with_hill_climbing(root: Path):
+    suite = load_benchmark_suite(root / "config/level_04/benchmarks/local_search_local.yaml")
+
+    assert suite.level_id == "level_04"
+    assert suite.suite_id == "level_04_local_search_local_v1"
+    assert suite.algorithms == ("extreme_point_best_fit", "extreme_point_hill_climbing")
+    assert suite.repeats == 3
+    assert all(scenario.algorithm_ids == suite.algorithms for scenario in suite.scenarios)
+
+
+def test_level4_metaheuristic_suite_uses_shared_seeded_inputs(root: Path):
+    suite = load_benchmark_suite(root / "config/level_04/benchmarks/metaheuristic_local.yaml")
+
+    assert suite.level_id == "level_04"
+    assert suite.suite_id == "level_04_metaheuristic_local_v1"
+    assert suite.algorithms == (
+        "extreme_point_best_fit", "extreme_point_hill_climbing",
+        "extreme_point_simulated_annealing",
+    )
+    assert suite.seeds == (42,)
+    assert all(scenario.algorithm_ids == suite.algorithms for scenario in suite.scenarios)
+
+
+def test_level4_portfolio_suite_declares_common_profiles_and_seed_sweep(root: Path):
+    suite = load_benchmark_suite(root / "config/level_04/benchmarks/portfolio_local.yaml")
+
+    assert suite.level_id == "level_04"
+    assert suite.suite_id == "level_04_solver_portfolio_local_v1"
+    assert suite.algorithms == (
+        "extreme_point_best_fit", "extreme_point_hill_climbing",
+        "extreme_point_simulated_annealing",
+    )
+    assert suite.seeds == (7, 11, 19)
+    assert suite.repeats == 1
+    assert [scenario.scenario_id for scenario in suite.scenarios] == [
+        "portfolio_prefix_i20_c5", "portfolio_stable_random_101_i20_c5",
+    ]
+    assert suite.scenarios[1].item_selection_strategy == "stable_random"
+    assert suite.scenarios[1].item_selection_seed == 101
+
+
+def test_level4_portfolio_algorithms_share_one_frozen_input(root: Path, tmp_path: Path):
+    config = load_config(root / "config/level_04/default.yaml")
+    config["paths"].update({
+        "raw_items_csv": str(root / "data/raw/dataset_small_items_original.csv"),
+        "processed_dir": str(tmp_path / "processed" / "level_04"),
+        "manifest_json": str(tmp_path / "processed" / "level_04" / "latest_manifest.json"),
+        "output_root": str(tmp_path / "outputs"),
+    })
+    config_path = tmp_path / "level_04.yaml"
+    config_path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
+    algorithms = (
+        "extreme_point_best_fit", "extreme_point_hill_climbing",
+        "extreme_point_simulated_annealing",
+    )
+    scenario = BenchmarkScenario(
+        "portfolio_fixture", "Tiny shared Level 4 profile", 1, 2,
+        algorithm_ids=algorithms, item_selection_strategy="stable_random", item_selection_seed=101,
+    )
+
+    result = run_benchmark(
+        level_id="level_04", algorithm_ids=algorithms, item_counts=[1], container_counts=[2],
+        seeds=[7], repeats=1, config_path=config_path, project_root=root,
+        scenarios=[scenario], suite_id="level_04_portfolio_fixture",
+    )
+
+    assert result.successful
+    assert set(result.results["algorithm"]) == set(algorithms)
+    assert result.results["input_fingerprint"].nunique() == 1
+    assert result.results["selected_item_ids_checksum"].nunique() == 1
+    assert set(result.results["item_selection_strategy"]) == {"stable_random"}
+
+
 def test_level3_core_heuristic_suite_compares_only_shared_level3_inputs(root: Path):
     suite = load_benchmark_suite(root / "config/level_03/benchmarks/core_heuristics_local.yaml")
 

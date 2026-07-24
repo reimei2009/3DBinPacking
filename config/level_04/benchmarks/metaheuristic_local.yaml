@@ -1,0 +1,38 @@
+# Fair comparison: practical Best Fit, Hill Climbing, and Simulated Annealing.
+# Run manually: python scripts\run_benchmark.py --suite config\level_04\benchmarks\metaheuristic_local.yaml
+suite_id: level_04_metaheuristic_local_v1
+level_id: level_04
+description: >
+  Compare deterministic Best Fit and Hill Climbing with seeded Simulated
+  Annealing under the same orientation, exact-support, and stackability
+  contract. Repeats measure deterministic behavior for the fixed seed.
+config: config/level_04/default.yaml
+environment: local
+algorithms:
+  - extreme_point_best_fit
+  - extreme_point_hill_climbing
+  - extreme_point_simulated_annealing
+seeds: [42]
+repeats: 3
+scenarios:
+  - scenario_id: metaheuristic_smoke_i3_c2
+    description: "Small common stackability-aware metaheuristic scenario."
+    item_count: 3
+    container_count: 2
+    item_selection: prefix
+    tags: [smoke, deterministic, metaheuristic, support, stackability]
+
+  - scenario_id: practical_prefix_i20_c5
+    description: "Practical common metaheuristic scenario; run manually."
+    item_count: 20
+    container_count: 5
+    item_selection: prefix
+    tags: [practical, comparison, metaheuristic, support, stackability]
+
+  - scenario_id: stable_random_101_i20_c5
+    description: "Stable random common metaheuristic scenario; run manually."
+    item_count: 20
+    container_count: 5
+    item_selection: stable_random
+    selection_seed: 101
+    tags: [practical, comparison, stable_random, metaheuristic, support, stackability]

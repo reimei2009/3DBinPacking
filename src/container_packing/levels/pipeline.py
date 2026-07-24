@@ -21,6 +21,9 @@ class ValidationBundle:
     result: ValidationResult
     solution_tables: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
     validation_documents: dict[str, dict[str, Any]] = field(default_factory=dict)
+    solution_payload_extra: dict[str, Any] = field(default_factory=dict)
+    scene_item_metadata: dict[str, dict[str, Any]] = field(default_factory=dict)
+    extra_report_lines: list[str] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
@@ -97,6 +100,7 @@ def run_configured_level(
             **config.get("algorithms", {}).get(algorithm_id, {}),
             "coordinate_tolerance_mm": tolerance, "random_seed": seed,
             "support": config.get("support", {}),
+            "stackability": config.get("stackability", {}),
         }
     started = perf_counter()
     outcome = strategy.execute(algorithm_id, items, containers, settings)
@@ -152,7 +156,8 @@ def run_configured_level(
             })
         bundle = ValidationBundle(
             ValidationResult(False, [*bundle.result.issues, audit_issue]),
-            bundle.solution_tables, documents, bundle.metadata,
+            bundle.solution_tables, documents, bundle.solution_payload_extra,
+            bundle.scene_item_metadata, bundle.extra_report_lines, bundle.metadata,
         )
     selected = sorted({placement.container_id for placement in placements})
     container_map = {container.container_id: container for container in containers}
@@ -166,6 +171,9 @@ def run_configured_level(
         "items_path": items_path, "containers_path": containers_path, "project_root": root,
         "extra_solution_tables": bundle.solution_tables,
         "extra_validation_documents": bundle.validation_documents,
+        "solution_payload_extra": bundle.solution_payload_extra,
+        "scene_item_metadata": bundle.scene_item_metadata,
+        "extra_report_lines": bundle.extra_report_lines,
     }
     if not bundle.result.valid:
         metadata["status"] = "INVALID_SOLUTION"

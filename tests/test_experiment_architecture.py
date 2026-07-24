@@ -13,7 +13,7 @@ from container_packing.runtime.inputs import prompt_choice, prompt_positive
 
 
 def test_registry_only_exposes_runnable_implementations():
-    assert [value.level_id for value in list_levels()] == ["level_01", "level_02", "level_03"]
+    assert [value.level_id for value in list_levels()] == ["level_01", "level_02", "level_03", "level_04"]
     assert [value.algorithm_id for value in list_algorithms(level_id="level_01")] == [
         "extreme_point_best_fit", "extreme_point_ffd", "extreme_point_hill_climbing",
         "extreme_point_simulated_annealing", "maximal_space_best_fit", "milp_big_m",
@@ -40,6 +40,16 @@ def test_registry_only_exposes_runnable_implementations():
     assert get_level("level_03").supported_algorithms == (
         "milp_big_m", "extreme_point_ffd", "extreme_point_best_fit", "extreme_point_hill_climbing",
         "extreme_point_simulated_annealing", "maximal_space_best_fit",
+    )
+    assert [value.algorithm_id for value in list_algorithms(level_id="level_04")] == [
+        "extreme_point_best_fit", "extreme_point_ffd", "extreme_point_hill_climbing",
+        "extreme_point_simulated_annealing",
+        "maximal_space_best_fit",
+    ]
+    assert get_level("level_04").supported_algorithms == (
+        "extreme_point_ffd", "extreme_point_best_fit", "extreme_point_hill_climbing",
+        "extreme_point_simulated_annealing",
+        "maximal_space_best_fit",
     )
     assert {value.symbol for value in get_level("level_03").contract.variables} >= {"r[i,o]"}
     assert {value.constraint_id for value in get_level("level_03").contract.active_constraints} >= {
@@ -83,6 +93,31 @@ def test_config_inheritance(root):
     assert level3_default["project"]["level_id"] == "level_03"
     assert level3_default["model"]["allow_rotation"] is True
     assert level3_default["orientation"]["profile"] == "horizontal_rotatable"
+    level4_default = load_config(root / "config/level_04/default.yaml")
+    assert level4_default["project"]["level_id"] == "level_04"
+    assert level4_default["project"]["algorithm_id"] == "extreme_point_best_fit"
+    assert level4_default["model"]["enforce_stackability"] is True
+    assert level4_default["algorithms"]["extreme_point_hill_climbing"] == {
+        "initial_constructor": "extreme_point_best_fit",
+        "repair_constructor": "extreme_point_best_fit",
+        "subset_enumeration_limit": 12,
+        "subset_candidate_limit": 48,
+        "max_iterations": 10,
+        "max_neighbors": 24,
+    }
+    assert level4_default["algorithms"]["extreme_point_simulated_annealing"]["initial_constructor"] == "extreme_point_best_fit"
+    assert level4_default["algorithms"]["extreme_point_simulated_annealing"]["repair_constructor"] == "extreme_point_best_fit"
+    assert level4_default["algorithms"]["extreme_point_simulated_annealing"]["max_iterations"] == 200
+    assert level4_default["algorithms"]["extreme_point_simulated_annealing"]["initial_temperature"] == 0.05
+    assert level4_default["algorithms"]["extreme_point_simulated_annealing"]["cooling_rate"] == 0.99
+    fast = load_config(root / "config/level_04/experiments/fast_local.yaml")
+    balanced = load_config(root / "config/level_04/experiments/balanced_local.yaml")
+    quality = load_config(root / "config/level_04/experiments/quality_local.yaml")
+    assert fast["project"]["algorithm_id"] == "extreme_point_best_fit"
+    assert balanced["project"]["algorithm_id"] == "extreme_point_hill_climbing"
+    assert quality["project"]["algorithm_id"] == "extreme_point_simulated_annealing"
+    assert quality["tuning"]["parameter_set_id"] == "p006_3f888c7c"
+    assert quality["algorithms"]["extreme_point_simulated_annealing"]["cooling_rate"] == 0.99
     reference = load_config(root / "config/level_02/experiments/milp_big_m_reference.yaml")
     assert reference["project"]["algorithm_id"] == "milp_big_m"
     assert reference["instance"] == {
@@ -139,6 +174,15 @@ def test_level3_cli_uses_configured_ffd_when_algorithm_is_omitted():
     ])
     request = _resolve_request(args)
     assert request.algorithm_id == "extreme_point_ffd"
+
+
+def test_level4_cli_uses_configured_best_fit_when_algorithm_is_omitted():
+    args = _parser().parse_args([
+        "run", "--level", "level_04", "--items-count", "3",
+        "--containers-count", "2", "--non-interactive",
+    ])
+    request = _resolve_request(args)
+    assert request.algorithm_id == "extreme_point_best_fit"
 
 
 def test_two_runs_are_isolated_and_complete(root: Path, tmp_path: Path):

@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from streamlit.testing.v1 import AppTest
+from container_packing.web.i18n import text as t
 
 
 def test_streamlit_app_runs_valid_experiment_and_renders_3d(root: Path):
@@ -10,7 +11,8 @@ def test_streamlit_app_runs_valid_experiment_and_renders_3d(root: Path):
     assert [value.value for value in page.title] == ["Mô phỏng xếp container 3D — Nghiên cứu"]
     tab_labels = {value.label for value in page.tabs}
     assert {
-        "Kết quả và 3D", "So sánh benchmark", "Mô hình toán học", "Lịch sử chạy",
+        t("result_tab", "vi"), t("benchmark_tab", "vi"),
+        t("contract_tab", "vi"), t("history_tab", "vi"),
         "Chất lượng nghiệm", "Hiệu năng", "Trade-off", "Bảng và dữ liệu",
     }.issubset(tab_labels)
     selects = {value.label: value for value in page.selectbox}
@@ -27,7 +29,7 @@ def test_streamlit_app_runs_valid_experiment_and_renders_3d(root: Path):
     numbers = {value.label: value for value in page.number_input}
     numbers["Số lượng kiện"].set_value(10)
     numbers["Số lượng container"].set_value(3)
-    {value.label: value for value in page.button}["Chạy thí nghiệm"].click().run()
+    next(value for value in page.button if value.key == "run_experiment").click().run()
     assert not page.exception
     assert "Thí nghiệm hoàn tất và đã qua kiểm định độc lập." in [
         value.value for value in page.success
@@ -71,6 +73,28 @@ def test_streamlit_exposes_same_instance_benchmark_controls(root: Path):
         "Các dòng đầu tiên (tương thích cũ)", "Mẫu ngẫu nhiên xác định",
         "Trải đều theo thể tích", "Các items thể tích lớn nhất", "Các items nặng nhất",
     ]
+
+
+def test_streamlit_exposes_level4_constructive_algorithms_and_support_threshold(root: Path):
+    app = root / "src/container_packing/web/streamlit_app.py"
+    page = AppTest.from_file(str(app), default_timeout=30).run()
+
+    next(value for value in page.selectbox if value.key == "level_id").set_value("level_04").run()
+    algorithm = next(value for value in page.selectbox if value.key == "algorithm_id")
+    assert algorithm.options == [
+        "Extreme Point — Best Fit Decreasing",
+        "Extreme Point — First Fit Decreasing",
+        "Extreme Point — Hill Climbing",
+        "Extreme Point — Simulated Annealing",
+        "Maximal Empty Spaces — Best Fit Decreasing",
+    ]
+    assert algorithm.value == "extreme_point_best_fit"
+    assert any(value.key == "level_04_support_threshold" for value in page.number_input)
+    algorithm.set_value("extreme_point_simulated_annealing").run()
+    numbers = {value.key: value for value in page.number_input}
+    assert numbers["max_iterations"].value == 200
+    assert numbers["initial_temperature"].value == 0.05
+    assert numbers["cooling_rate"].value == 0.99
 
 
 def test_streamlit_runs_two_algorithm_same_instance_benchmark(root: Path):
@@ -129,7 +153,7 @@ def test_streamlit_exposes_level2_support_contract(root: Path):
     assert page.info
 
 
-def test_streamlit_exposes_level3_constructive_solvers_and_orientation_contract(root: Path):
+def test_streamlit_exposes_level3_solvers_and_orientation_contract(root: Path):
     app = root / "src/container_packing/web/streamlit_app.py"
     page = AppTest.from_file(str(app), default_timeout=30).run()
     level = next(value for value in page.selectbox if value.key == "level_id")
@@ -137,7 +161,7 @@ def test_streamlit_exposes_level3_constructive_solvers_and_orientation_contract(
 
     assert not page.exception
     algorithms = next(value for value in page.selectbox if value.key == "algorithm_id")
-    assert len(algorithms.options) == 5
+    assert len(algorithms.options) == 6
     assert algorithms.value == "extreme_point_ffd"
     threshold = next(value for value in page.number_input if value.key == "level_03_support_threshold")
     assert threshold.value == 0.8

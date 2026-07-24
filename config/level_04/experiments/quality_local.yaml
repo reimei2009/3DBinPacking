@@ -1,0 +1,10 @@
+extends: ../default.yaml
+project:
+  algorithm_id: extreme_point_simulated_annealing
+environment: local
+tuning:
+  parameter_set_id: p006_3f888c7c
+  source_sweeps:
+    - config/level_04/sweeps/sa_prefix_i20_c5_local.yaml
+    - config/level_04/sweeps/sa_stable_random_101_i20_c5_local.yaml
+  selection_note: "Robust two-container result on stable_random_101_i20_c5 across seeds 7, 11, 19."

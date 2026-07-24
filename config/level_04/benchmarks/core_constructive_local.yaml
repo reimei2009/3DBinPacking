@@ -1,0 +1,42 @@
+# Fair comparison: both algorithms receive the exact same Level 4 input.
+# Run manually: python scripts\run_benchmark.py --suite config\level_04\benchmarks\core_constructive_local.yaml
+suite_id: level_04_core_constructive_local_v1
+level_id: level_04
+description: >
+  Compare the practical Level 4 Best Fit default with deterministic FFD and
+  Maximal Empty Spaces under the same horizontal-orientation, exact-support,
+  and stackability contract.
+config: config/level_04/default.yaml
+environment: local
+algorithms: [extreme_point_ffd, extreme_point_best_fit, maximal_space_best_fit]
+seeds: [42]
+repeats: 3
+scenarios:
+  - scenario_id: stackability_smoke_i3_c2
+    description: "Short common stackability-aware scenario."
+    item_count: 3
+    container_count: 2
+    item_selection: prefix
+    tags: [smoke, deterministic, comparison, support, stackability]
+
+  - scenario_id: practical_prefix_i20_c5
+    description: "Practical common scenario; run manually."
+    item_count: 20
+    container_count: 5
+    item_selection: prefix
+    tags: [practical, comparison, support, stackability]
+
+  - scenario_id: stable_random_101_i20_c5
+    description: "Stable random common scenario; run manually."
+    item_count: 20
+    container_count: 5
+    item_selection: stable_random
+    selection_seed: 101
+    tags: [practical, comparison, stable_random, support, stackability]
+
+  - scenario_id: scale_volume_i40_c8
+    description: "Constructive-method scale comparison; run manually."
+    item_count: 40
+    container_count: 8
+    item_selection: volume_stratified
+    tags: [scale, comparison, volume_diverse, support, stackability]

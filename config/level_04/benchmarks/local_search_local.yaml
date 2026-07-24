@@ -1,0 +1,35 @@
+# Fair comparison: practical Best Fit against Level 4 Hill Climbing.
+# Run manually: python scripts\run_benchmark.py --suite config\level_04\benchmarks\local_search_local.yaml
+suite_id: level_04_local_search_local_v1
+level_id: level_04
+description: >
+  Compare deterministic Extreme Point Best Fit with Hill Climbing initialized
+  and repaired by Best Fit under the same orientation, exact-support, and
+  stackability contract.
+config: config/level_04/default.yaml
+environment: local
+algorithms: [extreme_point_best_fit, extreme_point_hill_climbing]
+seeds: [42]
+repeats: 3
+scenarios:
+  - scenario_id: local_search_smoke_i3_c2
+    description: "Small common stackability-aware local-search scenario."
+    item_count: 3
+    container_count: 2
+    item_selection: prefix
+    tags: [smoke, deterministic, local_search, support, stackability]
+
+  - scenario_id: practical_prefix_i20_c5
+    description: "Practical common local-search scenario; run manually."
+    item_count: 20
+    container_count: 5
+    item_selection: prefix
+    tags: [practical, comparison, local_search, support, stackability]
+
+  - scenario_id: stable_random_101_i20_c5
+    description: "Stable random common local-search scenario; run manually."
+    item_count: 20
+    container_count: 5
+    item_selection: stable_random
+    selection_seed: 101
+    tags: [practical, comparison, stable_random, local_search, support, stackability]

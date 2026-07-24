@@ -83,9 +83,9 @@ def solver_payload(metadata: dict[str, Any]) -> dict[str, Any]:
         "candidate_subsets_evaluated", "packing_attempts", "extreme_points_evaluated",
         "space_representation", "empty_spaces_evaluated", "empty_spaces_generated",
         "empty_spaces_pruned", "maximum_active_spaces",
-        "initial_algorithm", "neighborhoods", "acceptance", "max_iterations", "max_neighbors",
+        "initial_algorithm", "initial_constructor", "repair_constructor", "neighborhoods", "acceptance", "max_iterations", "max_neighbors",
           "subset_candidate_limit", "hill_climbing_iterations", "neighbors_evaluated",
-          "repacking_attempts", "accepted_operators", "initial_score", "final_score", "improved",
+          "feasible_neighbors", "rejected_neighbors", "repacking_attempts", "accepted_operators", "initial_score", "final_score", "improved",
           "neighbors_per_iteration", "initial_temperature", "cooling_rate", "minimum_temperature",
           "final_temperature", "annealing_iterations", "accepted_moves", "accepted_worse_moves",
           "best_improvements", "accepted_operator_counts", "final_current_score", "best_score",
@@ -97,6 +97,8 @@ def solver_payload(metadata: dict[str, Any]) -> dict[str, Any]:
           "container_count_lower_bound", "volume_container_count_lower_bound",
           "payload_container_count_lower_bound",
           "model_support_audit_valid", "model_support_audit_issue_count", "model_support_audit_examples",
+          "stackability_rejected_candidates", "stackability_valid_candidates",
+          "stackability_parent_selection", "stackability_max_layers_semantics",
           "algorithm_parameters",
       )
     return {
@@ -133,6 +135,11 @@ def metrics_payload(metadata: dict[str, Any], validation_valid: bool | None) -> 
         "minimum_exact_support_ratio": metadata.get("minimum_exact_support_ratio"),
         "all_centers_supported": metadata.get("all_centers_supported"),
         "orientation_profile": metadata.get("orientation_profile"),
+        "stackability_enabled": metadata.get("stackability_enabled", False),
+        "stackability_contract_version": metadata.get("stackability_contract_version"),
+        "stackability_data_status": metadata.get("stackability_data_status"),
+        "stack_count": metadata.get("stack_count"),
+        "maximum_stack_depth": metadata.get("maximum_stack_depth"),
     }
 
 
@@ -171,6 +178,8 @@ def _initialize_run(
         "support_threshold": metadata.get("support_threshold"),
         "orientation_profile": metadata.get("orientation_profile"),
         "orientation_data_status": metadata.get("orientation_data_status"),
+        "stackability_contract_version": metadata.get("stackability_contract_version"),
+        "stackability_data_status": metadata.get("stackability_data_status"),
         "random_seed": metadata["random_seed"],
         "time_limit_seconds": metadata.get("time_limit_seconds"),
         "active_constraints": metadata.get("active_constraints", [
@@ -233,6 +242,9 @@ def write_run_outputs(
     items_path: Path, containers_path: Path, project_root: Path,
     extra_solution_tables: dict[str, list[dict[str, Any]]] | None = None,
     extra_validation_documents: dict[str, dict[str, Any]] | None = None,
+    solution_payload_extra: dict[str, Any] | None = None,
+    scene_item_metadata: dict[str, dict[str, Any]] | None = None,
+    extra_report_lines: list[str] | None = None,
 ) -> None:
     manifest = _initialize_run(run_dir, metadata, config, items_path, containers_path, project_root)
     manifest["artifacts"]["canonical"].extend(["solution/solution.json", "validation/validation_report.json"])
@@ -250,6 +262,7 @@ def write_run_outputs(
         "schema_version": OUTPUT_SCHEMA_VERSION,
         "level": metadata["level_id"],
         "placements": [asdict(value) for value in placements],
+        **(solution_payload_extra or {}),
     })
     write_json(run_dir / "solver" / "solver_summary.json", solver_payload(metadata))
     write_text(run_dir / "solver" / "raw_solver_output.txt", metadata.get("solver_message", "") + "\n")
@@ -265,6 +278,7 @@ def write_run_outputs(
         level_id=metadata["level_id"],
         algorithm_id=metadata["algorithm_id"],
         validation_status="VALID" if validation.valid else "INVALID",
+        item_metadata=scene_item_metadata,
     )
     write_json(run_dir / "visualization" / "scene.json", scene)
     html_views = write_html_views(scene, run_dir / "visualization")
@@ -281,6 +295,7 @@ def write_run_outputs(
         f"# Run {metadata['run_id']}\n\n- Status: {metadata['status']}\n- Objective: {metadata.get('objective_value')}\n"
         f"- Algorithm role: {metadata.get('algorithm_role')}\n"
         f"- Selected containers: {metadata.get('selected_containers', [])}\n- Validation: {validation.valid}\n"
+        + ("\n".join(extra_report_lines or []) + "\n" if extra_report_lines else "")
     )
     manifest["validation_status"] = "VALID" if validation.valid else "INVALID"
     write_json(run_dir / "manifest.json", manifest)
