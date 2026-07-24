@@ -2,12 +2,34 @@
 
 ## Unreleased
 
+- Activated the isolated Level 5 runtime with Extreme Point Best Fit, recursive
+  contact-area load transfer, candidate load-bearing feasibility, and final
+  independent validation.
+- Enabled deterministic Extreme Point FFD as a Level 5 constructive comparator
+  through the same recursive load-bearing feasibility policy; Best Fit remains
+  the practical default.
+- Enabled Best-Fit-initialized Hill Climbing as the Level 5 local-search
+  comparator through the same recursive load-bearing feasibility policy.
+- Enabled seeded Simulated Annealing as the Level 5 quality comparator using
+  the same Best-Fit initialization/repair and load-bearing policy.
+- Added frozen prefix and stable-random Level 5 SA sensitivity-sweep protocols.
+- Promoted SA p006 as the Level 5 quality profile and added fast/balanced/quality
+  experiment configs plus a portfolio acceptance protocol.
+- Recorded the validated 18-run Level 5 portfolio baseline: Best Fit is fast,
+  Hill Climbing is balanced, and SA p006 reduces the difficult frozen profile
+  from three to two containers.
+- Added Level 5 load-bearing/load-transfer solution artifacts, validation
+  document, manifest/metrics metadata, CLI/UI registry support, and regression
+  tests while preserving Levels 1–4.
+
 - Promoted stackability-aware Extreme Point Best Fit to the Level 4 practical default; FFD remains a deterministic constructive comparator.
 - Enabled stackability-aware Maximal Empty Spaces Best Fit as a Level 4 constructive comparator.
 - Refactored construction/repair strategies and enabled Best-Fit-initialized Hill Climbing as the Level 4 local-search comparator.
 - Enabled Best-Fit-initialized Simulated Annealing as the seeded Level 4 metaheuristic comparator.
 - Added profile-aware parameter-sweep provenance and Level 4 Simulated Annealing sensitivity protocols.
 - Promoted SA p006 to the Level 4 quality profile and added versioned fast/balanced/quality portfolio configs.
+- Added the Level 5 load-bearing data contract with explicit strength provenance and a documented synthetic research profile.
+- Added a pure Level 5 contact-area load-transfer engine and independent validator for recursive load conservation, capacity overload, and fragile-item violations.
 
 - Added isolated Level 2 geometric-support config, registry contract, MILP variables, constraints, decoder metadata, and independent validator.
 - Extracted reusable fixed-orientation MILP and level orchestration cores while preserving Level 1 behavior.

@@ -101,6 +101,10 @@ def run_configured_level(
             "coordinate_tolerance_mm": tolerance, "random_seed": seed,
             "support": config.get("support", {}),
             "stackability": config.get("stackability", {}),
+            "load_bearing": config.get("load_bearing", {}),
+            "load_tolerance_kg": config.get("validation", {}).get(
+                "load_tolerance_kg", 1e-6
+            ),
         }
     started = perf_counter()
     outcome = strategy.execute(algorithm_id, items, containers, settings)

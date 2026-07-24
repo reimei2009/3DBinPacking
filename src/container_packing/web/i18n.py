@@ -4,7 +4,7 @@ from __future__ import annotations
 
 _TEXT = {
     "page_title": {"vi": "Mô phỏng xếp container 3D", "en": "3D Container Packing R&D"},
-    "title": {"vi": "Mô phỏng xếp container 3D — Nghiên cứu", "en": "3D Container Packing — Research Console"},
+    "title": {"vi": "Mô phỏng xếp container 3D ", "en": "3D Container Packing "},
     "caption": {"vi": "Giao diện dùng chung pipeline với CLI và notebook; không chứa logic solver.", "en": "A thin UI over the same registry-driven pipeline used by CLI and notebooks."},
     "language": {"vi": "Ngôn ngữ", "en": "Language"},
     "level": {"vi": "Cấp độ", "en": "Level"},

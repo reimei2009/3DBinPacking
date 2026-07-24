@@ -99,6 +99,8 @@ def solver_payload(metadata: dict[str, Any]) -> dict[str, Any]:
           "model_support_audit_valid", "model_support_audit_issue_count", "model_support_audit_examples",
           "stackability_rejected_candidates", "stackability_valid_candidates",
           "stackability_parent_selection", "stackability_max_layers_semantics",
+          "load_bearing_rejected_candidates", "load_bearing_valid_candidates",
+          "load_bearing_capacity_profile", "load_transfer_model",
           "algorithm_parameters",
       )
     return {
@@ -140,6 +142,16 @@ def metrics_payload(metadata: dict[str, Any], validation_valid: bool | None) -> 
         "stackability_data_status": metadata.get("stackability_data_status"),
         "stack_count": metadata.get("stack_count"),
         "maximum_stack_depth": metadata.get("maximum_stack_depth"),
+        "load_bearing_enabled": metadata.get("load_bearing_enabled", False),
+        "load_transfer_enabled": metadata.get("load_transfer_enabled", False),
+        "load_bearing_contract_version": metadata.get("load_bearing_contract_version"),
+        "load_bearing_data_status": metadata.get("load_bearing_data_status"),
+        "load_bearing_capacity_profile": metadata.get("load_bearing_capacity_profile"),
+        "maximum_load_utilization_ratio": metadata.get("maximum_load_utilization_ratio"),
+        "minimum_load_safety_margin_kg": metadata.get("minimum_load_safety_margin_kg"),
+        "overloaded_item_count": metadata.get("overloaded_item_count"),
+        "fragile_item_count": metadata.get("fragile_item_count"),
+        "load_transfer_edge_count": metadata.get("load_transfer_edge_count"),
     }
 
 
@@ -180,6 +192,10 @@ def _initialize_run(
         "orientation_data_status": metadata.get("orientation_data_status"),
         "stackability_contract_version": metadata.get("stackability_contract_version"),
         "stackability_data_status": metadata.get("stackability_data_status"),
+        "load_bearing_contract_version": metadata.get("load_bearing_contract_version"),
+        "load_bearing_data_status": metadata.get("load_bearing_data_status"),
+        "load_bearing_capacity_profile": metadata.get("load_bearing_capacity_profile"),
+        "load_transfer_model": metadata.get("load_transfer_model"),
         "random_seed": metadata["random_seed"],
         "time_limit_seconds": metadata.get("time_limit_seconds"),
         "active_constraints": metadata.get("active_constraints", [

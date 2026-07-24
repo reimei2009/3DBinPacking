@@ -1,0 +1,37 @@
+# Manual acceptance: all algorithms receive exactly the same Level 5 inputs.
+# Run manually: python scripts/run_benchmark.py --suite config/level_05/benchmarks/metaheuristic_local.yaml
+suite_id: level_05_metaheuristic_local_v1
+level_id: level_05
+description: >
+  Compare Best Fit, Hill Climbing, and seeded Simulated Annealing under the
+  same support, stackability, and recursive static load-bearing contract.
+config: config/level_05/default.yaml
+environment: local
+algorithms:
+  - extreme_point_best_fit
+  - extreme_point_hill_climbing
+  - extreme_point_simulated_annealing
+seeds: [42]
+repeats: 3
+scenarios:
+  - scenario_id: load_bearing_metaheuristic_smoke_i3_c2
+    description: "Short common Level 5 metaheuristic scenario."
+    item_count: 3
+    container_count: 2
+    item_selection: prefix
+    tags: [smoke, deterministic, metaheuristic, support, stackability, load_bearing]
+
+  - scenario_id: practical_prefix_i20_c5
+    description: "Practical common Level 5 metaheuristic scenario; run manually."
+    item_count: 20
+    container_count: 5
+    item_selection: prefix
+    tags: [practical, comparison, metaheuristic, support, stackability, load_bearing]
+
+  - scenario_id: stable_random_101_i20_c5
+    description: "Difficult frozen random scenario; run manually."
+    item_count: 20
+    container_count: 5
+    item_selection: stable_random
+    selection_seed: 101
+    tags: [practical, comparison, stable_random, metaheuristic, support, stackability, load_bearing]

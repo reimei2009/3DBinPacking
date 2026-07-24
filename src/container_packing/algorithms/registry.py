@@ -9,7 +9,7 @@ _ALGORITHMS = {
         algorithm_id="extreme_point_best_fit",
         family="constructive_heuristic",
         description="Deterministic objective-aware Extreme-Point Best Fit Decreasing with level-declared orientation",
-        supported_levels=("level_01", "level_02", "level_03", "level_04"),
+        supported_levels=("level_01", "level_02", "level_03", "level_04", "level_05"),
         local_friendly=True,
         display_name=LocalizedText(vi="Extreme Point — Best Fit Decreasing", en="Extreme Point — Best Fit Decreasing"),
         localized_description=LocalizedText(
@@ -21,7 +21,7 @@ _ALGORITHMS = {
         algorithm_id="extreme_point_ffd",
         family="constructive_heuristic",
         description="Deterministic Extreme-Point First-Fit Decreasing with level-declared orientation",
-        supported_levels=("level_01", "level_02", "level_03", "level_04"),
+        supported_levels=("level_01", "level_02", "level_03", "level_04", "level_05"),
         local_friendly=True,
         display_name=LocalizedText(vi="Extreme Point — First Fit Decreasing", en="Extreme Point — First Fit Decreasing"),
         localized_description=LocalizedText(
@@ -33,7 +33,7 @@ _ALGORITHMS = {
         algorithm_id="extreme_point_hill_climbing",
         family="local_search",
         description="Extreme-Point FFD followed by deterministic destroy-and-repair hill climbing",
-        supported_levels=("level_01", "level_02", "level_03", "level_04"),
+        supported_levels=("level_01", "level_02", "level_03", "level_04", "level_05"),
         local_friendly=True,
         display_name=LocalizedText(vi="Extreme Point — Hill Climbing", en="Extreme Point — Hill Climbing"),
         localized_description=LocalizedText(
@@ -45,7 +45,7 @@ _ALGORITHMS = {
         algorithm_id="extreme_point_simulated_annealing",
         family="metaheuristic",
         description="Seeded Simulated Annealing over Extreme-Point destroy-and-repair neighborhoods",
-        supported_levels=("level_01", "level_02", "level_03", "level_04"),
+        supported_levels=("level_01", "level_02", "level_03", "level_04", "level_05"),
         local_friendly=True,
         display_name=LocalizedText(vi="Extreme Point — Simulated Annealing", en="Extreme Point — Simulated Annealing"),
         localized_description=LocalizedText(

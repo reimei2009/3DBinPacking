@@ -1,0 +1,56 @@
+# Active Level 5 research data contract. Values are synthetic and are not
+# certified material properties.
+contract_version: 1
+level_id: level_05
+status: active
+data_status: synthetic_research_profile_not_physical_test_data
+
+fields:
+  max_supported_weight_kg:
+    canonical_type: non_negative_number
+    meaning: maximum_load_above_excluding_item_own_weight
+    unit: kg_equivalent
+    status: active
+  is_fragile:
+    canonical_type: boolean
+    meaning: item_must_not_carry_any_load_above
+    status: active
+  load_capacity_source:
+    canonical_type: non_empty_string
+    meaning: provenance_of_load_capacity_and_fragility_values
+    status: active
+
+capacity_profile:
+  mode: synthetic_weight_factor_v1
+  weight_factor: 4.0
+  default_is_fragile: false
+  load_capacity_source: synthetic_weight_factor_v1
+  # List form is intentional: validation can reject duplicate and missing IDs.
+  # Each override may set max_supported_weight_kg, is_fragile, and
+  # load_capacity_source. A fragile item resolves to zero capacity.
+  overrides: []
+
+load_graph:
+  graph_id: contact_area_recursive_v1
+  stack_parent_relation_reused: false
+  contact_area_symbol: A[j,i]
+  transfer_fraction_symbol: lambda[j,i]
+  total_transmitted_load_symbol: T[i]
+  load_above_symbol: L[i]
+  distribution: normalized_contact_area
+  propagation: recursive_top_to_bottom
+  capacity_constraint: L[i] <= M[i]
+
+output:
+  item_table: load_bearing.csv
+  edge_table: load_transfer.csv
+  validation_document: load_bearing_validation.json
+
+inactive_physics:
+  - contact_pressure
+  - bending_moment
+  - deformation
+  - dynamic_load
+  - vibration
+  - floor_area_load_limit
+  - full_physical_stability
