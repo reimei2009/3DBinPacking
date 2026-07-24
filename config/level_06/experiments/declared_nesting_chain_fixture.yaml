@@ -1,0 +1,13 @@
+# Small three-item chain acceptance fixture only; not a benchmark or practical profile.
+extends: ../experimental.yaml
+instance:
+  item_count: 3
+  container_count: 1
+  item_selection_strategy: prefix
+paths:
+  raw_items_csv: data/raw/level_06/declared_nesting_chain_fixture_items.csv
+  items_source_mapping: config/common/data_sources/level_06_declared_nesting_chain_fixture.yaml
+  processed_dir: data/processed/level_06/declared_nesting_chain_fixture
+  manifest_json: data/processed/level_06/declared_nesting_chain_fixture/latest_manifest.json
+containers:
+  - {container_id: C1, length_mm: 500, width_mm: 400, height_mm: 300, max_weight_kg: 500, cost: 100, availability: 1}

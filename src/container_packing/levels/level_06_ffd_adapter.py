@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from time import perf_counter
-from typing import Any, TYPE_CHECKING
+from typing import Any, Callable, TYPE_CHECKING
 
 from ..algorithms.contracts import AlgorithmOutcome
 from ..algorithms.heuristics.extreme_point_ffd import solve as solve_extreme_point_ffd
@@ -39,10 +39,33 @@ class Level06NestingFfdFixtureResult:
     validation: ValidationBundle | None
 
 
+CompoundConstructor = Callable[..., AlgorithmOutcome]
+
+
 def solve_nesting_aware_ffd_fixture(
     items: list[Item],
     containers: list[Container],
     config: dict[str, Any],
+) -> Level06NestingFfdFixtureResult:
+    """Run the experimental FFD constructor through the shared adapter."""
+    return solve_nesting_aware_compound_fixture(
+        items,
+        containers,
+        config,
+        constructor=solve_extreme_point_ffd,
+        algorithm_id="extreme_point_ffd_nesting_fixture",
+        adapter_id="level_06_nesting_aware_ffd_compound_v1",
+    )
+
+
+def solve_nesting_aware_compound_fixture(
+    items: list[Item],
+    containers: list[Container],
+    config: dict[str, Any],
+    *,
+    constructor: CompoundConstructor,
+    algorithm_id: str,
+    adapter_id: str,
 ) -> Level06NestingFfdFixtureResult:
     """Pack compound roots with FFD and validate their expanded logical members.
 
@@ -68,7 +91,7 @@ def solve_nesting_aware_ffd_fixture(
     compound_items = _compound_items(items, virtual_projection)
     solver_settings = dict(config)
     policy = build_level_06_compound_fixture_policy(compound_items, config)
-    outcome = solve_extreme_point_ffd(
+    outcome = constructor(
         compound_items,
         containers,
         solver_settings,
@@ -76,7 +99,8 @@ def solve_nesting_aware_ffd_fixture(
         orientation_provider=fixed_orientation_provider(),
     )
     outcome.metadata.update({
-        "fixture_adapter": "level_06_nesting_aware_ffd_compound_v1",
+        "fixture_adapter": adapter_id,
+        "compound_constructor": algorithm_id,
         "nesting_runtime_enabled": False,
         **construction.metadata(),
         "n_items": len(items),

@@ -1,0 +1,4 @@
+# Experimental Best-Fit comparison on the same declared three-item nesting chain.
+extends: declared_nesting_chain_fixture.yaml
+project:
+  algorithm_id: extreme_point_best_fit_nesting_fixture

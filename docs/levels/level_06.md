@@ -75,3 +75,32 @@ Declared nesting acceptance fixture (one real `HOST-001 -> CHILD-001` relation):
 
 Expect one nesting relation and one compound envelope. This fixture is synthetic
 and verifies semantics only; it is not a performance benchmark.
+
+Depth-two chain acceptance fixture:
+
+```powershell
+.\.venv\Scripts\python.exe .\scripts\run_experiment.py --level level_06 --config config\level_06\experiments\declared_nesting_chain_fixture.yaml --items-count 3 --containers-count 1
+```
+
+Expect two declared relations, one compound envelope, maximum nesting depth 2,
+and an effective compound height of `165 mm`. This is still an experimental
+semantic fixture, not a practical solver benchmark.
+
+The same chain can be run with the experimental compound Best Fit adapter:
+
+```powershell
+.\.venv\Scripts\python.exe .\scripts\run_experiment.py --level level_06 --config config\level_06\experiments\declared_nesting_chain_best_fit_fixture.yaml --algorithm extreme_point_best_fit_nesting_fixture --items-count 3 --containers-count 1
+```
+
+Both Level 6 constructive adapters reuse the same relation policy, compound
+feasibility policy and independent validation bundle. They are experimental,
+not a practical default or a large-instance benchmark baseline.
+
+Tiny deterministic comparison (four source runs only):
+
+```powershell
+.\.venv\Scripts\python.exe .\scripts\run_benchmark.py --suite config\level_06\benchmarks\constructive_chain_fixture_local.yaml
+```
+
+The suite is an output-contract and deterministic-fixture check, not a runtime
+comparison from which to choose a practical solver.

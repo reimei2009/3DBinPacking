@@ -193,9 +193,12 @@ _LEVELS = {
 _LEVEL_05_CONTRACT = _LEVELS["level_01"].contract
 _LEVELS["level_06"] = LevelDefinition(
     level_id="level_06",
-    description="Experimental explicit nesting through deterministic compound-root FFD",
+    description="Experimental explicit nesting through deterministic compound-root constructive heuristics",
     default_config=Path("config/level_06/experimental.yaml"),
-    supported_algorithms=("extreme_point_ffd_nesting_fixture",),
+    supported_algorithms=(
+        "extreme_point_ffd_nesting_fixture",
+        "extreme_point_best_fit_nesting_fixture",
+    ),
     run=level_06.run,
     prepare=level_06.prepare,
     validate_run=level_06.validate_run,
@@ -271,8 +274,8 @@ _LEVELS["level_06"] = LevelDefinition(
         ),
         limitations=(
             LocalizedText(
-                vi="Chỉ FFD experimental được đăng ký; không phải default thực tế và không có benchmark quy mô lớn.",
-                en="Only experimental FFD is registered; it is not a practical default and has no large-scale benchmark.",
+                vi="FFD và Best Fit chỉ là solver experimental; không phải default thực tế và chưa có benchmark quy mô lớn.",
+                en="FFD and Best Fit are experimental solvers only; neither is a practical default or large-scale benchmarked.",
             ),
             LocalizedText(
                 vi="Chưa mô hình hóa lực, áp suất, contact nội bộ hoặc orientation-aware nesting.",

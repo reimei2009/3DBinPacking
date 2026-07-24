@@ -47,7 +47,10 @@ def test_runtime_candidate_contract_is_frozen_before_experimental_registration(r
     assert contract.fixture_id == "declared_chain_host_child_v1"
     assert contract.deterministic_repeats == 2
     level = next(level for level in list_levels() if level.level_id == "level_06")
-    assert level.supported_algorithms == ("extreme_point_ffd_nesting_fixture",)
+    assert level.supported_algorithms == (
+        "extreme_point_ffd_nesting_fixture",
+        "extreme_point_best_fit_nesting_fixture",
+    )
 
 
 def test_frozen_acceptance_fixture_is_valid_and_deterministic(root: Path) -> None:

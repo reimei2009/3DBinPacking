@@ -23,6 +23,7 @@ from .pipeline import LevelRuntimeStrategy, run_configured_level
 from .level_03_preprocessing import validate_instance
 from .level_06_candidate_contract import load_runtime_candidate_contract
 from .level_06_ffd_adapter import solve_nesting_aware_ffd_fixture
+from .level_06_best_fit_adapter import solve_nesting_aware_best_fit_fixture
 from .stackability import (
     StackabilitySettings,
     attributes_for_item as stackability_attributes_for_item,
@@ -319,17 +320,21 @@ def _guard(config: dict[str, Any]) -> None:
     candidate = load_runtime_candidate_contract(config)
     if config.get("project", {}).get("level_id") != "level_06":
         raise ValueError("Experimental Level 6 runtime requires project.level_id='level_06'")
-    if config.get("project", {}).get("algorithm_id") != candidate.algorithm_id:
-        raise ValueError("Experimental Level 6 runtime requires its frozen candidate algorithm")
+    if config.get("project", {}).get("algorithm_id") not in {
+        candidate.algorithm_id, "extreme_point_best_fit_nesting_fixture",
+    }:
+        raise ValueError("Experimental Level 6 runtime requires a registered compound nesting algorithm")
     if not bool(config.get("model", {}).get("enforce_nesting", False)):
         raise ValueError("Experimental Level 6 runtime requires model.enforce_nesting=true")
     NestingSettings.from_config(nesting_rules(config))
 
 
 def _execute(algorithm_id: str, items, containers, settings):
-    if algorithm_id != "extreme_point_ffd_nesting_fixture":
-        raise ValueError("Experimental Level 6 exposes only extreme_point_ffd_nesting_fixture")
-    return solve_nesting_aware_ffd_fixture(items, containers, settings).outcome
+    if algorithm_id == "extreme_point_ffd_nesting_fixture":
+        return solve_nesting_aware_ffd_fixture(items, containers, settings).outcome
+    if algorithm_id == "extreme_point_best_fit_nesting_fixture":
+        return solve_nesting_aware_best_fit_fixture(items, containers, settings).outcome
+    raise ValueError("Experimental Level 6 exposes only registered compound nesting algorithms")
 
 
 STRATEGY = LevelRuntimeStrategy(
@@ -367,7 +372,10 @@ STRATEGY = LevelRuntimeStrategy(
         "physical_stability_claim": False,
         "nesting_scope": "explicit_declared_compound_root_fixture_candidate",
     },
-    algorithm_roles={"extreme_point_ffd_nesting_fixture": "experimental_candidate"},
+    algorithm_roles={
+        "extreme_point_ffd_nesting_fixture": "experimental_candidate",
+        "extreme_point_best_fit_nesting_fixture": "experimental_candidate",
+    },
 )
 
 
@@ -386,6 +394,11 @@ def run_from_config(
     item_selection_strategy: str | None = None,
     item_selection_seed: int | None = None,
 ):
+    overrides = dict(config_overrides or {})
+    overrides["project"] = {
+        **dict(overrides.get("project", {})),
+        "algorithm_id": algorithm_id,
+    }
     return run_configured_level(
         config_path,
         strategy=STRATEGY,
@@ -397,7 +410,7 @@ def run_from_config(
         environment=environment,
         random_seed=random_seed,
         algorithm_parameters=algorithm_parameters,
-        config_overrides=config_overrides,
+        config_overrides=overrides,
         item_selection_strategy=item_selection_strategy,
         item_selection_seed=item_selection_seed,
     )

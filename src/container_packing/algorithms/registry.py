@@ -87,12 +87,27 @@ _ALGORITHMS = {
         supported_levels=("level_06",),
         local_friendly=True,
         display_name=LocalizedText(
-            vi="Experimental â€” Compound Nesting FFD",
-            en="Experimental â€” Compound Nesting FFD",
+            vi="Experimental — Compound Nesting FFD",
+            en="Experimental — Compound Nesting FFD",
         ),
         localized_description=LocalizedText(
             vi="FFD thí nghiệm chỉ cho nesting metadata khai báo rõ; dùng compound root và validator độc lập.",
             en="Experimental FFD for explicitly declared nesting metadata using compound roots and independent validation.",
+        ),
+    ),
+    "extreme_point_best_fit_nesting_fixture": AlgorithmDefinition(
+        algorithm_id="extreme_point_best_fit_nesting_fixture",
+        family="experimental_constructive_heuristic",
+        description="Experimental compound-root Extreme-Point Best Fit for explicitly declared nesting fixtures",
+        supported_levels=("level_06",),
+        local_friendly=True,
+        display_name=LocalizedText(
+            vi="Experimental — Compound Nesting Best Fit",
+            en="Experimental — Compound Nesting Best Fit",
+        ),
+        localized_description=LocalizedText(
+            vi="Best Fit thử nghiệm dùng cùng compound projection và validator độc lập của FFD nesting.",
+            en="Experimental Best Fit reusing the FFD nesting compound projection and independent validator.",
         ),
     ),
 }

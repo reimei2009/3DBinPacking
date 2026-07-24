@@ -62,10 +62,12 @@ def test_registry_only_exposes_runnable_implementations():
         "extreme_point_simulated_annealing",
     )
     assert [value.algorithm_id for value in list_algorithms(level_id="level_06")] == [
+        "extreme_point_best_fit_nesting_fixture",
         "extreme_point_ffd_nesting_fixture",
     ]
     assert get_level("level_06").supported_algorithms == (
         "extreme_point_ffd_nesting_fixture",
+        "extreme_point_best_fit_nesting_fixture",
     )
     assert get_level("level_06").contract.title.resolve("en").endswith("(experimental)")
     assert {value.symbol for value in get_level("level_05").contract.variables} >= {

@@ -1,0 +1,20 @@
+# Tiny semantic acceptance only; not a performance or production benchmark.
+suite_id: level_06_constructive_chain_fixture_local_v1
+level_id: level_06
+description: >
+ Compare the two experimental compound constructors on one identical declared
+ three-item nesting chain. Repeats verify deterministic output contracts.
+config: config/level_06/experiments/declared_nesting_chain_fixture.yaml
+environment: local
+algorithms:
+  - extreme_point_ffd_nesting_fixture
+  - extreme_point_best_fit_nesting_fixture
+seeds: [42]
+repeats: 2
+scenarios:
+  - scenario_id: declared_chain_i3_c1
+    description: "Declared ROOT -> MIDDLE -> CHILD nesting chain."
+    item_count: 3
+    container_count: 1
+    item_selection: prefix
+    tags: [fixture, explicit_nesting, depth_two, deterministic, compound]
