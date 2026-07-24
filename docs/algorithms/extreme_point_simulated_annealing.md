@@ -1,6 +1,9 @@
 # Extreme-Point Simulated Annealing
 
-`extreme_point_simulated_annealing` is a seeded, CPU-friendly metaheuristic shared by Levels 1 and 2 and initialized by `extreme_point_ffd`.
+`extreme_point_simulated_annealing` is a seeded, CPU-friendly metaheuristic
+shared by Levels 1–4. Levels 1–3 retain FFD construction/repair defaults;
+Level 4 uses Best Fit construction and repair while applying its orientation,
+exact-support, and stackability policy to every candidate.
 
 At each iteration it samples item-order neighbors from the shared relocate, adjacent-swap, front/back-reinsert, and container-elimination destroy-and-repair neighborhood. Each candidate is reconstructed by the fixed-orientation Extreme-Point packer and therefore still respects the active geometric and payload checks.
 

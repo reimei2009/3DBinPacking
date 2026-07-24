@@ -9,11 +9,11 @@ from ..feasibility import PlacementFeasibilityPolicy
 from ..orientation import OrientationProvider, fixed_orientation_provider
 from ...schemas import Container, Item, Placement
 from ...metrics import packing_tiebreak_metrics
+from .construction_strategies import ConstructionStrategy, get_construction_strategy
 from .extreme_point_core import (
     SearchStats,
     candidate_subsets,
     container_orders,
-    pack_order_first_fit,
 )
 
 
@@ -105,9 +105,11 @@ def repack_neighbor(
     item_order: list[Item], containers: list[Container], current: list[Placement],
     settings: dict[str, Any], stats: RepackingStats, policy: PlacementFeasibilityPolicy,
     *, orientation_provider: OrientationProvider | None = None,
+    construction_strategy: ConstructionStrategy | None = None,
 ) -> list[Placement] | None:
-    """Rebuild an item permutation with Extreme Points on candidate subsets."""
+    """Rebuild an item permutation with the selected construction strategy."""
     selected_orientation_provider = orientation_provider or fixed_orientation_provider()
+    selected_strategy = construction_strategy or get_construction_strategy("extreme_point_ffd")
     tolerance = float(settings.get("coordinate_tolerance_mm", 1e-6))
     subsets = subset_pool(
         containers, current, item_order,
@@ -118,7 +120,7 @@ def repack_neighbor(
     for subset in subsets:
         for order in container_orders(subset):
             stats.repacking_attempts += 1
-            candidate = pack_order_first_fit(
+            candidate = selected_strategy.repair(
                 item_order, order, tolerance, SearchStats(), policy,
                 orientation_provider=selected_orientation_provider,
             )

@@ -12,8 +12,8 @@ from scipy.optimize import OptimizeResult
 from ..contracts import AlgorithmOutcome
 from ..feasibility import FixedOrientationFeasibilityPolicy, PlacementFeasibilityPolicy
 from ..orientation import OrientationProvider, fixed_orientation_provider
+from ..heuristics.construction_strategies import get_construction_strategy
 from ..heuristics.extreme_point_core import item_sort_key
-from ..heuristics.extreme_point_ffd import solve as solve_extreme_point_ffd
 from ..heuristics.extreme_point_neighborhood import (
     RepackingStats,
     generate_neighbor_orders,
@@ -27,6 +27,8 @@ from ...schemas import Container, Item, Placement, SolveResult
 class AnnealingStats(RepackingStats):
     iterations: int = 0
     neighbors_evaluated: int = 0
+    feasible_neighbors: int = 0
+    rejected_neighbors: int = 0
     accepted_moves: int = 0
     accepted_worse_moves: int = 0
     best_improvements: int = 0
@@ -56,18 +58,23 @@ def acceptance_probability(delta_energy: float, temperature: float) -> float:
     return exp(-delta_energy / temperature)
 
 
-def _failure(baseline: AlgorithmOutcome) -> AlgorithmOutcome:
+def _failure(
+    baseline: AlgorithmOutcome, initial_constructor: str, repair_constructor: str,
+) -> AlgorithmOutcome:
     return AlgorithmOutcome(
         solve=SolveResult(
             status="INFEASIBLE_HEURISTIC",
-            message="Initial Extreme-Point FFD found no solution; Simulated Annealing was not started.",
+            message=f"Initial constructor {initial_constructor} found no solution; Simulated Annealing was not started.",
             objective_value=None, vector=None, raw_result=OptimizeResult(),
         ),
         placements=[], backend="seeded/extreme-point-simulated-annealing",
         metadata={
             **baseline.metadata, "algorithm_kind": "metaheuristic",
             "optimality_proven": False, "annealing_iterations": 0,
-            "neighbors_evaluated": 0, "repacking_attempts": 0,
+            "neighbors_evaluated": 0, "feasible_neighbors": 0,
+            "rejected_neighbors": 0, "repacking_attempts": 0,
+            "initial_algorithm": initial_constructor,
+            "initial_constructor": initial_constructor, "repair_constructor": repair_constructor,
             "accepted_moves": 0, "accepted_worse_moves": 0,
             "best_improvements": 0, "accepted_operator_counts": {},
         },
@@ -100,12 +107,16 @@ def solve(
 
     selected_policy = policy or FixedOrientationFeasibilityPolicy()
     selected_orientation_provider = orientation_provider or fixed_orientation_provider()
-    baseline = solve_extreme_point_ffd(
+    initial_constructor = str(settings.get("initial_constructor", "extreme_point_ffd"))
+    repair_constructor = str(settings.get("repair_constructor", initial_constructor))
+    initial_strategy = get_construction_strategy(initial_constructor)
+    repair_strategy = get_construction_strategy(repair_constructor)
+    baseline = initial_strategy.initial(
         items, containers, settings,
         policy=selected_policy, orientation_provider=selected_orientation_provider,
     )
     if baseline.solve.status != "FEASIBLE":
-        return _failure(baseline)
+        return _failure(baseline, initial_constructor, repair_constructor)
 
     rng = Random(random_seed)
     current = baseline.placements
@@ -134,10 +145,14 @@ def solve(
             candidate = repack_neighbor(
                 neighbor_order, containers, current, annealing_settings, stats, selected_policy,
                 orientation_provider=selected_orientation_provider,
+                construction_strategy=repair_strategy,
             )
-            if candidate is not None:
-                candidate_data = operator, neighbor_order, candidate
-                break
+            if candidate is None:
+                stats.rejected_neighbors += 1
+                continue
+            stats.feasible_neighbors += 1
+            candidate_data = operator, neighbor_order, candidate
+            break
         stats.iterations += 1
         if candidate_data is None:
             continue
@@ -171,7 +186,9 @@ def solve(
         metadata={
             "algorithm_kind": "metaheuristic",
             "optimality_proven": False,
-            "initial_algorithm": "extreme_point_ffd",
+            "initial_algorithm": initial_constructor,
+            "initial_constructor": initial_constructor,
+            "repair_constructor": repair_constructor,
             "neighborhoods": ["relocate", "swap", "reinsert", "container_elimination"],
             "acceptance": "metropolis_with_lexicographic_best_retention",
             "allow_worse_subsets": True,
@@ -186,6 +203,8 @@ def solve(
             "final_temperature": final_temperature,
             "annealing_iterations": stats.iterations,
             "neighbors_evaluated": stats.neighbors_evaluated,
+            "feasible_neighbors": stats.feasible_neighbors,
+            "rejected_neighbors": stats.rejected_neighbors,
             "repacking_attempts": stats.repacking_attempts,
             "accepted_moves": stats.accepted_moves,
             "accepted_worse_moves": stats.accepted_worse_moves,

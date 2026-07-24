@@ -1,6 +1,10 @@
 # Extreme-Point Hill Climbing
 
-`extreme_point_hill_climbing` is a deterministic local-search algorithm initialized by `extreme_point_ffd` and shared by Levels 1 and 2.
+`extreme_point_hill_climbing` is a deterministic destroy-and-repair local-search
+algorithm shared by Levels 1–4. Levels 1–3 retain `extreme_point_ffd` as their
+default constructor and repair strategy; Level 4 uses
+`extreme_point_best_fit` for both, while its feasibility policy continues to
+enforce orientation, exact support, and stackability.
 
 It uses destroy-and-repair neighborhoods over the item permutation:
 

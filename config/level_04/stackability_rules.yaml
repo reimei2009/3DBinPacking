@@ -1,0 +1,46 @@
+# Active, versioned Level 4 stackability contract shared by every Level 4
+# solver and the independent validator.
+contract_version: 1
+level_id: level_04
+data_status: source_codes_plus_project_v1_max_stack_convention
+
+fields:
+  stackability_code:
+    source_column: stackability_code
+    canonical_type: string
+    normalization: trim_string
+    status: used
+  max_stackability:
+    source_column: max_stackability
+    canonical_type: positive_integer
+    status: used
+
+compatibility:
+  mode: same_stackability_code
+  # Code 0 is observed in the source but is not documented as non-stackable.
+  # Never infer that meaning from its numeric value.
+  non_stackable_codes: []
+  non_stackable_item_ids: []
+  non_stackable_policy: floor_only_no_children
+
+stack_limit:
+  # Project convention, versioned because the upstream README does not define
+  # the precise interpretation of max_stackability.
+  semantics: maximum_layers_in_parent_chain_including_root
+  cap_aggregation: minimum_along_parent_chain
+  source_status: project_v1_convention_pending_field_definition
+
+relationships:
+  parent_symbol: p[j,i,k]
+  parent_meaning: item_j_is_the_unique_declared_direct_stack_parent_of_item_i_in_container_k
+  floor_items_are_stack_roots: true
+  require_unique_declared_parent: true
+  # Physical support remains the Level 2 exact-union/base-center contract.
+  # p is a stack graph relation, not load-transfer accounting.
+  load_transfer_mode: inactive
+
+output:
+  stack_id_column: stack_id
+  stack_depth_column: stack_depth
+  stack_layer_count_column: stack_layer_count
+  direct_parent_item_id_column: direct_parent_item_id

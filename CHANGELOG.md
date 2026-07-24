@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Promoted stackability-aware Extreme Point Best Fit to the Level 4 practical default; FFD remains a deterministic constructive comparator.
+- Enabled stackability-aware Maximal Empty Spaces Best Fit as a Level 4 constructive comparator.
+- Refactored construction/repair strategies and enabled Best-Fit-initialized Hill Climbing as the Level 4 local-search comparator.
+- Enabled Best-Fit-initialized Simulated Annealing as the seeded Level 4 metaheuristic comparator.
+- Added profile-aware parameter-sweep provenance and Level 4 Simulated Annealing sensitivity protocols.
+- Promoted SA p006 to the Level 4 quality profile and added versioned fast/balanced/quality portfolio configs.
+
 - Added isolated Level 2 geometric-support config, registry contract, MILP variables, constraints, decoder metadata, and independent validator.
 - Extracted reusable fixed-orientation MILP and level orchestration cores while preserving Level 1 behavior.
 - Added exact support union-area validation, dense-grid diagnostics, `support.csv`, and support-specific validation output.
@@ -25,6 +32,10 @@
 - Ported Maximal Empty Spaces Best Fit to Level 3 with horizontal orientation candidates and exact support checks at empty-space origins.
 - Added a manual, fair Level 3 five-method heuristic acceptance suite and reporting procedure before the exact MILP reference stage.
 - Added a small-instance Level 3 MILP Big-M orientation reference with binary `XYZ`/`YXZ` selection, orientation-dependent bounds/non-overlap/support grid, independent exact-support validation, and a five-item execution guard.
+- Added the Level 4 stackability data contract, source audit, versioned same-code compatibility rule, explicit non-stackable policy, and stack-graph output contract; load-bearing remains inactive.
+- Added standalone Level 4 stack graph schemas and an independent validator for declared direct parents, same-code compatibility, explicit non-stackable policy, and versioned stack-layer caps.
+- Added Level 4 stack metadata exports for `solution.json`, `stacks.csv`, Markdown reports, validation documents, and backend-neutral scene item metadata.
+- Registered Level 4 with an isolated config/output pipeline and a composable feasibility policy combining Level 3 exact support with same-code stack parent selection and stack-layer caps; Level 4 has no MILP implementation.
 
 ## 0.12.0 - 2026-07-21
 

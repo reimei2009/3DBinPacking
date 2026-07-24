@@ -1,0 +1,30 @@
+# Manual acceptance: compare Level 4 fast, balanced, and quality solver profiles.
+# Run manually: python scripts\run_benchmark.py --suite config\level_04\benchmarks\portfolio_local.yaml
+suite_id: level_04_solver_portfolio_local_v1
+level_id: level_04
+description: >
+  Compare the Level 4 fast (Best Fit), balanced (Hill Climbing), and quality
+  (p006 Simulated Annealing) profiles on identical frozen inputs.
+config: config/level_04/default.yaml
+environment: local
+algorithms:
+  - extreme_point_best_fit
+  - extreme_point_hill_climbing
+  - extreme_point_simulated_annealing
+seeds: [7, 11, 19]
+repeats: 1
+scenarios:
+  - scenario_id: portfolio_prefix_i20_c5
+    description: "Prefix profile for fast/balanced/quality comparison."
+    item_count: 20
+    container_count: 5
+    item_selection: prefix
+    tags: [portfolio, fast, balanced, quality, support, stackability]
+
+  - scenario_id: portfolio_stable_random_101_i20_c5
+    description: "Difficult frozen random profile for fast/balanced/quality comparison."
+    item_count: 20
+    container_count: 5
+    item_selection: stable_random
+    selection_seed: 101
+    tags: [portfolio, fast, balanced, quality, stable_random, support, stackability]

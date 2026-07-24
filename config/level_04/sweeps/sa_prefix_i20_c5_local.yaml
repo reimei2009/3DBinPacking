@@ -1,0 +1,22 @@
+project:
+  level_id: level_04
+  algorithm_id: extreme_point_simulated_annealing
+
+base_config: config/level_04/default.yaml
+
+instance:
+  item_counts: [20]
+  container_counts: [5]
+  item_selection_strategy: prefix
+
+execution:
+  environment: local
+  seeds: [7, 11, 19]
+  repeats: 1
+
+sweep:
+  max_parameter_sets: 8
+  parameters:
+    max_iterations: [50, 200]
+    initial_temperature: [0.05, 0.25]
+    cooling_rate: [0.95, 0.99]

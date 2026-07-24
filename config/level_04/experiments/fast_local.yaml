@@ -1,0 +1,4 @@
+extends: ../default.yaml
+project:
+  algorithm_id: extreme_point_best_fit
+environment: local

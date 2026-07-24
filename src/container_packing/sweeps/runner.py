@@ -17,6 +17,7 @@ from ..algorithms.registry import get_algorithm
 from ..benchmarks.runner import aggregate_results, execute_experiment_case
 from ..data_loader import load_config
 from ..experiments.contracts import ExperimentRequest
+from ..instance_data import ITEM_SELECTION_STRATEGIES
 from ..levels.registry import get_level
 from ..provenance import runtime_metadata, sha256_file
 from ..reporting import OUTPUT_SCHEMA_VERSION, write_json, write_text
@@ -61,6 +62,23 @@ def _seeds(values: Sequence[int]) -> tuple[int, ...]:
     if len(set(parsed)) != len(parsed):
         raise ValueError("seeds must not contain duplicates")
     return parsed
+
+
+def _item_selection(instance: Mapping[str, Any]) -> tuple[str, int | None]:
+    """Validate the one frozen item-selection profile used by a sweep."""
+    strategy = str(instance.get("item_selection_strategy", "prefix"))
+    if strategy not in ITEM_SELECTION_STRATEGIES:
+        raise ValueError(
+            "item_selection_strategy must be one of "
+            + ", ".join(ITEM_SELECTION_STRATEGIES)
+        )
+    raw_seed = instance.get("item_selection_seed")
+    selection_seed = None if raw_seed is None else int(raw_seed)
+    if selection_seed is not None and selection_seed < 0:
+        raise ValueError("item_selection_seed must be zero or greater")
+    if strategy == "stable_random" and selection_seed is None:
+        raise ValueError("stable_random item_selection_strategy requires item_selection_seed")
+    return strategy, selection_seed
 
 
 def _validated_grid(grid: Mapping[str, Sequence[Any]], label: str) -> dict[str, list[Any]]:
@@ -206,6 +224,7 @@ def run_parameter_sweep(
         instance.get("container_counts", []) if container_counts is None else container_counts,
         "container_counts",
     )
+    item_selection_strategy, item_selection_seed = _item_selection(instance)
     resolved_seeds = _seeds(execution.get("seeds", []) if seeds is None else seeds)
     resolved_repeats = int(execution.get("repeats", 1) if repeats is None else repeats)
     if resolved_repeats <= 0:
@@ -237,6 +256,8 @@ def run_parameter_sweep(
         "level": level_id, "algorithm": algorithm_id,
         "base_config": str(base_file), "sweep_config": str(definition_file),
         "item_counts": list(resolved_items), "container_counts": list(resolved_containers),
+        "item_selection_strategy": item_selection_strategy,
+        "item_selection_seed": item_selection_seed,
         "random_seeds": list(resolved_seeds), "repeats_per_seed": resolved_repeats,
         "environment": environment, "parameter_set_count": len(parameter_values),
         "case_count": len(parameter_values) * len(resolved_items) * len(resolved_containers) * len(resolved_seeds) * resolved_repeats,
@@ -264,9 +285,13 @@ def run_parameter_sweep(
                             environment=environment, random_seed=random_seed,
                             algorithm_parameters=parameter_set.algorithm_parameters,
                             config_overrides=parameter_set.config_overrides,
+                            item_selection_strategy=item_selection_strategy,
+                            item_selection_seed=item_selection_seed,
                         )
                         row = {
                             "sweep_id": sweep_id, "parameter_set_id": parameter_set.parameter_set_id,
+                            "item_selection_strategy": item_selection_strategy,
+                            "item_selection_seed": item_selection_seed,
                             **execute_experiment_case(request, repeat_index),
                         }
                         rows.append(row)
@@ -303,6 +328,10 @@ def run_parameter_sweep(
         "run_id": sweep_id, "created_at_utc": datetime.now(timezone.utc).isoformat(),
         "environment": environment, "random_seed": resolved_seeds[0] if len(resolved_seeds) == 1 else None,
         "random_seeds": list(resolved_seeds), "repeats_per_seed": resolved_repeats,
+        "item_selection": {
+            "strategy": item_selection_strategy,
+            "seed": item_selection_seed,
+        },
         "parameter_set_count": len(parameter_values), "case_count": len(results),
         "successful_case_count": succeeded, "status": status,
         "config_file": str(definition_file), "base_config_file": str(base_file),

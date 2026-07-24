@@ -1,0 +1,27 @@
+extends: ../level_03/default.yaml
+project:
+  level_id: level_04
+  algorithm_id: extreme_point_best_fit
+instance:
+  item_count: 10
+  container_count: 3
+paths:
+  processed_dir: data/processed/level_04
+  manifest_json: data/processed/level_04/latest_manifest.json
+model:
+  allow_rotation: true
+  enforce_support: true
+  enforce_stackability: true
+  enforce_stability: false
+stackability:
+  rules_file: config/level_04/stackability_rules.yaml
+algorithms:
+  extreme_point_hill_climbing:
+    initial_constructor: extreme_point_best_fit
+    repair_constructor: extreme_point_best_fit
+  extreme_point_simulated_annealing:
+    initial_constructor: extreme_point_best_fit
+    repair_constructor: extreme_point_best_fit
+    max_iterations: 200
+    initial_temperature: 0.05
+    cooling_rate: 0.99

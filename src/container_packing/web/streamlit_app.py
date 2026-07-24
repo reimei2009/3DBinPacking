@@ -127,7 +127,7 @@ def _algorithm_parameters(algorithm_id: str, defaults: dict[str, Any], language:
 
 def _level_config_overrides(level_id: str, config: dict[str, Any], language: str) -> dict[str, Any]:
     """Render level-owned settings and persist them with the immutable run."""
-    if level_id not in {"level_02", "level_03"}:
+    if level_id not in {"level_02", "level_03", "level_04"}:
         return {}
     support = config["support"]
     threshold = st.sidebar.number_input(
@@ -571,10 +571,16 @@ def _render_benchmark_comparison(
     )
     selected = benchmark_by_id[selected_run_id]
     benchmark_dir = selected.run_dir / "benchmark"
-    summary = pd.read_csv(benchmark_dir / "summary.csv")
-    results = pd.read_csv(benchmark_dir / "results.csv")
+    def read_csv_or_empty(path: Path) -> pd.DataFrame:
+        try:
+            return pd.read_csv(path)
+        except pd.errors.EmptyDataError:
+            return pd.DataFrame()
+
+    summary = read_csv_or_empty(benchmark_dir / "summary.csv")
+    results = read_csv_or_empty(benchmark_dir / "results.csv")
     derived = {
-        name: pd.read_csv(benchmark_dir / filename) if (benchmark_dir / filename).is_file() else pd.DataFrame()
+        name: read_csv_or_empty(benchmark_dir / filename) if (benchmark_dir / filename).is_file() else pd.DataFrame()
         for name, filename in {
             "ranking": "ranking.csv", "pareto": "pareto_frontier.csv",
             "milp_gaps": "milp_reference_gaps.csv", "pairwise": "pairwise_comparison.csv",

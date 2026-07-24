@@ -11,8 +11,8 @@ from ..contracts import AlgorithmOutcome
 from ..feasibility import FixedOrientationFeasibilityPolicy, PlacementFeasibilityPolicy
 from ..orientation import OrientationProvider, fixed_orientation_provider
 from ...schemas import Container, Item, SolveResult
+from .construction_strategies import get_construction_strategy
 from .extreme_point_core import item_sort_key
-from .extreme_point_ffd import solve as solve_extreme_point_ffd
 from .extreme_point_neighborhood import (
     RepackingStats,
     generate_neighbor_orders,
@@ -25,6 +25,8 @@ from .extreme_point_neighborhood import (
 class HillClimbingStats(RepackingStats):
     iterations: int = 0
     neighbors_evaluated: int = 0
+    feasible_neighbors: int = 0
+    rejected_neighbors: int = 0
     accepted_operators: list[str] = field(default_factory=list)
 
 
@@ -42,7 +44,11 @@ def solve(
 
     selected_policy = policy or FixedOrientationFeasibilityPolicy()
     selected_orientation_provider = orientation_provider or fixed_orientation_provider()
-    baseline = solve_extreme_point_ffd(
+    initial_constructor = str(settings.get("initial_constructor", "extreme_point_ffd"))
+    repair_constructor = str(settings.get("repair_constructor", initial_constructor))
+    initial_strategy = get_construction_strategy(initial_constructor)
+    repair_strategy = get_construction_strategy(repair_constructor)
+    baseline = initial_strategy.initial(
         items, containers, settings,
         policy=selected_policy, orientation_provider=selected_orientation_provider,
     )
@@ -50,14 +56,17 @@ def solve(
         return AlgorithmOutcome(
             solve=SolveResult(
                 status="INFEASIBLE_HEURISTIC",
-                message="Initial Extreme-Point FFD found no solution; hill climbing was not started.",
+                message=f"Initial constructor {initial_constructor} found no solution; hill climbing was not started.",
                 objective_value=None, vector=None, raw_result=OptimizeResult(),
             ),
             placements=[], backend="deterministic/extreme-point-hill-climbing",
             metadata={
                 **baseline.metadata, "algorithm_kind": "local_search",
                 "optimality_proven": False, "hill_climbing_iterations": 0,
-                "neighbors_evaluated": 0, "repacking_attempts": 0,
+                "neighbors_evaluated": 0, "feasible_neighbors": 0,
+                "rejected_neighbors": 0, "repacking_attempts": 0,
+                "initial_algorithm": initial_constructor,
+                "initial_constructor": initial_constructor, "repair_constructor": repair_constructor,
                 "accepted_operators": [],
             },
         )
@@ -74,9 +83,12 @@ def solve(
             candidate = repack_neighbor(
                 neighbor_order, containers, current, settings, stats, selected_policy,
                 orientation_provider=selected_orientation_provider,
+                construction_strategy=repair_strategy,
             )
             if candidate is None:
+                stats.rejected_neighbors += 1
                 continue
+            stats.feasible_neighbors += 1
             score = solution_score(candidate, containers)
             if score < current_score and (best is None or score < best[0]):
                 best = score, operator, neighbor_order, candidate
@@ -100,7 +112,9 @@ def solve(
         metadata={
             "algorithm_kind": "local_search",
             "optimality_proven": False,
-            "initial_algorithm": "extreme_point_ffd",
+            "initial_algorithm": initial_constructor,
+            "initial_constructor": initial_constructor,
+            "repair_constructor": repair_constructor,
             "neighborhoods": ["relocate", "swap", "reinsert", "container_elimination"],
             "acceptance": "steepest_lexicographic_improvement",
             "max_iterations": max_iterations,
@@ -108,6 +122,8 @@ def solve(
             "subset_candidate_limit": subset_candidate_limit,
             "hill_climbing_iterations": stats.iterations,
             "neighbors_evaluated": stats.neighbors_evaluated,
+            "feasible_neighbors": stats.feasible_neighbors,
+            "rejected_neighbors": stats.rejected_neighbors,
             "repacking_attempts": stats.repacking_attempts,
             "accepted_operators": stats.accepted_operators,
             "initial_score": list(initial_score),

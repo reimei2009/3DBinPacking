@@ -27,6 +27,10 @@ LEVEL_03_WARNING = (
     "Level 3 geometry/payload/base-support solution with horizontal orientation only; "
     "load-bearing, load transfer, and full physical stability are not modeled."
 )
+LEVEL_04_WARNING = (
+    "Level 4 geometry/payload/base-support solution with stackability rules; "
+    "load-bearing, load transfer, and full physical stability are not modeled."
+)
 LEVEL_03_WARNING_VI = (
     "Nghiệm Level 3 hợp lệ về hình học, tải trọng, hỗ trợ đáy và xoay ngang; chưa mô hình hóa "
     "độ bền chịu tải, truyền tải và ổn định vật lý đầy đủ."
@@ -44,6 +48,7 @@ def build_scene(
     level_id: str,
     algorithm_id: str,
     validation_status: str,
+    item_metadata: dict[str, dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Build a JSON-serializable scene without depending on a UI framework."""
     scene_containers: list[dict[str, Any]] = []
@@ -82,7 +87,7 @@ def build_scene(
                 },
                 "weight_kg": float(item.weight_kg),
                 "orientation": item.orientation_code,
-                "metadata": {},
+                "metadata": dict((item_metadata or {}).get(item.item_id, {})),
             } for item in group],
         })
     scene = {
@@ -93,13 +98,15 @@ def build_scene(
         "validation_status": validation_status,
         "warning": (
             LEVEL_01_WARNING if level_id == "level_01" else LEVEL_02_WARNING if level_id == "level_02"
-            else LEVEL_03_WARNING if level_id == "level_03" else "Refer to the active level contract."
+            else LEVEL_03_WARNING if level_id == "level_03" else LEVEL_04_WARNING if level_id == "level_04"
+            else "Refer to the active level contract."
         ),
         "warnings": {
             "vi": LEVEL_01_WARNING_VI if level_id == "level_01" else LEVEL_02_WARNING_VI if level_id == "level_02" else "Xem contract của level đang hoạt động.",
             "en": (
                 LEVEL_01_WARNING if level_id == "level_01" else LEVEL_02_WARNING if level_id == "level_02"
-                else LEVEL_03_WARNING if level_id == "level_03" else "Refer to the active level contract."
+                else LEVEL_03_WARNING if level_id == "level_03" else LEVEL_04_WARNING if level_id == "level_04"
+                else "Refer to the active level contract."
             ),
         },
         "containers": scene_containers,
