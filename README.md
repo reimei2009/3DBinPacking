@@ -37,6 +37,38 @@ Chạy không tương tác:
 python scripts\run_experiment.py --level level_01 --algorithm milp_big_m --items-count 10 --containers-count 3 --environment local --non-interactive
 ```
 
+Level 5 dùng `extreme_point_best_fit` làm solver mặc định,
+`extreme_point_ffd` làm constructive comparator và Hill Climbing làm
+local-search comparator; Simulated Annealing là quality comparator cho tải tĩnh
+đệ quy. Sức chịu tải mặc định dùng profile nghiên cứu
+`synthetic_weight_factor_v1` (`M_i = 4w_i`), không phải thông số vật liệu thực:
+
+```powershell
+python scripts\run_experiment.py --level level_05 --items-count 10 --containers-count 3 --environment local --non-interactive
+```
+
+Output riêng nằm dưới `outputs/level_05/runs/<run_id>/`, gồm
+`load_bearing.csv`, `load_transfer.csv` và
+`load_bearing_validation.json`. Level 5 chưa mô hình hóa áp suất, mô-men,
+biến dạng, tải động hoặc ổn định cơ học đầy đủ.
+
+Level 5 SA sensitivity sweep là tác vụ dài và chạy thủ công:
+
+```powershell
+python scripts\run_parameter_sweep.py --config config\level_05\sweeps\sa_prefix_i20_c5_local.yaml
+python scripts\run_parameter_sweep.py --config config\level_05\sweeps\sa_stable_random_101_i20_c5_local.yaml
+```
+
+Level 5 quality profile đã chọn SA p006 (`200`, `0.05`, `0.99`). Nghiệm thu
+portfolio Best Fit/Hill/SA chạy thủ công:
+
+```powershell
+python scripts\run_benchmark.py --suite config\level_05\benchmarks\portfolio_local.yaml
+```
+
+Baseline đã nghiệm thu được ghi tại
+`docs/reports/manual/level_05_portfolio_baseline_20260724.md`.
+
 Chạy Level 2 support-only trên instance nhỏ:
 
 ```powershell

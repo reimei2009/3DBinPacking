@@ -156,6 +156,13 @@ def terminal_preview(result: RunResult, *, placement_limit: int = 20) -> str:
             f"Minimum exact support ratio: {metadata.get('minimum_exact_support_ratio')}",
             f"All centers supported: {metadata.get('all_centers_supported')}",
         ])
+    if metadata.get("load_bearing_enabled"):
+        lines.extend([
+            f"Load capacity profile: {metadata.get('load_bearing_capacity_profile')}",
+            f"Maximum load utilization: {metadata.get('maximum_load_utilization_ratio')}",
+            f"Minimum load safety margin: {metadata.get('minimum_load_safety_margin_kg')} kg",
+            f"Load-transfer edges: {metadata.get('load_transfer_edge_count')}",
+        ])
     if result.placements:
         groups: dict[str, list] = defaultdict(list)
         for placement in result.placements:

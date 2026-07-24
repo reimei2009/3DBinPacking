@@ -268,6 +268,76 @@ def test_level4_portfolio_suite_declares_common_profiles_and_seed_sweep(root: Pa
     assert suite.scenarios[1].item_selection_seed == 101
 
 
+def test_level5_constructive_suite_compares_shared_load_bearing_inputs(
+    root: Path,
+):
+    suite = load_benchmark_suite(
+        root / "config/level_05/benchmarks/constructive_local.yaml"
+    )
+
+    assert suite.level_id == "level_05"
+    assert suite.suite_id == "level_05_constructive_local_v1"
+    assert suite.algorithms == ("extreme_point_best_fit", "extreme_point_ffd")
+    assert suite.seeds == (42,)
+    assert suite.repeats == 3
+    assert all(
+        scenario.algorithm_ids == suite.algorithms for scenario in suite.scenarios
+    )
+
+
+def test_level5_local_search_suite_compares_best_fit_with_hill_climbing(
+    root: Path,
+):
+    suite = load_benchmark_suite(
+        root / "config/level_05/benchmarks/local_search_local.yaml"
+    )
+
+    assert suite.level_id == "level_05"
+    assert suite.suite_id == "level_05_local_search_local_v1"
+    assert suite.algorithms == (
+        "extreme_point_best_fit", "extreme_point_hill_climbing",
+    )
+    assert suite.seeds == (42,)
+    assert suite.repeats == 3
+
+
+def test_level5_metaheuristic_suite_uses_shared_seeded_inputs(root: Path):
+    suite = load_benchmark_suite(
+        root / "config/level_05/benchmarks/metaheuristic_local.yaml"
+    )
+
+    assert suite.level_id == "level_05"
+    assert suite.suite_id == "level_05_metaheuristic_local_v1"
+    assert suite.algorithms == (
+        "extreme_point_best_fit", "extreme_point_hill_climbing",
+        "extreme_point_simulated_annealing",
+    )
+    assert suite.seeds == (42,)
+    assert suite.repeats == 3
+    assert suite.scenarios[-1].item_selection_strategy == "stable_random"
+    assert suite.scenarios[-1].item_selection_seed == 101
+
+
+def test_level5_portfolio_suite_declares_common_profiles_and_seed_sweep(root: Path):
+    suite = load_benchmark_suite(
+        root / "config/level_05/benchmarks/portfolio_local.yaml"
+    )
+
+    assert suite.level_id == "level_05"
+    assert suite.suite_id == "level_05_solver_portfolio_local_v1"
+    assert suite.algorithms == (
+        "extreme_point_best_fit", "extreme_point_hill_climbing",
+        "extreme_point_simulated_annealing",
+    )
+    assert suite.seeds == (7, 11, 19)
+    assert suite.repeats == 1
+    assert [scenario.scenario_id for scenario in suite.scenarios] == [
+        "portfolio_prefix_i20_c5", "portfolio_stable_random_101_i20_c5",
+    ]
+    assert suite.scenarios[1].item_selection_strategy == "stable_random"
+    assert suite.scenarios[1].item_selection_seed == 101
+
+
 def test_level4_portfolio_algorithms_share_one_frozen_input(root: Path, tmp_path: Path):
     config = load_config(root / "config/level_04/default.yaml")
     config["paths"].update({

@@ -12,7 +12,7 @@ from ..experiments.contracts import (
     MathematicalExpression,
     VariableDefinition,
 )
-from . import level_01, level_02, level_03, level_04
+from . import level_01, level_02, level_03, level_04, level_05
 
 _LEVELS = {
     "level_01": LevelDefinition(
@@ -490,6 +490,164 @@ _LEVELS["level_04"] = LevelDefinition(
         solution_claim=LocalizedText(
             vi="Nghiệm hợp lệ về hình học, tải trọng, support, xoay ngang và quy tắc stack theo Level 4.",
             en="A geometry, payload, support, horizontal-orientation, and stackability-feasible solution under Level 4 assumptions.",
+        ),
+    ),
+)
+
+
+_LEVEL_04_CONTRACT = _LEVELS["level_04"].contract
+_LEVELS["level_05"] = LevelDefinition(
+    level_id="level_05",
+    description=(
+        "Level 4 plus static recursive vertical load transfer and "
+        "synthetic load-bearing capacities"
+    ),
+    default_config=Path("config/level_05/default.yaml"),
+    supported_algorithms=(
+        "extreme_point_best_fit", "extreme_point_ffd", "extreme_point_hill_climbing",
+        "extreme_point_simulated_annealing",
+    ),
+    run=level_05.run,
+    prepare=level_05.prepare,
+    validate_run=level_05.validate_run,
+    contract=LevelContract(
+        title=LocalizedText(
+            vi="Level 5 — Khả năng chịu tải và truyền tải trọng tĩnh",
+            en="Level 5 — Static load bearing and load transfer",
+        ),
+        problem=LocalizedText(
+            vi=(
+                "Kế thừa Level 4, phân phối tải theo diện tích tiếp xúc và "
+                "giới hạn tổng tải phía trên mà mỗi kiện có thể chịu."
+            ),
+            en=(
+                "Extend Level 4 by distributing load according to contact area "
+                "and limiting the total load carried above each item."
+            ),
+        ),
+        notation=_LEVEL_04_CONTRACT.notation + (
+            MathematicalExpression(
+                "load_transfer_fraction",
+                LocalizedText(vi="Tỷ lệ truyền tải", en="Load-transfer fraction"),
+                r"A_{ji}=|\operatorname{contact}(j,i)|,\quad "
+                r"\lambda_{ji}=\frac{A_{ji}}{\sum_s A_{si}}",
+                LocalizedText(
+                    vi="Tải của kiện i được chia cho các kiện j đỡ nó theo diện tích tiếp xúc.",
+                    en="Item i's load is split among its supporters j by contact area.",
+                ),
+                "src/container_packing/levels/load_transfer.py::evaluate_load_transfer",
+            ),
+        ),
+        objective=_LEVEL_04_CONTRACT.objective,
+        variables=_LEVEL_04_CONTRACT.variables + (
+            VariableDefinition(
+                "T[i]",
+                r"T_i\in\mathbb{R}_{\ge0}",
+                LocalizedText(vi="Đại lượng suy ra liên tục", en="Continuous derived quantity"),
+                LocalizedText(vi="kiện i", en="item i"),
+                LocalizedText(
+                    vi="Tổng tải kiện i truyền xuống, gồm tự trọng và tải nhận từ phía trên.",
+                    en="Total load transmitted by item i, including own weight and received load.",
+                ),
+                "src/container_packing/levels/load_transfer.py::evaluate_load_transfer",
+            ),
+            VariableDefinition(
+                "L[i]",
+                r"L_i\in\mathbb{R}_{\ge0}",
+                LocalizedText(vi="Đại lượng suy ra liên tục", en="Continuous derived quantity"),
+                LocalizedText(vi="kiện i", en="item i"),
+                LocalizedText(
+                    vi="Tải phía trên mà kiện i đang chịu, không gồm tự trọng.",
+                    en="Load carried above item i, excluding its own weight.",
+                ),
+                "src/container_packing/levels/load_transfer.py::LoadBearingRecord.load_above_kg",
+            ),
+        ),
+        active_constraints=_LEVEL_04_CONTRACT.active_constraints + (
+            ConstraintDefinition(
+                "recursive_static_load_transfer",
+                LocalizedText(vi="Truyền tải tĩnh đệ quy", en="Recursive static load transfer"),
+                r"T_i=w_i+\sum_h\lambda_{ih}T_h,\qquad L_i=T_i-w_i",
+                LocalizedText(
+                    vi="Tải được tính từ trên xuống dưới qua toàn bộ đồ thị tiếp xúc.",
+                    en="Load is evaluated top-down over the complete contact graph.",
+                ),
+                "src/container_packing/levels/load_transfer.py::evaluate_load_transfer",
+            ),
+            ConstraintDefinition(
+                "maximum_supported_weight",
+                LocalizedText(vi="Giới hạn chịu tải", en="Load-bearing capacity"),
+                r"L_i\le M_i\quad\forall i",
+                LocalizedText(
+                    vi="Tải phía trên không vượt sức chịu tải khai báo của kiện.",
+                    en="Load carried above an item cannot exceed its declared capacity.",
+                ),
+                "src/container_packing/levels/level_05_validation.py::validate_load_bearing",
+            ),
+            ConstraintDefinition(
+                "fragile_no_supported_load",
+                LocalizedText(vi="Kiện dễ vỡ không chịu tải", en="Fragile items carry no load"),
+                r"\operatorname{fragile}_i=1\Rightarrow L_i=0",
+                LocalizedText(
+                    vi="Kiện được đánh dấu dễ vỡ không được có tải phía trên.",
+                    en="An item declared fragile must carry no load above it.",
+                ),
+                "src/container_packing/levels/level_05_validation.py::validate_load_bearing",
+            ),
+        ),
+        inactive_constraints=tuple(
+            LocalizedText(vi=vi, en=en)
+            for vi, en in (
+                ("áp suất tiếp xúc", "contact pressure"),
+                ("mô-men và lật", "moments and tipping"),
+                ("tải động và rung động", "dynamic and vibration loads"),
+                ("cân bằng tải container", "container load balance"),
+                ("lồng kiện", "nesting"),
+                ("thứ tự xếp/dỡ", "loading/unloading order"),
+            )
+        ),
+        assumptions=_LEVEL_04_CONTRACT.assumptions + (
+            LocalizedText(
+                vi=(
+                    "Sức chịu tải hiện dùng profile nghiên cứu M_i=4w_i nếu "
+                    "không có override; đây không phải thông số vật liệu thực."
+                ),
+                en=(
+                    "Load capacity currently uses the research profile M_i=4w_i "
+                    "unless overridden; it is not a real material property."
+                ),
+            ),
+            LocalizedText(
+                vi="Tải chỉ truyền thẳng đứng và được chia theo diện tích tiếp xúc.",
+                en="Load transfers vertically and is split by contact area only.",
+            ),
+        ),
+        limitations=(
+            LocalizedText(
+                vi="Best Fit là mặc định thực tế; FFD, Hill Climbing và SA là comparator.",
+                en="Best Fit is the practical default; FFD, Hill Climbing, and SA are comparators.",
+            ),
+            LocalizedText(
+                vi=(
+                    "Mô hình chưa tính áp suất cục bộ, mô-men, biến dạng, tải động "
+                    "hoặc độ bền vật liệu thực."
+                ),
+                en=(
+                    "The model omits local pressure, moments, deformation, dynamic "
+                    "loads, and real material strength."
+                ),
+            ),
+        ),
+        solution_claim=LocalizedText(
+            vi=(
+                "Nghiệm hợp lệ về hình học, tải trọng container, support, xoay ngang, "
+                "stackability và truyền tải tĩnh theo profile nghiên cứu Level 5."
+            ),
+            en=(
+                "A geometry, container-payload, support, horizontal-orientation, "
+                "stackability, and static-load-feasible solution under the Level 5 "
+                "research profile."
+            ),
         ),
     ),
 )

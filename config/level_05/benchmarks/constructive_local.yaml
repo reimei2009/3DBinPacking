@@ -1,0 +1,26 @@
+# Manual acceptance: both algorithms receive the same Level 5 inputs.
+# Run manually: python scripts/run_benchmark.py --suite config/level_05/benchmarks/constructive_local.yaml
+suite_id: level_05_constructive_local_v1
+level_id: level_05
+description: >
+  Compare the practical Best Fit default with deterministic FFD under the same
+  support, stackability, and recursive static load-bearing contract.
+config: config/level_05/default.yaml
+environment: local
+algorithms: [extreme_point_best_fit, extreme_point_ffd]
+seeds: [42]
+repeats: 3
+scenarios:
+  - scenario_id: load_bearing_smoke_i3_c2
+    description: "Short common Level 5 scenario."
+    item_count: 3
+    container_count: 2
+    item_selection: prefix
+    tags: [smoke, deterministic, support, stackability, load_bearing]
+
+  - scenario_id: practical_prefix_i20_c5
+    description: "Practical common scenario; run manually."
+    item_count: 20
+    container_count: 5
+    item_selection: prefix
+    tags: [practical, comparison, support, stackability, load_bearing]

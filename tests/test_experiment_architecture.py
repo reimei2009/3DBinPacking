@@ -13,7 +13,9 @@ from container_packing.runtime.inputs import prompt_choice, prompt_positive
 
 
 def test_registry_only_exposes_runnable_implementations():
-    assert [value.level_id for value in list_levels()] == ["level_01", "level_02", "level_03", "level_04"]
+    assert [value.level_id for value in list_levels()] == [
+        "level_01", "level_02", "level_03", "level_04", "level_05",
+    ]
     assert [value.algorithm_id for value in list_algorithms(level_id="level_01")] == [
         "extreme_point_best_fit", "extreme_point_ffd", "extreme_point_hill_climbing",
         "extreme_point_simulated_annealing", "maximal_space_best_fit", "milp_big_m",
@@ -51,6 +53,24 @@ def test_registry_only_exposes_runnable_implementations():
         "extreme_point_simulated_annealing",
         "maximal_space_best_fit",
     )
+    assert [value.algorithm_id for value in list_algorithms(level_id="level_05")] == [
+        "extreme_point_best_fit", "extreme_point_ffd", "extreme_point_hill_climbing",
+        "extreme_point_simulated_annealing",
+    ]
+    assert get_level("level_05").supported_algorithms == (
+        "extreme_point_best_fit", "extreme_point_ffd", "extreme_point_hill_climbing",
+        "extreme_point_simulated_annealing",
+    )
+    assert {value.symbol for value in get_level("level_05").contract.variables} >= {
+        "T[i]", "L[i]",
+    }
+    assert {
+        value.constraint_id for value in get_level("level_05").contract.active_constraints
+    } >= {
+        "recursive_static_load_transfer",
+        "maximum_supported_weight",
+        "fragile_no_supported_load",
+    }
     assert {value.symbol for value in get_level("level_03").contract.variables} >= {"r[i,o]"}
     assert {value.constraint_id for value in get_level("level_03").contract.active_constraints} >= {
         "horizontal_orientation_selection", "orientation_dependent_dimensions",
@@ -110,6 +130,30 @@ def test_config_inheritance(root):
     assert level4_default["algorithms"]["extreme_point_simulated_annealing"]["max_iterations"] == 200
     assert level4_default["algorithms"]["extreme_point_simulated_annealing"]["initial_temperature"] == 0.05
     assert level4_default["algorithms"]["extreme_point_simulated_annealing"]["cooling_rate"] == 0.99
+    level5_default = load_config(root / "config/level_05/default.yaml")
+    assert level5_default["project"]["level_id"] == "level_05"
+    assert level5_default["project"]["algorithm_id"] == "extreme_point_best_fit"
+    assert level5_default["model"]["enforce_load_bearing"] is True
+    assert level5_default["model"]["enforce_load_transfer"] is True
+    level5_fast = load_config(root / "config/level_05/experiments/fast_local.yaml")
+    level5_balanced = load_config(root / "config/level_05/experiments/balanced_local.yaml")
+    level5_quality = load_config(root / "config/level_05/experiments/quality_local.yaml")
+    assert level5_fast["project"]["algorithm_id"] == "extreme_point_best_fit"
+    assert level5_balanced["project"]["algorithm_id"] == "extreme_point_hill_climbing"
+    assert level5_quality["project"]["algorithm_id"] == "extreme_point_simulated_annealing"
+    assert level5_quality["tuning"]["parameter_set_id"] == "p006_3f888c7c"
+    assert level5_quality["algorithms"]["extreme_point_simulated_annealing"] == {
+        "initial_constructor": "extreme_point_best_fit",
+        "repair_constructor": "extreme_point_best_fit",
+        "subset_enumeration_limit": 12,
+        "subset_candidate_limit": 48,
+        "max_iterations": 200,
+        "max_neighbors": 48,
+        "neighbors_per_iteration": 3,
+        "initial_temperature": 0.05,
+        "cooling_rate": 0.99,
+        "minimum_temperature": 0.0001,
+    }
     fast = load_config(root / "config/level_04/experiments/fast_local.yaml")
     balanced = load_config(root / "config/level_04/experiments/balanced_local.yaml")
     quality = load_config(root / "config/level_04/experiments/quality_local.yaml")
@@ -179,6 +223,15 @@ def test_level3_cli_uses_configured_ffd_when_algorithm_is_omitted():
 def test_level4_cli_uses_configured_best_fit_when_algorithm_is_omitted():
     args = _parser().parse_args([
         "run", "--level", "level_04", "--items-count", "3",
+        "--containers-count", "2", "--non-interactive",
+    ])
+    request = _resolve_request(args)
+    assert request.algorithm_id == "extreme_point_best_fit"
+
+
+def test_level5_cli_uses_configured_best_fit_when_algorithm_is_omitted():
+    args = _parser().parse_args([
+        "run", "--level", "level_05", "--items-count", "3",
         "--containers-count", "2", "--non-interactive",
     ])
     request = _resolve_request(args)

@@ -189,3 +189,76 @@ def test_level4_sa_sensitivity_configs_declare_frozen_profiles(root: Path):
         "item_counts": [20], "container_counts": [5],
         "item_selection_strategy": "stable_random", "item_selection_seed": 101,
     }
+
+
+def test_level5_sa_sensitivity_configs_reuse_frozen_profile_protocol(root: Path):
+    prefix = load_config(root / "config/level_05/sweeps/sa_prefix_i20_c5_local.yaml")
+    random_profile = load_config(
+        root / "config/level_05/sweeps/sa_stable_random_101_i20_c5_local.yaml"
+    )
+
+    for definition in (prefix, random_profile):
+        assert definition["project"] == {
+            "level_id": "level_05",
+            "algorithm_id": "extreme_point_simulated_annealing",
+        }
+        assert definition["base_config"] == "config/level_05/default.yaml"
+        assert definition["instance"]["item_counts"] == [20]
+        assert definition["instance"]["container_counts"] == [5]
+        assert definition["execution"] == {
+            "environment": "local", "seeds": [7, 11, 19], "repeats": 1,
+        }
+        assert definition["sweep"] == {
+            "max_parameter_sets": 8,
+            "parameters": {
+                "max_iterations": [50, 200],
+                "initial_temperature": [0.05, 0.25],
+                "cooling_rate": [0.95, 0.99],
+            },
+        }
+    assert prefix["instance"]["item_selection_strategy"] == "prefix"
+    assert "item_selection_seed" not in prefix["instance"]
+    assert random_profile["instance"] == {
+        "item_counts": [20], "container_counts": [5],
+        "item_selection_strategy": "stable_random", "item_selection_seed": 101,
+    }
+
+
+def test_level5_sa_sweep_runs_with_load_bearing_policy(root: Path, tmp_path: Path):
+    base = load_config(root / "config/level_05/default.yaml")
+    base["paths"]["raw_items_csv"] = str(
+        root / "data/raw/dataset_small_items_original.csv"
+    )
+    base["paths"]["processed_dir"] = str(tmp_path / "processed/level_05")
+    base["paths"]["manifest_json"] = str(
+        tmp_path / "processed/level_05/latest_manifest.json"
+    )
+    base["paths"]["output_root"] = str(tmp_path / "outputs")
+    base_file = tmp_path / "level_05_base.yaml"
+    base_file.write_text(yaml.safe_dump(base, sort_keys=False), encoding="utf-8")
+    definition = {
+        "project": {
+            "level_id": "level_05",
+            "algorithm_id": "extreme_point_simulated_annealing",
+        },
+        "base_config": str(base_file),
+        "instance": {"item_counts": [1], "container_counts": [2]},
+        "execution": {"environment": "local", "seeds": [7], "repeats": 1},
+        "sweep": {"max_parameter_sets": 1, "parameters": {"max_iterations": [0]}},
+    }
+    sweep_file = tmp_path / "level_05_sweep.yaml"
+    sweep_file.write_text(yaml.safe_dump(definition, sort_keys=False), encoding="utf-8")
+
+    result = run_parameter_sweep(sweep_file, project_root=root)
+
+    assert result.successful
+    assert len(result.results) == 1
+    source_run = Path(result.results.iloc[0]["experiment_run_dir"])
+    resolved = yaml.safe_load(
+        (source_run / "resolved_config.yaml").read_text(encoding="utf-8")
+    )
+    metrics = json.loads((source_run / "metrics/metrics.json").read_text(encoding="utf-8"))
+    assert resolved["project"]["level_id"] == "level_05"
+    assert resolved["algorithms"]["extreme_point_simulated_annealing"]["max_iterations"] == 0
+    assert metrics["feasibility_policy"].endswith("_load_bearing")
+    assert metrics["load_bearing_enabled"] is True

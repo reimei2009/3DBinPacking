@@ -1,0 +1,26 @@
+# Manual acceptance: Best Fit and Hill Climbing use exactly the same Level 5 inputs.
+# Run manually: python scripts/run_benchmark.py --suite config/level_05/benchmarks/local_search_local.yaml
+suite_id: level_05_local_search_local_v1
+level_id: level_05
+description: >
+  Compare the practical Best Fit default with Hill Climbing initialized and
+  repaired by Best Fit under the same Level 5 load-bearing contract.
+config: config/level_05/default.yaml
+environment: local
+algorithms: [extreme_point_best_fit, extreme_point_hill_climbing]
+seeds: [42]
+repeats: 3
+scenarios:
+  - scenario_id: load_bearing_local_search_smoke_i3_c2
+    description: "Short common Level 5 local-search scenario."
+    item_count: 3
+    container_count: 2
+    item_selection: prefix
+    tags: [smoke, deterministic, local_search, support, stackability, load_bearing]
+
+  - scenario_id: practical_prefix_i20_c5
+    description: "Practical common Level 5 local-search scenario; run manually."
+    item_count: 20
+    container_count: 5
+    item_selection: prefix
+    tags: [practical, comparison, local_search, support, stackability, load_bearing]

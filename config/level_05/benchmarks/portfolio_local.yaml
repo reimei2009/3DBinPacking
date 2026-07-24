@@ -1,0 +1,30 @@
+# Manual acceptance: compare fast, balanced, and quality Level 5 profiles.
+# Run manually: python scripts/run_benchmark.py --suite config/level_05/benchmarks/portfolio_local.yaml
+suite_id: level_05_solver_portfolio_local_v1
+level_id: level_05
+description: >
+  Compare Level 5 Best Fit, Best-Fit-repaired Hill Climbing, and p006 Simulated
+  Annealing on identical frozen inputs under the load-bearing policy.
+config: config/level_05/default.yaml
+environment: local
+algorithms:
+  - extreme_point_best_fit
+  - extreme_point_hill_climbing
+  - extreme_point_simulated_annealing
+seeds: [7, 11, 19]
+repeats: 1
+scenarios:
+  - scenario_id: portfolio_prefix_i20_c5
+    description: "Prefix profile for fast/balanced/quality comparison."
+    item_count: 20
+    container_count: 5
+    item_selection: prefix
+    tags: [portfolio, fast, balanced, quality, support, stackability, load_bearing]
+
+  - scenario_id: portfolio_stable_random_101_i20_c5
+    description: "Difficult frozen random profile for portfolio comparison."
+    item_count: 20
+    container_count: 5
+    item_selection: stable_random
+    selection_seed: 101
+    tags: [portfolio, fast, balanced, quality, stable_random, support, stackability, load_bearing]

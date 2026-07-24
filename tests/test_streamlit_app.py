@@ -8,7 +8,7 @@ def test_streamlit_app_runs_valid_experiment_and_renders_3d(root: Path):
     app = root / "src/container_packing/web/streamlit_app.py"
     page = AppTest.from_file(str(app), default_timeout=60).run()
     assert not page.exception
-    assert [value.value for value in page.title] == ["Mô phỏng xếp container 3D — Nghiên cứu"]
+    assert [value.value for value in page.title] == ["Mô phỏng xếp container 3D"]
     tab_labels = {value.label for value in page.tabs}
     assert {
         t("result_tab", "vi"), t("benchmark_tab", "vi"),
@@ -97,6 +97,35 @@ def test_streamlit_exposes_level4_constructive_algorithms_and_support_threshold(
     assert numbers["cooling_rate"].value == 0.99
 
 
+def test_streamlit_exposes_level5_best_fit_and_support_threshold(root: Path):
+    app = root / "src/container_packing/web/streamlit_app.py"
+    page = AppTest.from_file(str(app), default_timeout=30).run()
+
+    next(value for value in page.selectbox if value.key == "level_id").set_value(
+        "level_05"
+    ).run()
+    algorithm = next(
+        value for value in page.selectbox if value.key == "algorithm_id"
+    )
+
+    assert not page.exception
+    assert algorithm.options == [
+        "Extreme Point — Best Fit Decreasing",
+        "Extreme Point — First Fit Decreasing",
+        "Extreme Point — Hill Climbing",
+        "Extreme Point — Simulated Annealing",
+    ]
+    assert algorithm.value == "extreme_point_best_fit"
+    assert any(
+        value.key == "level_05_support_threshold" for value in page.number_input
+    )
+    algorithm.set_value("extreme_point_simulated_annealing").run()
+    numbers = {value.key: value for value in page.number_input}
+    assert numbers["max_iterations"].value == 200
+    assert numbers["initial_temperature"].value == 0.05
+    assert numbers["cooling_rate"].value == 0.99
+
+
 def test_streamlit_runs_two_algorithm_same_instance_benchmark(root: Path):
     app = root / "src/container_packing/web/streamlit_app.py"
     page = AppTest.from_file(str(app), default_timeout=60).run()
@@ -127,7 +156,7 @@ def test_streamlit_contract_renders_latex_and_switches_to_english(root: Path):
     language = {value.label: value for value in page.selectbox}["Ngôn ngữ / Language"]
     language.set_value("English").run()
     assert not page.exception
-    assert [value.value for value in page.title] == ["3D Container Packing — Research Console"]
+    assert [value.value for value in page.title] == ["3D Container Packing"]
     assert any("Objective function" in value.value for value in page.markdown)
 
 

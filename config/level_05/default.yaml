@@ -1,0 +1,21 @@
+extends: ../level_04/default.yaml
+project:
+  level_id: level_05
+  algorithm_id: extreme_point_best_fit
+instance:
+  item_count: 10
+  container_count: 3
+paths:
+  processed_dir: data/processed/level_05
+  manifest_json: data/processed/level_05/latest_manifest.json
+model:
+  allow_rotation: true
+  enforce_support: true
+  enforce_stackability: true
+  enforce_load_bearing: true
+  enforce_load_transfer: true
+  enforce_stability: false
+load_bearing:
+  rules_file: config/level_05/load_bearing_rules.yaml
+validation:
+  load_tolerance_kg: 1.0e-6
