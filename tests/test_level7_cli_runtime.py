@@ -15,6 +15,7 @@ from container_packing.levels.registry import get_level, list_levels
 
 ALGORITHM = "level_07_fixture_validation_bundle"
 BALANCE_ALGORITHM = "extreme_point_best_fit_balance_fixture"
+BASELINE_ALGORITHM = "extreme_point_best_fit_balance_baseline_fixture"
 
 
 def _runtime_config(root: Path, tmp_path: Path) -> Path:
@@ -122,3 +123,28 @@ def test_level7_balance_aware_best_fit_selects_balanced_fixture(root: Path, tmp_
     assert first.metadata["balance_construction_mode"] == "soft_tiebreak_final_validation_hard"
     assert get_level("level_07").validate_run(Path(first.metadata["run_dir"])).valid
     assert first.placements == second.placements
+
+
+def test_level7_baseline_best_fit_is_invalid_on_the_same_balance_fixture(root: Path, tmp_path: Path) -> None:
+    config = deepcopy(load_config(root / "config/level_07/experiments/balance_baseline_best_fit_fixture.yaml"))
+    config["paths"]["processed_dir"] = str(tmp_path / "processed")
+    config["paths"]["manifest_json"] = str(tmp_path / "processed/latest_manifest.json")
+    config["paths"]["output_root"] = str(tmp_path / "outputs")
+    config_path = tmp_path / "balance_baseline_fixture.yaml"
+    config_path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
+    result = run_experiment(ExperimentRequest(
+        "level_07", BASELINE_ALGORITHM, config_path, 3, 1,
+        environment="local", item_selection_strategy="prefix",
+    ))
+    run_dir = Path(result.metadata["run_dir"])
+    top = next(value for value in result.placements if value.item_id == "TOP")
+    assert result.solve.status == "FEASIBLE"
+    assert result.validation is not None and not result.validation.valid
+    assert result.metadata["status"] == "INVALID_SOLUTION"
+    assert (top.x_mm, top.y_mm, top.z_mm) == (0.0, 0.0, 100.0)
+    assert result.metadata["candidate_scoring_policy"] == "extreme_point_best_fit_default_v1"
+    assert result.metadata["balance_validation_status"] == "INVALID"
+    assert (run_dir / "solution/placements.csv").is_file()
+    assert (run_dir / "solution/center_of_mass.csv").is_file()
+    assert (run_dir / "validation/balance_validation.json").is_file()
+    assert not get_level("level_07").validate_run(run_dir).valid

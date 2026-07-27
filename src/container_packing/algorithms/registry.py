@@ -166,6 +166,17 @@ _ALGORITHMS = {
             en="Fixture Best Fit uses prospective COG as a tie-break; balance remains a final validation constraint.",
         ),
     ),
+    "extreme_point_best_fit_balance_baseline_fixture": AlgorithmDefinition(
+        algorithm_id="extreme_point_best_fit_balance_baseline_fixture",
+        family="experimental_constructive_heuristic",
+        description="CLI-only Level 7 canonical Best Fit baseline for balance A/B acceptance",
+        supported_levels=("level_07",), local_friendly=True,
+        display_name=LocalizedText(vi="Experimental â€” Balance baseline Best Fit", en="Experimental â€” Balance baseline Best Fit"),
+        localized_description=LocalizedText(
+            vi="Comparator Best Fit không dùng COG score; final balance validator vẫn bắt buộc.",
+            en="Best Fit comparator without COG scoring; final balance validation remains mandatory.",
+        ),
+    ),
 }
 
 

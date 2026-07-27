@@ -11,6 +11,9 @@ The additional `extreme_point_best_fit_balance_fixture` is a separate frozen
 three-item discriminator fixture: it uses prospective COG only as a Best Fit
 tie-break, then requires independent final balance validation. Neither runtime
 accepts arbitrary input or is visible in Streamlit.
+`extreme_point_best_fit_balance_baseline_fixture` runs the same input with the
+canonical Best Fit score only; it is an A/B comparator and is expected to fail
+final balance validation on this deliberately asymmetric fixture.
 
 Run it from the repository root:
 
@@ -28,6 +31,17 @@ Run the balance-aware Best Fit fixture:
   --level level_07 `
   --algorithm extreme_point_best_fit_balance_fixture `
   --config config\level_07\experiments\balance_aware_best_fit_fixture.yaml `
+  --non-interactive --preview-limit 0
+```
+
+Run its canonical Best Fit A/B comparator (an `INVALID_SOLUTION` exit is the
+expected acceptance result):
+
+```powershell
+.\.venv\Scripts\python.exe .\scripts\run_experiment.py `
+  --level level_07 `
+  --algorithm extreme_point_best_fit_balance_baseline_fixture `
+  --config config\level_07\experiments\balance_baseline_best_fit_fixture.yaml `
   --non-interactive --preview-limit 0
 ```
 

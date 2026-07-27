@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Added a CLI-only Level 7 canonical Best Fit baseline comparator on the balance
+  discriminator fixture, establishing A/B evidence for prospective COG scoring.
+
 - Added the CLI-only Level 7 experimental balance-aware Extreme Point Best Fit
   fixture. It uses prospective center-of-mass scoring solely as a constructive
   tie-break and requires independent final balance validation.

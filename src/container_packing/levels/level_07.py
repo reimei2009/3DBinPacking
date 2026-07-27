@@ -19,7 +19,7 @@ from ..schemas import Container, Item, Placement, RunResult, SolveResult
 from .level_07_candidate_contract import load_runtime_candidate_contract
 from .level_07_fixture_bundle import validate_level_07_fixture_bundle
 from .level_07_fixture_output import write_level_07_fixture_bundle_run
-from .level_07_pipeline import ALGORITHM_ID as BALANCE_ALGORITHM_ID
+from .level_07_pipeline import ALGORITHM_ID as BALANCE_ALGORITHM_ID, ALGORITHM_IDS as BALANCE_ALGORITHM_IDS
 from .level_07_pipeline import run_from_config as run_balance_from_config
 from .nesting_engine import NestingRelation
 
@@ -30,7 +30,7 @@ FIXTURE_ID = "declared_multi_compound_chain_and_top_balance_v1"
 
 def run(request: ExperimentRequest) -> RunResult:
     """Execute the frozen fixture validation flow and persist isolated evidence."""
-    if request.algorithm_id == BALANCE_ALGORITHM_ID:
+    if request.algorithm_id in BALANCE_ALGORITHM_IDS:
         _guard_balance_request(request, load_config(request.config_path))
         return run_balance_from_config(
             request.config_path, item_count=request.item_count,
@@ -92,7 +92,7 @@ def run(request: ExperimentRequest) -> RunResult:
 def prepare(request: ExperimentRequest) -> dict[str, Any]:
     root = find_project_root(__file__)
     config = load_config(request.config_path)
-    if request.algorithm_id == BALANCE_ALGORITHM_ID:
+    if request.algorithm_id in BALANCE_ALGORITHM_IDS:
         _guard_balance_request(request, config)
         return prepare_instance(
             root, config, item_count=request.item_count, container_count=request.container_count,
@@ -114,7 +114,7 @@ def validate_run(run_dir: Path):
     containers = load_containers(run_dir / "input_snapshot/containers.csv")
     placements = load_placements(run_dir / "solution/placements.csv")
     algorithm_id = str(config.get("project", {}).get("algorithm_id"))
-    if algorithm_id == BALANCE_ALGORITHM_ID:
+    if algorithm_id in BALANCE_ALGORITHM_IDS:
         return validate_level_07_fixture_bundle(items, containers, placements, config, []).result
     load_runtime_candidate_contract(config)
     relations = _relations_from_csv(run_dir / "solution/nesting_relations.csv")
@@ -162,7 +162,7 @@ def _guard_request(request: ExperimentRequest, config: dict[str, Any]) -> None:
 def _guard_balance_request(request: ExperimentRequest, config: dict[str, Any]) -> None:
     fixture = config.get("fixture", {})
     expected = {
-        "level_id": "level_07", "algorithm_id": BALANCE_ALGORITHM_ID,
+        "level_id": "level_07", "algorithm_id": request.algorithm_id,
         "item_count": int(fixture.get("required_item_count", -1)),
         "container_count": int(fixture.get("required_container_count", -1)),
         "environment": str(fixture.get("required_environment", "")),
@@ -175,6 +175,8 @@ def _guard_balance_request(request: ExperimentRequest, config: dict[str, Any]) -
     for field, value in expected.items():
         if actual[field] != value:
             raise ValueError(f"Level 7 balance fixture requires {field}={value!r}; got {actual[field]!r}")
+    if request.algorithm_id not in BALANCE_ALGORITHM_IDS:
+        raise ValueError("Level 7 balance fixture requires a registered fixed Best Fit A/B algorithm")
     if request.item_selection_strategy not in (None, "prefix") or request.item_selection_seed is not None:
         raise ValueError("Level 7 balance fixture requires prefix selection with no selection seed")
     if request.random_seed not in (None, 42):

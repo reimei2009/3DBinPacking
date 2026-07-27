@@ -185,7 +185,7 @@ def run_configured_level(
     if not bundle.result.valid:
         metadata["status"] = "INVALID_SOLUTION"
         if write_outputs and run_dir is not None:
-            write_status_outputs(run_dir, metadata, config, validation=bundle.result, **output_arguments)
+            write_run_outputs(run_dir, placements, containers, metadata, bundle.result, config, **output_arguments)
         return RunResult(solve, placements, bundle.result, metadata)
     if write_outputs and run_dir is not None:
         write_run_outputs(run_dir, placements, containers, metadata, bundle.result, config, **output_arguments)

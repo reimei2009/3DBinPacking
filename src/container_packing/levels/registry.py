@@ -780,11 +780,12 @@ _LEVELS["level_06"] = replace(
 
 _LEVELS["level_07"] = LevelDefinition(
     level_id="level_07",
-    description="CLI-only validation fixture for compound-root center-of-mass balance; not a packing solver",
+    description="CLI-only center-of-mass balance acceptance fixtures, including a controlled Best Fit A/B comparator",
     default_config=Path("config/level_07/experimental.yaml"),
     supported_algorithms=(
         "level_07_fixture_validation_bundle",
         "extreme_point_best_fit_balance_fixture",
+        "extreme_point_best_fit_balance_baseline_fixture",
     ),
     run=level_07.run,
     prepare=level_07.prepare,
@@ -798,7 +799,7 @@ _LEVELS["level_07"] = LevelDefinition(
         ),
         problem=LocalizedText(
             vi="XÃ¡c minh fixture compound-root Ä‘Ã£ Ä‘Ã³ng theo trá»ng tÃ¢m khÃ‘i lÆ°á»£ng; khÃ´ng tá»‘i Æ°u hÃ³a packing.",
-            en="Validate the frozen compound-root fixture against mass-weighted center of mass; no packing optimization is performed.",
+            en="Validate frozen compound-root balance fixtures and compare controlled Best Fit construction against its COG-aware variant.",
         ),
         notation=_LEVELS["level_06"].contract.notation + (
             MathematicalExpression(

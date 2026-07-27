@@ -30,3 +30,20 @@ def solve_balance_aware_best_fit_fixture(
         _solve_balance_aware_best_fit,
         validate_level_07_fixture_bundle,
     ).solve(items, containers, config)
+
+
+def solve_balance_baseline_best_fit_fixture(
+    items: list[Item], containers: list[Container], config: dict[str, Any]
+) -> Level06CompoundResult:
+    """Run the same compound fixture with canonical Best Fit scoring only."""
+    result = Level06CompoundAdapter(
+        "extreme_point_best_fit_balance_baseline_fixture",
+        "level_07_balance_baseline_best_fit_compound_v1",
+        solve_best_fit,
+        validate_level_07_fixture_bundle,
+    ).solve(items, containers, config)
+    result.outcome.metadata.update({
+        "candidate_scoring_policy": "extreme_point_best_fit_default_v1",
+        "balance_construction_mode": "baseline_no_balance_score_final_validation_hard",
+    })
+    return result
