@@ -320,9 +320,7 @@ def _guard(config: dict[str, Any]) -> None:
     candidate = load_runtime_candidate_contract(config)
     if config.get("project", {}).get("level_id") != "level_06":
         raise ValueError("Experimental Level 6 runtime requires project.level_id='level_06'")
-    if config.get("project", {}).get("algorithm_id") not in {
-        candidate.algorithm_id, "extreme_point_best_fit_nesting_fixture",
-    }:
+    if config.get("project", {}).get("algorithm_id") not in candidate.supported_algorithm_ids:
         raise ValueError("Experimental Level 6 runtime requires a registered compound nesting algorithm")
     if not bool(config.get("model", {}).get("enforce_nesting", False)):
         raise ValueError("Experimental Level 6 runtime requires model.enforce_nesting=true")

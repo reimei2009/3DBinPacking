@@ -8,7 +8,7 @@ roles: [none, host, child, both]
 dimension_clearance_mm: 0.0
 increment_semantics: child_declared_increment_height_mm
 runtime_semantics:
-  status: designed_not_active
+  status: experimental_compound_runtime_active
   relation_source: explicit_solution_relation
   child_coordinate_mode: logical_member_no_global_box
   external_occupancy: compound_root_effective_envelope
@@ -27,7 +27,6 @@ inactive_physics:
   - placement_dimension_reduction
   - nesting_aware_support
   - nesting_aware_load_transfer
-  - nesting_aware_solver
 future_output:
   relation_table: nesting_relations.csv
   item_table: nesting_height.csv

@@ -1,0 +1,14 @@
+# Four-item semantic fixture: one depth-two nesting compound plus one supported external compound.
+extends: ../experimental.yaml
+instance:
+  item_count: 4
+  container_count: 1
+  item_selection_strategy: prefix
+paths:
+  raw_items_csv: data/raw/level_06/declared_nesting_multi_compound_fixture_items.csv
+  items_source_mapping: config/common/data_sources/level_06_declared_nesting_multi_compound_fixture.yaml
+  processed_dir: data/processed/level_06/declared_nesting_multi_compound_fixture
+  manifest_json: data/processed/level_06/declared_nesting_multi_compound_fixture/latest_manifest.json
+containers:
+  # ROOT compound occupies the full floor. TOP must therefore use its top face.
+  - {container_id: C1, length_mm: 240, width_mm: 180, height_mm: 300, max_weight_kg: 500, cost: 100, availability: 1}

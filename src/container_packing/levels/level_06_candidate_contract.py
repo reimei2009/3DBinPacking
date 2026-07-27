@@ -1,4 +1,4 @@
-"""Typed gate for evaluating, but not registering, the Level 6 runtime candidate."""
+"""Typed gate for the registered experimental Level 6 compound solvers."""
 
 from __future__ import annotations
 
@@ -23,6 +23,7 @@ _METADATA = frozenset({
 @dataclass(frozen=True)
 class Level06RuntimeCandidateContract:
     algorithm_id: str
+    supported_algorithm_ids: tuple[str, ...]
     entry_point: str
     construction_policy: str
     feasibility_policy: str
@@ -32,7 +33,7 @@ class Level06RuntimeCandidateContract:
 
 
 def load_runtime_candidate_contract(config: dict[str, Any]) -> Level06RuntimeCandidateContract:
-    """Validate the frozen evaluation gate without creating a runnable level."""
+    """Validate the frozen evaluation gate for the experimental runtime."""
     candidate = config.get("runtime_candidate")
     if not isinstance(candidate, dict):
         raise ValueError("Level 6 runtime candidate config requires runtime_candidate")
@@ -48,6 +49,12 @@ def load_runtime_candidate_contract(config: dict[str, Any]) -> Level06RuntimeCan
     for field, value in expected.items():
         if candidate.get(field) != value:
             raise ValueError(f"Level 6 runtime_candidate.{field} must be {value!r}")
+    supported_algorithms = tuple(candidate.get("supported_algorithm_ids", ()))
+    if supported_algorithms != (
+        "extreme_point_ffd_nesting_fixture",
+        "extreme_point_best_fit_nesting_fixture",
+    ):
+        raise ValueError("Level 6 runtime candidate must declare FFD and Best-Fit compound adapters")
     if candidate.get("status") not in {
         "fixture_accepted_not_registered", "experimental_registered_not_default",
     }:
@@ -77,7 +84,7 @@ def load_runtime_candidate_contract(config: dict[str, Any]) -> Level06RuntimeCan
     if not isinstance(gates, list) or "manual_review_before_registry_cli_or_ui" not in gates:
         raise ValueError("Level 6 runtime candidate must retain the manual promotion gate")
     return Level06RuntimeCandidateContract(
-        candidate["algorithm_id"], candidate["entry_point"], candidate["construction_policy"],
+        candidate["algorithm_id"], supported_algorithms, candidate["entry_point"], candidate["construction_policy"],
         candidate["feasibility_policy"], candidate["validator"], fixture["fixture_id"],
         fixture["deterministic_repeats"],
     )

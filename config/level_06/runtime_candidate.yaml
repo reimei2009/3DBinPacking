@@ -4,6 +4,9 @@ runtime_candidate:
   contract_version: 1
   status: fixture_accepted_not_registered
   algorithm_id: extreme_point_ffd_nesting_fixture
+  supported_algorithm_ids:
+    - extreme_point_ffd_nesting_fixture
+    - extreme_point_best_fit_nesting_fixture
   entry_point: container_packing.levels.level_06_ffd_adapter.solve_nesting_aware_ffd_fixture
   orientation_mode: fixed_xyz_only
   construction_policy: explicit_nesting_best_fit_chain_v1

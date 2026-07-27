@@ -10,6 +10,11 @@ fixture with the explicit chain `ROOT-001 -> MIDDLE-001 -> CHILD-001`. It
 checks depth-two construction and the effective-height equation
 `120 + 25 + 20 = 165 mm`; it is likewise not a performance benchmark.
 
+`declared_nesting_multi_compound_fixture_items.csv` adds independent
+`TOP-001`. Its container floor is exactly occupied by the chain root, forcing
+the top compound to use the root's external top face. It tests compound support,
+stackability and load transfer without representing production data.
+
 Its schema is normalized by
 `config/common/data_sources/level_06_declared_nesting_fixture.yaml`. The raw
 fixture remains immutable; generated normalized files belong under

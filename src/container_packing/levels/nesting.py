@@ -1,4 +1,4 @@
-"""Typed, explicit nesting capability contract for a future Level 6 runtime."""
+"""Typed, explicit nesting capability contract for the experimental Level 6 runtime."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ _ROLES = frozenset({"none", "host", "child", "both"})
 
 @dataclass(frozen=True)
 class NestingSettings:
-    """Versioned Level 6 relation semantics, independent of a solver runtime."""
+    """Versioned Level 6 relation semantics for compound-root solvers."""
 
     contract_version: int
     clearance_mm: float
@@ -47,7 +47,7 @@ class NestingSettings:
         if not isinstance(runtime, dict):
             raise ValueError("Level 6 nesting contract requires runtime_semantics")
         expected_runtime = {
-            "status": "designed_not_active",
+            "status": "experimental_compound_runtime_active",
             "relation_source": "explicit_solution_relation",
             "child_coordinate_mode": "logical_member_no_global_box",
             "external_occupancy": "compound_root_effective_envelope",

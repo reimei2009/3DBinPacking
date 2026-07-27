@@ -57,12 +57,12 @@ def test_compound_projection_uses_root_envelope_and_preserves_all_weight() -> No
     assert compounds["STANDALONE"].effective_height_mm == 40
 
 
-def test_runtime_semantics_are_versioned_and_inactive(root: Path) -> None:
+def test_runtime_semantics_are_versioned_for_the_experimental_compound_runtime(root: Path) -> None:
     rules = load_config(root / "config/level_06/nesting_rules.yaml")
 
     settings = NestingSettings.from_config(rules)
 
-    assert settings.runtime_semantics_status == "designed_not_active"
+    assert settings.runtime_semantics_status == "experimental_compound_runtime_active"
     assert rules["runtime_semantics"]["external_occupancy"] == "compound_root_effective_envelope"
     assert rules["runtime_semantics"]["load_transfer"] == "compound_weight_through_root_external_contacts"
 
