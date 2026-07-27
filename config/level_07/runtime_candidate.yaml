@@ -1,10 +1,10 @@
-# Controlled promotion contract only. This file does not register Level 7.
+# Controlled contract for the registered CLI-only Level 7 fixture runtime.
 extends: fixtures/declared_nesting_multi_compound_balance_fixture.yaml
 runtime_candidate:
   contract_version: 1
-  status: fixture_accepted_not_registered
+  status: experimental_registered_cli_only
   algorithm_id: level_07_fixture_validation_bundle
-  entry_point: container_packing.levels.level_07_fixture_output.write_level_07_fixture_bundle_run
+  entry_point: container_packing.levels.level_07.run
   orientation_mode: fixed_xyz_compound_roots_only
   inherited_validator: level_06_compound_root_bundle_v1
   balance_validator: mass_weighted_item_geometric_center_v1
@@ -45,4 +45,4 @@ runtime_candidate:
     - independent_balance_validation_valid
     - isolated_level_07_output_contract_complete
     - deterministic_fixture_artifacts
-    - manual_review_before_registry_cli_ui_or_solver
+    - manual_review_completed_before_cli_registration

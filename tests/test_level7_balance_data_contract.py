@@ -106,7 +106,7 @@ def test_level7_contract_does_not_modify_or_extend_raw_3dbppsi_schema(root: Path
     assert "max_lateral_offset_ratio" not in columns
 
 
-def test_level7_contract_is_not_registered_before_runtime_implementation(root: Path) -> None:
+def test_level7_contract_is_registered_as_a_cli_only_validation_fixture(root: Path) -> None:
     contract = _contract(root)
 
     assert contract["status"] == "data_contract_only"
@@ -115,5 +115,5 @@ def test_level7_contract_is_not_registered_before_runtime_implementation(root: P
         "validation_document": "balance_validation.json",
     }
     assert [value.level_id for value in list_levels()] == [
-        "level_01", "level_02", "level_03", "level_04", "level_05", "level_06",
+        "level_01", "level_02", "level_03", "level_04", "level_05", "level_06", "level_07",
     ]

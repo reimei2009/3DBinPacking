@@ -105,3 +105,4 @@ class LevelDefinition:
     prepare: Callable[[ExperimentRequest], dict[str, Any]]
     validate_run: Callable[[Path], Any]
     contract: LevelContract
+    web_visible: bool = True

@@ -172,6 +172,13 @@ def terminal_preview(result: RunResult, *, placement_limit: int = 20) -> str:
             f"Compound envelopes: {compound_count}",
             f"Maximum nesting depth: {metadata.get('maximum_nesting_depth', 0)}",
         ])
+    if metadata.get("center_of_mass_model"):
+        lines.extend([
+            f"Balance profile: {metadata.get('balance_profile')}",
+            f"COG validation: {metadata.get('balance_validation_status')}",
+            f"Balanced containers: {metadata.get('balanced_container_count', 0)} balanced / "
+            f"{metadata.get('unbalanced_container_count', 0)} unbalanced",
+        ])
     if result.placements:
         groups: dict[str, list] = defaultdict(list)
         for placement in result.placements:

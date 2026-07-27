@@ -637,7 +637,7 @@ def main() -> None:
     st.title(t("title", language))
     st.caption(t("caption", language))
 
-    level_ids = [value.level_id for value in list_levels()]
+    level_ids = [value.level_id for value in list_levels() if value.web_visible]
     level_id = st.sidebar.selectbox(t("level", language), level_ids, key="level_id")
     level = get_level(level_id)
     config_path = root / level.default_config

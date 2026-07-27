@@ -140,6 +140,21 @@ _ALGORITHMS = {
             en="Seeded Simulated Annealing over compound roots using p006 while nesting relations remain fixed.",
         ),
     ),
+    "level_07_fixture_validation_bundle": AlgorithmDefinition(
+        algorithm_id="level_07_fixture_validation_bundle",
+        family="fixture_validation",
+        description="CLI-only Level 7 acceptance-fixture validation bundle; not a packing solver",
+        supported_levels=("level_07",),
+        local_friendly=True,
+        display_name=LocalizedText(
+            vi="Level 7 â€” Fixture validation bundle",
+            en="Level 7 — Fixture validation bundle",
+        ),
+        localized_description=LocalizedText(
+            vi="Chá»‰ táº¡o báº±ng chá»©ng validation cho fixture COG/cÃ¢n báº±ng Ä‘Ã£ Ä‘Ã³ng; khÃ´ng cháº¡y solver.",
+            en="Produces frozen COG/balance fixture validation evidence only; it does not run a solver.",
+        ),
+    ),
 }
 
 

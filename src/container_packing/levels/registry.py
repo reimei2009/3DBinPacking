@@ -13,7 +13,7 @@ from ..experiments.contracts import (
     MathematicalExpression,
     VariableDefinition,
 )
-from . import level_01, level_02, level_03, level_04, level_05, level_06
+from . import level_01, level_02, level_03, level_04, level_05, level_06, level_07
 
 _LEVELS = {
     "level_01": LevelDefinition(
@@ -775,6 +775,84 @@ _LEVELS["level_06"] = replace(
             value for value in _level_05_contract.inactive_constraints if value.en != "nesting"
         ) + _level_06_contract.inactive_constraints[-3:],
         assumptions=_level_05_contract.assumptions + _level_06_contract.assumptions[-1:],
+    ),
+)
+
+_LEVELS["level_07"] = LevelDefinition(
+    level_id="level_07",
+    description="CLI-only validation fixture for compound-root center-of-mass balance; not a packing solver",
+    default_config=Path("config/level_07/experimental.yaml"),
+    supported_algorithms=("level_07_fixture_validation_bundle",),
+    run=level_07.run,
+    prepare=level_07.prepare,
+    validate_run=level_07.validate_run,
+    web_visible=False,
+    contract=replace(
+        _LEVELS["level_06"].contract,
+        title=LocalizedText(
+            vi="Level 7 â€” Trá»ng tÃ¢m vÃ  cÃ¢n báº±ng (fixture CLI)",
+            en="Level 7 — Center of mass and balance (CLI fixture)",
+        ),
+        problem=LocalizedText(
+            vi="XÃ¡c minh fixture compound-root Ä‘Ã£ Ä‘Ã³ng theo trá»ng tÃ¢m khÃ‘i lÆ°á»£ng; khÃ´ng tá»‘i Æ°u hÃ³a packing.",
+            en="Validate the frozen compound-root fixture against mass-weighted center of mass; no packing optimization is performed.",
+        ),
+        notation=_LEVELS["level_06"].contract.notation + (
+            MathematicalExpression(
+                "center_of_mass",
+                LocalizedText(vi="Trá»ng tÃ¢m container", en="Container center of mass"),
+                r"X_k^{cg}=\frac{\sum_{i\in k}q_i(x_i+\ell_i/2)}{\sum_{i\in k}q_i},\quad Y_k^{cg}=\frac{\sum_{i\in k}q_i(y_i+w_i/2)}{\sum_{i\in k}q_i}",
+                LocalizedText(
+                    vi="TÃ­nh láº¡i Ä‘á»™c láº­p tá»« compound-root placements vÃ  khá»‘i lÆ°á»£ng.",
+                    en="Recomputed independently from compound-root placements and masses.",
+                ),
+                "src/container_packing/levels/center_of_mass.py::evaluate_center_of_mass",
+            ),
+        ),
+        objective=MathematicalExpression(
+            "validation_only",
+            LocalizedText(vi="KhÃ´ng cÃ³ hÃ m má»¥c tiÃªu solver", en="No solver objective"),
+            r"\text{validation only}",
+            LocalizedText(
+                vi="Runtime chá»‰ táº¡o báº±ng chá»©ng fixture, khÃ´ng tÃ¬m phÆ°Æ¡ng Ã¡n xáº¿p.",
+                en="The runtime produces fixture evidence only and does not search for a packing solution.",
+            ),
+            "src/container_packing/levels/level_07.py::run",
+        ),
+        active_constraints=_LEVELS["level_06"].contract.active_constraints + (
+            ConstraintDefinition(
+                "compound_root_center_of_mass_balance",
+                LocalizedText(vi="CÃ¢n báº±ng trá»ng tÃ¢m", en="Center-of-mass balance"),
+                r"|X_k^{cg}/L_k-t_k^x|\le\tau_k^x,\quad |Y_k^{cg}/W_k-t_k^y|\le\tau_k^y",
+                LocalizedText(
+                    vi="Kiá»ƒm tra ngÆ°á»¡ng dÃ£i cÃ¢n báº±ng dÃ i vÃ  ngang cho fixture Ä‘Ã£ Ä‘Ã³ng.",
+                    en="Checks longitudinal and lateral balance bands for the frozen fixture.",
+                ),
+                "src/container_packing/levels/level_07_validation.py::validate_container_balance",
+            ),
+        ),
+        inactive_constraints=_LEVELS["level_06"].contract.inactive_constraints + (
+            LocalizedText(vi="solver cÃ¢n báº±ng thá»±c táº¿", en="practical balance-aware solver"),
+            LocalizedText(vi="táº£i theo vÃ¹ng sÃ n", en="floor-zone load limits"),
+            LocalizedText(vi="khoáº£ng trá»‘ng cá»­a", en="door clearance"),
+            LocalizedText(vi="giá»›i háº¡n táº£i trá»¥c", en="axle load limits"),
+        ),
+        assumptions=_LEVELS["level_06"].contract.assumptions + (
+            LocalizedText(
+                vi="Chá»‰ chấp nhận fixture prefix 4 kiá»‡n/1 container, hÆ°á»›ng XYZ vÃ  environment local.",
+                en="Accepts only the prefix 4-item/1-container fixture, XYZ orientation, and local environment.",
+            ),
+        ),
+        limitations=_LEVELS["level_06"].contract.limitations + (
+            LocalizedText(
+                vi="VALIDATION_ONLY khÃ´ng pháº£i nghiá»‡m tá»‘i Æ°u hay solver packing thá»±c táº¿.",
+                en="VALIDATION_ONLY is neither an optimal solution nor a practical packing solver.",
+            ),
+        ),
+        solution_claim=LocalizedText(
+            vi="Báº±ng chá»©ng fixture Ä‘Æ°á»£c validation Ä‘á»™c láº­p cho Level 6 vÃ  ngÆ°á»¡ng cÃ¢n báº±ng Level 7.",
+            en="Independently validated fixture evidence for Level 6 and Level 7 balance bands.",
+        ),
     ),
 )
 

@@ -1,75 +1,43 @@
 # Level 7 data contract — container center of mass and balance
 
-Status: **data contract plus pure engine/fixture validator; no runtime is
-registered**.
+Status: **registered CLI-only acceptance fixture; no practical solver and no
+Streamlit exposure**.
 
-Level 7 will inherit all Level 6 constraints and use the existing item
-`weight_kg`, placement dimensions, and coordinates to compute a per-container
-center of mass. This checkpoint does not alter any prior level, solver,
-validator, objective, CLI option, UI option, or output directory.
-
-## Future center-of-mass model
+Level 7 inherits the Level 6 fixture constraints and uses canonical item
+`weight_kg`, placement dimensions, and coordinates to calculate a per-container
+center of mass. It does not alter Levels 1–6, their objectives, defaults,
+validators, or outputs.
 
 For each used container \(k\), with item geometric centers
-\((x_i + l_i/2, y_i + w_i/2, z_i + h_i/2)\):
+\((x_i+l_i/2, y_i+w_i/2, z_i+h_i/2)\):
 
 \[
 X_k^{cg}=\frac{\sum_{i\in k} w_i(x_i+l_i/2)}{\sum_{i\in k}w_i},\qquad
 Y_k^{cg}=\frac{\sum_{i\in k} w_i(y_i+w_i/2)}{\sum_{i\in k}w_i}.
 \]
 
-The initial balance profile constrains normalized horizontal offsets:
+The initial profile constrains normalized horizontal offsets:
 
 \[
-\left|X_k^{cg}/L_k-t^x_k\right|\le\tau^x_k,\qquad
-\left|Y_k^{cg}/W_k-t^y_k\right|\le\tau^y_k.
+|X_k^{cg}/L_k-t^x_k|\le\tau^x_k,\qquad
+|Y_k^{cg}/W_k-t^y_k|\le\tau^y_k.
 \]
 
-`x` is longitudinal and `y` is lateral. The vertical center of mass is
-reported by the pure engine but is not a feasibility constraint.
+`config/level_07/balance_rules.yaml` defines synthetic profile
+`symmetric_center_band_v1`, target `(0.5, 0.5)`, and tolerance `0.15` on each
+horizontal axis. These values are research provenance only; they are not vehicle
+certification and are never inferred from payload, stackability, or strength.
 
-## Canonical profile fields
+The controlled runtime accepts only the versioned prefix 4-item / 1-container /
+local / fixed-XYZ fixture. It loads canonical fixture placements and explicit
+nesting relations, then independently composes the Level 6 bundle with balance
+validation. It returns `VALIDATION_ONLY` and no objective. CLI `list`,
+`prepare`, `run`, and `validate` can access it; Streamlit cannot.
 
-| Field | Meaning |
-| --- | --- |
-| `target_longitudinal_ratio` | Target normalized longitudinal COG, in `[0, 1]`. |
-| `target_lateral_ratio` | Target normalized lateral COG, in `[0, 1]`. |
-| `max_longitudinal_offset_ratio` | Allowed normalized longitudinal offset, in `[0, 0.5]`. |
-| `max_lateral_offset_ratio` | Allowed normalized lateral offset, in `[0, 0.5]`. |
-| `balance_profile_source` | Provenance of the target and tolerance values. |
+Every run writes only under `outputs/level_07/runs/<run_id>/`, including
+`solution/center_of_mass.csv`, `validation/balance_validation.json`, and all
+inherited compound, support, stackability, and load-transfer artifacts.
 
-`config/level_07/balance_rules.yaml` defines the synthetic research profile
-`symmetric_center_band_v1`, with target `(0.5, 0.5)` and both tolerances
-`0.15`. It supports explicit physical-container overrides. The values are not
-vehicle certification data and must not be inferred from `max_weight_kg`, item
-weight, stackability, or load-bearing capacity.
-
-## Future output contract
-
-When Level 7 runtime is approved, it will write only under
-`outputs/level_07/runs/<run_id>/`:
-
-- `solution/center_of_mass.csv`;
-- `validation/balance_validation.json`.
-
-## Current implementation boundary
-
-`center_of_mass.py` computes mass-weighted COG from canonical placements and
-the versioned balance profile. `level_07_validation.py` independently checks
-source-item/placement identity and weight consistency before recomputing the
-balance evidence. `level_07_fixture_bundle.py` composes that evidence with the
-Level 6 compound-root nesting/support/stackability/load-transfer bundle on one
-synthetic fixture. `level_07_fixture_output.py` can persist that evidence only
-under `outputs/level_07/runs/<run_id>` and refuses overwrite. None is connected
-to a runtime, CLI, UI, or solver.
-
-`config/level_07/runtime_candidate.yaml` freezes the placeholder output schema,
-acceptance fixture, and manual promotion gate. It deliberately does not add
-Level 7 to the registry.
-
-## Explicitly inactive in this checkpoint
-
-Floor-zone load limits, door clearance, axle limits, dynamic transport loads,
-rollover stability, moments, and suspension modelling are not yet defined.
-They require separate allocation and vehicle semantics and therefore are not
-silently represented by the COG profile.
+Inactive: a practical balance-aware solver, floor-zone load limits, door
+clearance, axle limits, dynamic transport loads, rollover stability, moment,
+suspension, and vehicle certification.

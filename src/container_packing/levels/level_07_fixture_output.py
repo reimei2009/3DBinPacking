@@ -25,18 +25,22 @@ def write_level_07_fixture_bundle_run(
     environment: str = "local",
     instance_id: str = "level_07_balance_fixture",
     random_seed: int = 42,
-) -> None:
+    metadata_extra: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """Persist validation evidence without registering or invoking a solver."""
     _assert_isolated_run_dir(run_dir)
     run_dir.mkdir(parents=True, exist_ok=False)
+    metadata = _metadata(
+        items, containers, placements, bundle, config, run_id=run_id,
+        environment=environment, instance_id=instance_id, random_seed=random_seed,
+    )
+    if metadata_extra:
+        metadata.update(metadata_extra)
     write_run_outputs(
         run_dir,
         placements,
         containers,
-        _metadata(
-            items, containers, placements, bundle, config, run_id=run_id,
-            environment=environment, instance_id=instance_id, random_seed=random_seed,
-        ),
+        metadata,
         bundle.result,
         config,
         items_path=items_path,
@@ -48,6 +52,7 @@ def write_level_07_fixture_bundle_run(
         scene_item_metadata=bundle.scene_item_metadata,
         extra_report_lines=bundle.extra_report_lines,
     )
+    return metadata
 
 
 def _assert_isolated_run_dir(run_dir: Path) -> None:
@@ -75,7 +80,7 @@ def _metadata(
         "level_id": "level_07",
         "run_id": run_id,
         "algorithm_id": "level_07_fixture_validation_bundle",
-        "algorithm_role": "fixture_only_not_registered",
+        "algorithm_role": "cli_only_validation_fixture",
         "solver": "not_applicable_validation_only",
         "solver_message": "Level 7 fixture validation bundle; no solver was invoked.",
         "environment": environment,

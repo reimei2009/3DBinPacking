@@ -1,4 +1,4 @@
-"""Typed promotion gate for the unregistered Level 7 fixture bundle."""
+"""Typed contract for the registered CLI-only Level 7 fixture runtime."""
 
 from __future__ import annotations
 
@@ -37,9 +37,9 @@ def load_runtime_candidate_contract(config: dict[str, Any]) -> Level07RuntimeCan
         raise ValueError("Level 7 runtime candidate config requires runtime_candidate")
     expected = {
         "contract_version": 1,
-        "status": "fixture_accepted_not_registered",
+        "status": "experimental_registered_cli_only",
         "algorithm_id": "level_07_fixture_validation_bundle",
-        "entry_point": "container_packing.levels.level_07_fixture_output.write_level_07_fixture_bundle_run",
+    "entry_point": "container_packing.levels.level_07.run",
         "orientation_mode": "fixed_xyz_compound_roots_only",
         "inherited_validator": "level_06_compound_root_bundle_v1",
         "balance_validator": "mass_weighted_item_geometric_center_v1",
@@ -68,8 +68,8 @@ def load_runtime_candidate_contract(config: dict[str, Any]) -> Level07RuntimeCan
     ):
         raise ValueError("Level 7 runtime candidate acceptance fixture is not the frozen baseline")
     gates = candidate.get("promotion_gates")
-    if not isinstance(gates, list) or "manual_review_before_registry_cli_ui_or_solver" not in gates:
-        raise ValueError("Level 7 runtime candidate must retain the manual promotion gate")
+    if not isinstance(gates, list) or "manual_review_completed_before_cli_registration" not in gates:
+        raise ValueError("Level 7 runtime candidate must retain completed manual-review provenance")
     return Level07RuntimeCandidateContract(
         candidate["algorithm_id"], candidate["entry_point"], fixture["fixture_id"],
         fixture["deterministic_repeats"], output["run_path"],

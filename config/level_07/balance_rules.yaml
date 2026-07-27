@@ -1,5 +1,5 @@
-# Level 7 data contract only. This profile is not active in a runtime, solver,
-# validator, CLI, or UI yet.
+# Level 7 data contract. The profile is consumed only by the controlled
+# CLI-only acceptance fixture; it is not a practical solver profile or UI option.
 contract_version: 1
 level_id: level_07
 status: data_contract_only
