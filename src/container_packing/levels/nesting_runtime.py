@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from ..schemas import Placement
+from ..schemas import Item, Placement
 from .nesting import NestingAttributes
 from .nesting_engine import NestingEvaluation, NestingRelation, evaluate_nesting
 
@@ -62,6 +62,25 @@ def compound_to_external_placement(compound: NestingCompoundProjection) -> Place
         compound.effective_height_mm,
         compound.external_weight_kg,
         compound.orientation_code,
+    )
+
+
+def compound_to_external_item(
+    compound: NestingCompoundProjection, root_item: Item
+) -> Item:
+    """Build the canonical compound-root item used by external constraints."""
+    return Item(
+        compound.root_item_id,
+        compound.length_mm,
+        compound.width_mm,
+        compound.effective_height_mm,
+        compound.external_weight_kg,
+        level1_order=root_item.level1_order,
+        source={
+            **root_item.source,
+            "compound_member_item_ids": ",".join(compound.member_item_ids),
+            "compound_projection": "level_06_external_root",
+        },
     )
 
 

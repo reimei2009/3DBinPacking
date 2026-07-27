@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+- Added Level 7's inactive, versioned container center-of-mass and horizontal
+  balance data contract. It includes explicit target/tolerance provenance and
+  per-container overrides but does not register a runtime or change Levels 1–6.
+- Added a pure Level 7 mass-weighted center-of-mass engine and independent
+  balance validator for synthetic fixtures; neither is connected to a solver
+  or runtime yet.
+- Added a fixture-only Level 7 composition bundle that appends independent COG
+  evidence to the inherited Level 6 compound support, stackability, and
+  load-transfer evidence.
+- Added an isolated Level 7 fixture output writer for COG/balance evidence;
+  it does not register Level 7 or invoke a solver.
+- Frozen the unregistered Level 7 validation-only candidate contract, including
+  its output schema, fixture acceptance values, and manual promotion gate.
+- Added the Level 6 experimental compound-root Hill Climbing and Simulated
+  Annealing portfolio. Both keep deterministic nesting relations immutable and
+  search only over compound roots; FFD remains the experimental default.
 - Added a configurable CSV source adapter and the Level 6 explicit nesting
   data contract; nesting remains inactive until declared compatibility data and
   a future runtime integration are implemented.

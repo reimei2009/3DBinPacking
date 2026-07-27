@@ -17,7 +17,7 @@ from .level_06_validation import Level06NestingValidation, validate_nesting
 from .nesting import NestingSettings
 from .nesting_construction import construct_nesting_relations
 from .nesting_engine import NestingRelation
-from .nesting_runtime import compound_to_external_placement
+from .nesting_runtime import compound_to_external_item, compound_to_external_placement
 from .pipeline import ValidationBundle
 from .pipeline import LevelRuntimeStrategy, run_configured_level
 from .level_03_preprocessing import validate_instance
@@ -93,7 +93,11 @@ def validate_level_06_bundle(
             rules, nesting_details, nesting_records, nesting_relations,
             compound_document=compound.payload(), compound_issues=compound.result,
         )
-    compound_items = _compound_items(items, compound.projection.compounds)
+    original_items = {item.item_id: item for item in items}
+    compound_items = [
+        compound_to_external_item(value, original_items[value.root_item_id])
+        for value in compound.projection.compounds
+    ]
     compound_placements = [
         compound_to_external_placement(value) for value in compound.projection.compounds
     ]
@@ -213,27 +217,6 @@ def _nesting_metadata(
         ),
         "nesting_runtime_enabled": runtime_enabled,
     }
-
-
-def _compound_items(items: list[Item], compounds) -> list[Item]:
-    original = {item.item_id: item for item in items}
-    values: list[Item] = []
-    for compound in compounds:
-        root = original[compound.root_item_id]
-        values.append(Item(
-            compound.root_item_id,
-            compound.length_mm,
-            compound.width_mm,
-            compound.effective_height_mm,
-            compound.external_weight_kg,
-            level1_order=root.level1_order,
-            source={
-                **root.source,
-                "compound_member_item_ids": ",".join(compound.member_item_ids),
-                "compound_projection": "level_06_external_root",
-            },
-        ))
-    return values
 
 
 def _support_evidence(compound, threshold: float) -> SupportValidation:

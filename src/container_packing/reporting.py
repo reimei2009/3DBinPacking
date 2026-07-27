@@ -108,6 +108,8 @@ def solver_payload(metadata: dict[str, Any]) -> dict[str, Any]:
           "nesting_accepted_relation_count", "nesting_rejected_candidate_count",
           "compound_candidate_count", "compound_validation_status",
           "compound_relation_graph_mode", "compound_search_item_count",
+          "center_of_mass_model", "balance_profile", "balance_validation_status",
+          "balanced_container_count", "unbalanced_container_count",
           "algorithm_parameters",
       )
     return {
@@ -169,6 +171,11 @@ def metrics_payload(metadata: dict[str, Any], validation_valid: bool | None) -> 
         "compound_validation_status": metadata.get("compound_validation_status"),
         "compound_relation_graph_mode": metadata.get("compound_relation_graph_mode"),
         "compound_search_item_count": metadata.get("compound_search_item_count"),
+        "center_of_mass_model": metadata.get("center_of_mass_model"),
+        "balance_profile": metadata.get("balance_profile"),
+        "balance_validation_status": metadata.get("balance_validation_status"),
+        "balanced_container_count": metadata.get("balanced_container_count"),
+        "unbalanced_container_count": metadata.get("unbalanced_container_count"),
     }
 
 
@@ -223,6 +230,11 @@ def _initialize_run(
         "nesting_construction_policy": metadata.get("nesting_construction_policy"),
         "compound_relation_graph_mode": metadata.get("compound_relation_graph_mode"),
         "compound_search_item_count": metadata.get("compound_search_item_count"),
+        "center_of_mass_model": metadata.get("center_of_mass_model"),
+        "balance_profile": metadata.get("balance_profile"),
+        "balance_validation_status": metadata.get("balance_validation_status"),
+        "balanced_container_count": metadata.get("balanced_container_count"),
+        "unbalanced_container_count": metadata.get("unbalanced_container_count"),
         "random_seed": metadata["random_seed"],
         "time_limit_seconds": metadata.get("time_limit_seconds"),
         "active_constraints": metadata.get("active_constraints", [

@@ -13,7 +13,11 @@ from .level_06_compound_policy import build_level_06_compound_fixture_policy
 from .nesting import NestingSettings, attributes_for_item
 from .nesting_construction import NestingConstructionResult, construct_nesting_relations
 from .nesting_engine import NestingRelation
-from .nesting_runtime import NestingRuntimeProjection, project_nesting_compounds
+from .nesting_runtime import (
+    NestingRuntimeProjection,
+    compound_to_external_item,
+    project_nesting_compounds,
+)
 
 if TYPE_CHECKING:
     from .level_06_pipeline import ValidationBundle
@@ -58,7 +62,11 @@ class Level06CompoundAdapter:
             construction.relations,
             clearance_mm=settings.clearance_mm,
         )
-        compound_items = _compound_items(items, virtual_projection)
+        original_items = {item.item_id: item for item in items}
+        compound_items = [
+            compound_to_external_item(value, original_items[value.root_item_id])
+            for value in virtual_projection.compounds
+        ]
         solver_settings = dict(config)
         policy = build_level_06_compound_fixture_policy(compound_items, config)
         outcome = self.solver(
@@ -127,28 +135,6 @@ def _virtual_placements(items: list[Item]) -> list[Placement]:
             "XYZ",
         )
         for item in items
-    ]
-
-
-def _compound_items(
-    items: list[Item], projection: NestingRuntimeProjection
-) -> list[Item]:
-    item_by_id = {item.item_id: item for item in items}
-    return [
-        Item(
-            compound.root_item_id,
-            compound.length_mm,
-            compound.width_mm,
-            compound.effective_height_mm,
-            compound.external_weight_kg,
-            level1_order=item_by_id[compound.root_item_id].level1_order,
-            source={
-                **item_by_id[compound.root_item_id].source,
-                "compound_member_item_ids": ",".join(compound.member_item_ids),
-                "compound_projection": "level_06_external_root",
-            },
-        )
-        for compound in projection.compounds
     ]
 
 
