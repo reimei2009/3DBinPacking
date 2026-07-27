@@ -15,6 +15,11 @@ checks depth-two construction and the effective-height equation
 the top compound to use the root's external top face. It tests compound support,
 stackability and load transfer without representing production data.
 
+`company_schema_nesting_fixture_items.csv` uses deliberately different,
+company-style column names and is normalized only through its YAML mapping.
+It is synthetic: it proves source adapter → preprocessing → Level 6 runtime
+integration but does not represent, expose, or validate any real company data.
+
 Its schema is normalized by
 `config/common/data_sources/level_06_declared_nesting_fixture.yaml`. The raw
 fixture remains immutable; generated normalized files belong under

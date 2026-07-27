@@ -1,0 +1,22 @@
+# Synthetic company-style schema; names intentionally differ from canonical fields.
+adapter_id: csv_column_mapping_v1
+source_id: synthetic_company_schema_level_06_v1
+columns:
+  id_item: [package_code]
+  length: [outer_length_mm]
+  width: [outer_width_mm]
+  height: [outer_height_mm]
+  weight: [gross_mass_kg]
+  stackability_code: [stack_family]
+  max_stackability: [stack_limit]
+  nesting_group_id: [nesting_family]
+  nesting_role: [nesting_capability]
+  inner_length_mm: [usable_inner_length_mm]
+  inner_width_mm: [usable_inner_width_mm]
+  inner_height_mm: [usable_inner_height_mm]
+  max_nesting_depth: [allowed_nesting_depth]
+  nesting_increment_height_mm: [added_height_when_nested]
+nesting:
+  semantics: incremental_height_of_item
+  data_source: synthetic_company_schema_level_06_v1
+extra_columns: preserve

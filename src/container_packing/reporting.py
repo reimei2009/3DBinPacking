@@ -198,6 +198,7 @@ def _initialize_run(
             "selected_item_ids_checksum": metadata.get("selected_item_ids_checksum"),
             "profile": metadata.get("item_profile"),
         },
+        "source_adapter": metadata.get("source_adapter"),
         "config_file": metadata.get("config_file"),
         "resolved_config_checksum": sha256_file(resolved_config_path),
         "config_overrides": metadata.get("config_overrides", {}),

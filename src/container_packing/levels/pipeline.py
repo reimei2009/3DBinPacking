@@ -137,6 +137,7 @@ def run_configured_level(
         "item_selection_seed": manifest["item_selection_seed"],
         "selected_item_ids_checksum": manifest["selected_item_ids_checksum"],
         "item_profile": manifest["item_profile"],
+        "source_adapter": manifest.get("source_adapter"),
         "active_constraints": list(strategy.active_constraints),
         "inactive_constraints": list(strategy.inactive_constraints),
         **strategy.metadata_defaults,
