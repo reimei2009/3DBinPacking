@@ -36,4 +36,5 @@ class BalanceAwareFirstFitCandidateSelection(FirstFitCandidateSelectionPolicy):
             "first_fit_candidate_selection_policy": self.policy_id,
             "balance_scored_candidates": self.candidates_scored,
             "balance_construction_mode": "first_feasible_container_soft_tiebreak_final_validation_hard",
+            "balance_container_selection_scope": "first_feasible_container_only",
         }

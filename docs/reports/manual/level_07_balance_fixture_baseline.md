@@ -47,3 +47,15 @@ Best Fit table above: left-heavy baseline `TOP x=0` is invalid whereas aware
 FFD selects `TOP x=200` and is valid; right-heavy selects left; symmetric keeps
 the deterministic canonical tie. This remains fixture evidence, not a
 production-scale FFD benchmark.
+
+## Multi-container scope evidence
+
+The two-container positive fixture forces one full-floor item into each of C1
+and C2. Both Best Fit and FFD produce two independent balanced COG records and
+pass the full inherited Level 6 plus Level 7 validator.
+
+The FFD container-scope negative control uses a cheaper, wider C1 and a later
+perfect-fit C2. The single item is geometrically feasible in C1 but unbalanced;
+FFD deliberately keeps C1, emits `INVALID_SOLUTION`, and records
+`first_feasible_container_only`. This proves the COG policy is not an implicit
+global container-selection heuristic.

@@ -1,0 +1,18 @@
+extends: ffd_balance_aware_fixture.yaml
+instance:
+  item_count: 1
+  container_count: 2
+paths:
+  raw_items_csv: data/raw/level_07/balance_first_fit_scope_items.csv
+  processed_dir: data/processed/level_07/balance_first_fit_scope_fixture
+  manifest_json: data/processed/level_07/balance_first_fit_scope_fixture/latest_manifest.json
+containers:
+  - {container_id: C1, length_mm: 400, width_mm: 200, height_mm: 100, max_weight_kg: 500, cost: 1, availability: 1}
+  - {container_id: C2, length_mm: 200, width_mm: 200, height_mm: 100, max_weight_kg: 500, cost: 10, availability: 1}
+fixture:
+  fixture_id: first_fit_container_scope_negative_v1
+  required_item_count: 1
+  required_container_count: 2
+  required_environment: local
+  required_item_selection_strategy: prefix
+  required_item_selection_seed: null

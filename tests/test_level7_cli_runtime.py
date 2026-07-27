@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
+import csv
 from pathlib import Path
 
 import pytest
@@ -152,7 +153,15 @@ def test_level7_baseline_best_fit_is_invalid_on_the_same_balance_fixture(root: P
     assert not get_level("level_07").validate_run(run_dir).valid
 
 
-def _run_balance_profile(root: Path, tmp_path: Path, config_name: str, algorithm_id: str):
+def _run_balance_profile(
+    root: Path,
+    tmp_path: Path,
+    config_name: str,
+    algorithm_id: str,
+    *,
+    item_count: int = 3,
+    container_count: int = 1,
+):
     config = deepcopy(load_config(root / "config/level_07/experiments" / config_name))
     config["paths"]["processed_dir"] = str(tmp_path / f"processed_{algorithm_id}")
     config["paths"]["manifest_json"] = str(tmp_path / f"processed_{algorithm_id}/latest_manifest.json")
@@ -160,7 +169,7 @@ def _run_balance_profile(root: Path, tmp_path: Path, config_name: str, algorithm
     config_path = tmp_path / f"{algorithm_id}_{config_name}"
     config_path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
     return run_experiment(ExperimentRequest(
-        "level_07", algorithm_id, config_path, 3, 1,
+        "level_07", algorithm_id, config_path, item_count, container_count,
         environment="local", item_selection_strategy="prefix",
     ))
 
@@ -228,3 +237,46 @@ def test_level7_balance_aware_ffd_handles_right_heavy_and_symmetric_profiles(roo
     assert symmetric_aware.validation is not None and symmetric_aware.validation.valid
     assert symmetric_baseline.validation is not None and symmetric_baseline.validation.valid
     assert aware_top == baseline_top
+
+
+def test_level7_two_container_balance_fixture_is_valid_for_best_fit_and_ffd(root: Path, tmp_path: Path) -> None:
+    best_fit = _run_balance_profile(
+        root, tmp_path, "balance_two_container_best_fit_fixture.yaml", BALANCE_ALGORITHM,
+        item_count=2, container_count=2,
+    )
+    ffd = _run_balance_profile(
+        root, tmp_path, "balance_two_container_ffd_fixture.yaml", FFD_ALGORITHM,
+        item_count=2, container_count=2,
+    )
+
+    for result in (best_fit, ffd):
+        run_dir = Path(result.metadata["run_dir"])
+        assert result.solve.status == "FEASIBLE"
+        assert result.validation is not None and result.validation.valid
+        assert {value.container_id for value in result.placements} == {"C1", "C2"}
+        assert result.metadata["balanced_container_count"] == 2
+        assert result.metadata["unbalanced_container_count"] == 0
+        with (run_dir / "solution/center_of_mass.csv").open(encoding="utf-8-sig", newline="") as handle:
+            records = list(csv.DictReader(handle))
+        assert [record["container_id"] for record in records] == ["C1", "C2"]
+        assert all(record["balanced"] == "True" for record in records)
+        assert (run_dir / "validation/balance_validation.json").is_file()
+        assert get_level("level_07").validate_run(run_dir).valid
+
+
+def test_level7_ffd_negative_control_never_escapes_first_feasible_container(root: Path, tmp_path: Path) -> None:
+    result = _run_balance_profile(
+        root, tmp_path, "ffd_first_fit_container_scope_negative_fixture.yaml", FFD_ALGORITHM,
+        item_count=1, container_count=2,
+    )
+    run_dir = Path(result.metadata["run_dir"])
+
+    assert result.solve.status == "FEASIBLE"
+    assert result.validation is not None and not result.validation.valid
+    assert result.metadata["status"] == "INVALID_SOLUTION"
+    assert result.placements[0].container_id == "C1"
+    assert result.metadata["balance_container_selection_scope"] == "first_feasible_container_only"
+    assert result.metadata["balance_validation_status"] == "INVALID"
+    assert (run_dir / "solution/center_of_mass.csv").is_file()
+    assert (run_dir / "validation/balance_validation.json").is_file()
+    assert not get_level("level_07").validate_run(run_dir).valid

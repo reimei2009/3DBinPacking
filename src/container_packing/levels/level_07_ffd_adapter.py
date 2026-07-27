@@ -41,5 +41,6 @@ def solve_balance_baseline_ffd_fixture(
     result.outcome.metadata.update({
         "first_fit_candidate_selection_policy": "extreme_point_first_fit_default_v1",
         "balance_construction_mode": "first_feasible_container_baseline_final_validation_hard",
+        "balance_container_selection_scope": "first_feasible_container_only",
     })
     return result

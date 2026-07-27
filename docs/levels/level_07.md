@@ -100,6 +100,19 @@ Run the FFD A/B pair on the left-heavy fixture:
 The baseline intentionally exits with `INVALID_SOLUTION` (exit code `2`); that
 is expected A/B evidence, not a runtime failure.
 
+## Multi-container acceptance fixtures
+
+`balance_two_container_best_fit_fixture.yaml` and
+`balance_two_container_ffd_fixture.yaml` force two physical containers. Each
+used container has an independent COG record and must pass the final balance
+band. They are semantic acceptance fixtures only, not a performance benchmark.
+
+`ffd_first_fit_container_scope_negative_fixture.yaml` is the complementary
+negative control. Its first feasible container is geometrically valid but
+unbalanced, while a later container would have a better COG. Balance-aware FFD
+must remain in the first container and end as `INVALID_SOLUTION`; its metadata
+records `balance_container_selection_scope=first_feasible_container_only`.
+
 When using `--interactive`, selecting a Level 7 algorithm now automatically
 selects its matching fixture config and prints its frozen inputs. For example,
 the balance-aware FFD fixture is always `3 items / 1 container / prefix /
