@@ -110,6 +110,36 @@ _ALGORITHMS = {
             en="Experimental Best Fit reusing the FFD nesting compound projection and independent validator.",
         ),
     ),
+    "extreme_point_hill_climbing_nesting_fixture": AlgorithmDefinition(
+        algorithm_id="extreme_point_hill_climbing_nesting_fixture",
+        family="experimental_local_search",
+        description="Compound-root Hill Climbing with fixed preconstructed nesting relations",
+        supported_levels=("level_06",),
+        local_friendly=True,
+        display_name=LocalizedText(
+            vi="Experimental — Compound Nesting Hill Climbing",
+            en="Experimental — Compound Nesting Hill Climbing",
+        ),
+        localized_description=LocalizedText(
+            vi="Hill Climbing destroy-and-repair trên compound roots; quan hệ nesting được giữ cố định.",
+            en="Destroy-and-repair Hill Climbing over compound roots while nesting relations remain fixed.",
+        ),
+    ),
+    "extreme_point_simulated_annealing_nesting_fixture": AlgorithmDefinition(
+        algorithm_id="extreme_point_simulated_annealing_nesting_fixture",
+        family="experimental_metaheuristic",
+        description="Seeded compound-root Simulated Annealing with fixed preconstructed nesting relations",
+        supported_levels=("level_06",),
+        local_friendly=True,
+        display_name=LocalizedText(
+            vi="Experimental — Compound Nesting Simulated Annealing",
+            en="Experimental — Compound Nesting Simulated Annealing",
+        ),
+        localized_description=LocalizedText(
+            vi="Simulated Annealing có seed trên compound roots với profile p006; quan hệ nesting bất biến.",
+            en="Seeded Simulated Annealing over compound roots using p006 while nesting relations remain fixed.",
+        ),
+    ),
 }
 
 

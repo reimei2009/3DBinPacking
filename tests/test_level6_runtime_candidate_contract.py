@@ -47,13 +47,17 @@ def test_runtime_candidate_contract_is_frozen_before_experimental_registration(r
     assert contract.supported_algorithm_ids == (
         "extreme_point_ffd_nesting_fixture",
         "extreme_point_best_fit_nesting_fixture",
+        "extreme_point_hill_climbing_nesting_fixture",
+        "extreme_point_simulated_annealing_nesting_fixture",
     )
-    assert contract.fixture_id == "declared_chain_host_child_v1"
+    assert contract.fixture_id == "declared_multi_compound_chain_and_top_v1"
     assert contract.deterministic_repeats == 2
     level = next(level for level in list_levels() if level.level_id == "level_06")
     assert level.supported_algorithms == (
         "extreme_point_ffd_nesting_fixture",
         "extreme_point_best_fit_nesting_fixture",
+        "extreme_point_hill_climbing_nesting_fixture",
+        "extreme_point_simulated_annealing_nesting_fixture",
     )
 
 

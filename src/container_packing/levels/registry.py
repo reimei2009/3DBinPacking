@@ -198,6 +198,8 @@ _LEVELS["level_06"] = LevelDefinition(
     supported_algorithms=(
         "extreme_point_ffd_nesting_fixture",
         "extreme_point_best_fit_nesting_fixture",
+        "extreme_point_hill_climbing_nesting_fixture",
+        "extreme_point_simulated_annealing_nesting_fixture",
     ),
     run=level_06.run,
     prepare=level_06.prepare,
@@ -274,8 +276,8 @@ _LEVELS["level_06"] = LevelDefinition(
         ),
         limitations=(
             LocalizedText(
-                vi="FFD và Best Fit chỉ là solver experimental; không phải default thực tế và chưa có benchmark quy mô lớn.",
-                en="FFD and Best Fit are experimental solvers only; neither is a practical default or large-scale benchmarked.",
+                vi="FFD, Best Fit, Hill Climbing và SA là portfolio experimental; chưa có practical default hay benchmark quy mô lớn.",
+                en="FFD, Best Fit, Hill Climbing and SA form an experimental portfolio without a practical default or large-scale benchmark.",
             ),
             LocalizedText(
                 vi="Chưa mô hình hóa lực, áp suất, contact nội bộ hoặc orientation-aware nesting.",

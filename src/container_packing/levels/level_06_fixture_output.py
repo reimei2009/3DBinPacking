@@ -1,4 +1,4 @@
-"""Isolated output writer for the non-registered Level 6 FFD fixture adapter."""
+"""Isolated output writer retained for direct Level 6 adapter fixtures."""
 
 from __future__ import annotations
 
@@ -7,12 +7,12 @@ from typing import Any
 
 from ..reporting import write_run_outputs, write_status_outputs
 from ..schemas import Container
-from .level_06_ffd_adapter import Level06NestingFfdFixtureResult
+from .level_06_compound_adapter import Level06CompoundResult
 
 
 def write_nesting_aware_ffd_fixture_run(
     run_dir: Path,
-    result: Level06NestingFfdFixtureResult,
+    result: Level06CompoundResult,
     containers: list[Container],
     config: dict[str, Any],
     *,
@@ -67,7 +67,7 @@ def _assert_isolated_run_dir(run_dir: Path) -> None:
 
 
 def _metadata(
-    result: Level06NestingFfdFixtureResult,
+    result: Level06CompoundResult,
     containers: list[Container],
     config: dict[str, Any],
     *,
@@ -83,7 +83,9 @@ def _metadata(
     return {
         "level_id": "level_06",
         "run_id": run_id,
-        "algorithm_id": "extreme_point_ffd_nesting_fixture",
+        "algorithm_id": result.outcome.metadata.get(
+            "compound_constructor", "extreme_point_ffd_nesting_fixture"
+        ),
         "algorithm_role": "fixture_only_not_registered",
         "solver": result.outcome.backend,
         "solver_message": result.outcome.solve.message,

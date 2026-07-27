@@ -1,0 +1,4 @@
+# Balanced compound-root search with fixed, preconstructed nesting relations.
+extends: declared_nesting_multi_compound_fixture.yaml
+project:
+  algorithm_id: extreme_point_hill_climbing_nesting_fixture

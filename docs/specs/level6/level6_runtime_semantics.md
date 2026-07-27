@@ -1,7 +1,8 @@
 # Level 6 runtime semantics design
 
-Status: **designed, not active**. This document defines the contract a future
-Level 6 feasibility policy must implement; it does not activate a solver.
+Status: **implemented as an experimental fixed-XYZ portfolio**. This document
+defines the active compound-root semantics; it does not claim production
+readiness.
 
 ## Canonical representation
 
@@ -27,29 +28,27 @@ pairwise non-overlap validator.
 | Load transfer | Transfer the compound total weight through root external contacts. |
 | Internal forces | Inactive: no pressure, internal load path, deformation, or stability claim. |
 
-The pure projection in `src/container_packing/levels/nesting_runtime.py` is a
-planning primitive. It intentionally does not modify `Placement`, infer child
-coordinates, or call an existing solver/validator.
+The pure projection in `src/container_packing/levels/nesting_runtime.py` is the
+shared planning primitive. `Level06CompoundAdapter` constructs the relation
+graph once, projects compound roots, invokes the selected solver, expands
+logical members, and then invokes independent validation.
 
 `src/container_packing/levels/level_06_compound_validation.py` independently
 checks compound boundary, pairwise non-overlap, exact union support ratio, and
-base-center support on fixtures. It remains separate from the Level 5 runtime
-because raw child boxes are not yet represented by a nesting-aware solver.
+base-center support. The Level 6 bundle consumes this compound evidence for
+stackability and recursive load-transfer checks and exports artifacts keyed by
+root compound ID.
 
-The fixture-only Level 6 bundle consumes this compound evidence for its
-stackability and recursive load-transfer checks. It exports compound support,
-stack, and load artifacts keyed by root compound ID; this is not a solver
-runtime and does not activate Level 6 in the registry.
+## Search invariant
 
-## Required runtime gate
+FFD, Best Fit, Hill Climbing, and Simulated Annealing search only over compound
+roots. Hill and SA use Best Fit for initial construction and repair. Relocate,
+swap, reinsert, and container-elimination operations cannot separate a nested
+member or mutate a relation. Nested members cannot be separately used as
+external supporters, stack parents, or load-transfer nodes.
 
-A later runtime may activate only after it validates both the inherited Level 5
-solution and the compound projection. Nested members cannot be separately used
-as external supporters, stack parents, or load-transfer nodes. The actual
-insertion coordinates and material-contact behavior remain outside this level.
-
-The controlled candidate contract is frozen in
-`config/level_06/runtime_candidate.yaml` and exposed only as the experimental
-`extreme_point_ffd_nesting_fixture` option. It has no solver portfolio or
-large-instance benchmark. See `level6_runtime_candidate_contract.md` for its
-required fixture evidence and explicit manual promotion gate.
+The controlled portfolio contract is frozen in
+`config/level_06/runtime_candidate.yaml`. It is accepted only on deterministic
+semantic fixtures and has no large-instance performance claim. Actual insertion
+coordinates and material-contact behavior inside a nested chain remain outside
+this level.

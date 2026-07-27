@@ -24,6 +24,8 @@ from .level_03_preprocessing import validate_instance
 from .level_06_candidate_contract import load_runtime_candidate_contract
 from .level_06_ffd_adapter import solve_nesting_aware_ffd_fixture
 from .level_06_best_fit_adapter import solve_nesting_aware_best_fit_fixture
+from .level_06_hill_climbing_adapter import solve_nesting_aware_hill_climbing_fixture
+from .level_06_simulated_annealing_adapter import solve_nesting_aware_simulated_annealing_fixture
 from .stackability import (
     StackabilitySettings,
     attributes_for_item as stackability_attributes_for_item,
@@ -332,6 +334,10 @@ def _execute(algorithm_id: str, items, containers, settings):
         return solve_nesting_aware_ffd_fixture(items, containers, settings).outcome
     if algorithm_id == "extreme_point_best_fit_nesting_fixture":
         return solve_nesting_aware_best_fit_fixture(items, containers, settings).outcome
+    if algorithm_id == "extreme_point_hill_climbing_nesting_fixture":
+        return solve_nesting_aware_hill_climbing_fixture(items, containers, settings).outcome
+    if algorithm_id == "extreme_point_simulated_annealing_nesting_fixture":
+        return solve_nesting_aware_simulated_annealing_fixture(items, containers, settings).outcome
     raise ValueError("Experimental Level 6 exposes only registered compound nesting algorithms")
 
 
@@ -352,7 +358,7 @@ STRATEGY = LevelRuntimeStrategy(
     inactive_constraints=(
         "vertical_axis_rotation", "internal_nesting_load_transfer", "pressure",
         "contact_moments", "dynamic_load", "full_physical_stability",
-        "nesting_aware_best_fit", "nesting_aware_metaheuristics",
+        "relation_graph_neighborhood_search", "orientation_aware_nesting",
     ),
     metadata_defaults={
         "solution_claim": (
@@ -373,6 +379,8 @@ STRATEGY = LevelRuntimeStrategy(
     algorithm_roles={
         "extreme_point_ffd_nesting_fixture": "experimental_candidate",
         "extreme_point_best_fit_nesting_fixture": "experimental_candidate",
+        "extreme_point_hill_climbing_nesting_fixture": "experimental_balanced_comparator",
+        "extreme_point_simulated_annealing_nesting_fixture": "experimental_quality_comparator",
     },
 )
 

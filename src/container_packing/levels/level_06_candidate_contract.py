@@ -16,7 +16,8 @@ _VALIDATION_DOCUMENTS = frozenset({
 })
 _METADATA = frozenset({
     "fixture_adapter", "nesting_construction_policy", "feasibility_policy",
-    "compound_validation_status",
+    "compound_validation_status", "compound_relation_graph_mode",
+    "compound_search_item_count",
 })
 
 
@@ -38,7 +39,7 @@ def load_runtime_candidate_contract(config: dict[str, Any]) -> Level06RuntimeCan
     if not isinstance(candidate, dict):
         raise ValueError("Level 6 runtime candidate config requires runtime_candidate")
     expected = {
-        "contract_version": 1,
+        "contract_version": 2,
         "algorithm_id": "extreme_point_ffd_nesting_fixture",
         "entry_point": "container_packing.levels.level_06_ffd_adapter.solve_nesting_aware_ffd_fixture",
         "orientation_mode": "fixed_xyz_only",
@@ -53,12 +54,12 @@ def load_runtime_candidate_contract(config: dict[str, Any]) -> Level06RuntimeCan
     if supported_algorithms != (
         "extreme_point_ffd_nesting_fixture",
         "extreme_point_best_fit_nesting_fixture",
+        "extreme_point_hill_climbing_nesting_fixture",
+        "extreme_point_simulated_annealing_nesting_fixture",
     ):
-        raise ValueError("Level 6 runtime candidate must declare FFD and Best-Fit compound adapters")
-    if candidate.get("status") not in {
-        "fixture_accepted_not_registered", "experimental_registered_not_default",
-    }:
-        raise ValueError("Level 6 runtime candidate has an unsupported promotion status")
+        raise ValueError("Level 6 runtime candidate must declare the complete compound solver portfolio")
+    if candidate.get("status") != "experimental_registered_not_default":
+        raise ValueError("Level 6 runtime candidate must remain experimental and non-default")
     output = candidate.get("output")
     if not isinstance(output, dict) or output.get("run_path") != "outputs/level_06/runs/<run_id>":
         raise ValueError("Level 6 runtime candidate output path must be level-isolated")
@@ -72,17 +73,17 @@ def load_runtime_candidate_contract(config: dict[str, Any]) -> Level06RuntimeCan
     if not isinstance(fixture, dict):
         raise ValueError("Level 6 runtime candidate requires an acceptance_fixture")
     if (
-        fixture.get("fixture_id") != "declared_chain_host_child_v1"
+        fixture.get("fixture_id") != "declared_multi_compound_chain_and_top_v1"
         or fixture.get("expected_status") != "FEASIBLE"
         or fixture.get("expected_validation_status") != "VALID"
-        or fixture.get("expected_compound_count") != 1
-        or fixture.get("expected_relation_count") != 1
+        or fixture.get("expected_compound_count") != 2
+        or fixture.get("expected_relation_count") != 2
         or fixture.get("deterministic_repeats") != 2
     ):
         raise ValueError("Level 6 runtime candidate acceptance fixture is not the frozen baseline")
     gates = candidate.get("promotion_gates")
-    if not isinstance(gates, list) or "manual_review_before_registry_cli_or_ui" not in gates:
-        raise ValueError("Level 6 runtime candidate must retain the manual promotion gate")
+    if not isinstance(gates, list) or "fixed_relation_graph_deterministic_portfolio" not in gates:
+        raise ValueError("Level 6 runtime candidate must retain the fixed-relation portfolio gate")
     return Level06RuntimeCandidateContract(
         candidate["algorithm_id"], supported_algorithms, candidate["entry_point"], candidate["construction_policy"],
         candidate["feasibility_policy"], candidate["validator"], fixture["fixture_id"],
