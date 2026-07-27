@@ -148,3 +148,45 @@ def test_level7_baseline_best_fit_is_invalid_on_the_same_balance_fixture(root: P
     assert (run_dir / "solution/center_of_mass.csv").is_file()
     assert (run_dir / "validation/balance_validation.json").is_file()
     assert not get_level("level_07").validate_run(run_dir).valid
+
+
+def _run_balance_profile(root: Path, tmp_path: Path, config_name: str, algorithm_id: str):
+    config = deepcopy(load_config(root / "config/level_07/experiments" / config_name))
+    config["paths"]["processed_dir"] = str(tmp_path / f"processed_{algorithm_id}")
+    config["paths"]["manifest_json"] = str(tmp_path / f"processed_{algorithm_id}/latest_manifest.json")
+    config["paths"]["output_root"] = str(tmp_path / f"outputs_{algorithm_id}")
+    config_path = tmp_path / f"{algorithm_id}_{config_name}"
+    config_path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
+    return run_experiment(ExperimentRequest(
+        "level_07", algorithm_id, config_path, 3, 1,
+        environment="local", item_selection_strategy="prefix",
+    ))
+
+
+def test_level7_right_heavy_profile_selects_left_for_both_constructors(root: Path, tmp_path: Path) -> None:
+    aware = _run_balance_profile(
+        root, tmp_path, "balance_right_heavy_best_fit_fixture.yaml", BALANCE_ALGORITHM
+    )
+    baseline = _run_balance_profile(
+        root, tmp_path, "balance_right_heavy_baseline_best_fit_fixture.yaml", BASELINE_ALGORITHM
+    )
+    for result in (aware, baseline):
+        top = next(value for value in result.placements if value.item_id == "TOP")
+        assert result.validation is not None and result.validation.valid
+        assert top.x_mm == 0.0
+        assert result.metadata["balance_validation_status"] == "VALID"
+
+
+def test_level7_symmetric_profile_has_equivalent_balance_for_a_b(root: Path, tmp_path: Path) -> None:
+    aware = _run_balance_profile(
+        root, tmp_path, "balance_symmetric_best_fit_fixture.yaml", BALANCE_ALGORITHM
+    )
+    baseline = _run_balance_profile(
+        root, tmp_path, "balance_symmetric_baseline_best_fit_fixture.yaml", BASELINE_ALGORITHM
+    )
+    for result in (aware, baseline):
+        assert result.validation is not None and result.validation.valid
+        assert result.metadata["balance_validation_status"] == "VALID"
+    aware_top = next(value for value in aware.placements if value.item_id == "TOP")
+    baseline_top = next(value for value in baseline.placements if value.item_id == "TOP")
+    assert aware_top == baseline_top

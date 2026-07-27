@@ -1,0 +1,3 @@
+extends: balance_right_heavy_best_fit_fixture.yaml
+project:
+  algorithm_id: extreme_point_best_fit_balance_baseline_fixture

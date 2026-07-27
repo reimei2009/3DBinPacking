@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Recorded the Level 7 three-profile balance-scoring acceptance baseline:
+  left-heavy discriminator, right-heavy direction check, and symmetric bias check.
+
+- Added right-heavy and symmetric Level 7 balance acceptance profiles to verify
+  that prospective COG scoring reverses direction correctly and does not add a
+  needless bias when geometry and mass are symmetric.
+
 - Added a CLI-only Level 7 canonical Best Fit baseline comparator on the balance
   discriminator fixture, establishing A/B evidence for prospective COG scoring.
 

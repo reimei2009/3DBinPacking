@@ -1,0 +1,4 @@
+id_item,length,width,height,weight,nesting_height,stackability_code,forced_orientation,max_stackability
+BASE-LEFT,201,200,100,50,0,A,XYZ,3
+BASE-RIGHT,199,200,100,200,0,A,XYZ,3
+TOP,199,200,50,100,0,A,XYZ,3

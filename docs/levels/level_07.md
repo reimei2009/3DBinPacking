@@ -15,6 +15,11 @@ accepts arbitrary input or is visible in Streamlit.
 canonical Best Fit score only; it is an A/B comparator and is expected to fail
 final balance validation on this deliberately asymmetric fixture.
 
+The same controlled A/B pair also has right-heavy and symmetric profiles. They
+are regression acceptance fixtures, not a performance benchmark: right-heavy
+must select the left support position, while the symmetric profile keeps the
+same deterministic placement and equivalent balance evidence for both scores.
+
 Run it from the repository root:
 
 ```powershell
@@ -60,3 +65,6 @@ The active COG model and its synthetic balance band are documented in
 `docs/specs/level7/level7_balance_data_contract.md`. It does not represent
 vehicle certification, dynamic stability, floor-zone loads, axle loads, door
 clearance, or a practical balance-aware packing solver.
+
+The accepted three-profile A/B evidence is recorded in
+`docs/reports/manual/level_07_balance_fixture_baseline.md`.
