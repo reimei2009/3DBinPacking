@@ -24,6 +24,7 @@ if TYPE_CHECKING:
 
 
 CompoundSolver = Callable[..., AlgorithmOutcome]
+CompoundValidator = Callable[[list[Item], list[Container], list[Placement], dict[str, Any], list[NestingRelation]], "ValidationBundle"]
 
 
 @dataclass(frozen=True)
@@ -44,6 +45,7 @@ class Level06CompoundAdapter:
     algorithm_id: str
     adapter_id: str
     solver: CompoundSolver
+    validator: CompoundValidator | None = None
 
     def solve(
         self, items: list[Item], containers: list[Container], config: dict[str, Any]
@@ -101,9 +103,8 @@ class Level06CompoundAdapter:
         projection = project_nesting_compounds(
             expanded, attributes, relations, clearance_mm=settings.clearance_mm
         )
-        validation = validate_level_06_bundle(
-            items, containers, expanded, config, list(relations)
-        )
+        validate = self.validator or validate_level_06_bundle
+        validation = validate(items, containers, expanded, config, list(relations))
         outcome.metadata.update({
             "compound_validation_status": "VALID" if validation.result.valid else "INVALID",
             "nested_relation_count": len(relations),

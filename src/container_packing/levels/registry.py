@@ -782,7 +782,10 @@ _LEVELS["level_07"] = LevelDefinition(
     level_id="level_07",
     description="CLI-only validation fixture for compound-root center-of-mass balance; not a packing solver",
     default_config=Path("config/level_07/experimental.yaml"),
-    supported_algorithms=("level_07_fixture_validation_bundle",),
+    supported_algorithms=(
+        "level_07_fixture_validation_bundle",
+        "extreme_point_best_fit_balance_fixture",
+    ),
     run=level_07.run,
     prepare=level_07.prepare,
     validate_run=level_07.validate_run,

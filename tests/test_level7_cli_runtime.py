@@ -14,6 +14,7 @@ from container_packing.levels.registry import get_level, list_levels
 
 
 ALGORITHM = "level_07_fixture_validation_bundle"
+BALANCE_ALGORITHM = "extreme_point_best_fit_balance_fixture"
 
 
 def _runtime_config(root: Path, tmp_path: Path) -> Path:
@@ -97,3 +98,27 @@ def test_level7_is_exposed_to_cli_but_not_web(root: Path, tmp_path: Path, capsys
     assert "VALIDATION_ONLY" in output
     assert "COG validation: VALID" in output
     assert "Balanced containers: 1 balanced / 0 unbalanced" in output
+
+
+def test_level7_balance_aware_best_fit_selects_balanced_fixture(root: Path, tmp_path: Path) -> None:
+    config = deepcopy(load_config(root / "config/level_07/experiments/balance_aware_best_fit_fixture.yaml"))
+    config["paths"]["processed_dir"] = str(tmp_path / "processed")
+    config["paths"]["manifest_json"] = str(tmp_path / "processed/latest_manifest.json")
+    config["paths"]["output_root"] = str(tmp_path / "outputs")
+    config_path = tmp_path / "balance_fixture.yaml"
+    config_path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
+    request = ExperimentRequest(
+        "level_07", BALANCE_ALGORITHM, config_path, 3, 1,
+        environment="local", item_selection_strategy="prefix",
+    )
+    first = run_experiment(request)
+    second = run_experiment(request)
+    assert first.solve.status == "FEASIBLE"
+    assert first.validation is not None and first.validation.valid
+    top = next(value for value in first.placements if value.item_id == "TOP")
+    assert (top.x_mm, top.y_mm, top.z_mm) == (200.0, 0.0, 100.0)
+    assert first.metadata["candidate_scoring_policy"].startswith("level_07_prospective")
+    assert first.metadata["balance_validation_status"] == "VALID"
+    assert first.metadata["balance_construction_mode"] == "soft_tiebreak_final_validation_hard"
+    assert get_level("level_07").validate_run(Path(first.metadata["run_dir"])).valid
+    assert first.placements == second.placements

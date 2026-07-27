@@ -103,6 +103,7 @@ def run_configured_level(
             "stackability": config.get("stackability", {}),
             "load_bearing": config.get("load_bearing", {}),
             "nesting": config.get("nesting", {}),
+            "balance": config.get("balance", {}),
             "load_tolerance_kg": config.get("validation", {}).get(
                 "load_tolerance_kg", 1e-6
             ),

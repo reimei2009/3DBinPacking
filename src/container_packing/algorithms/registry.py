@@ -155,6 +155,17 @@ _ALGORITHMS = {
             en="Produces frozen COG/balance fixture validation evidence only; it does not run a solver.",
         ),
     ),
+    "extreme_point_best_fit_balance_fixture": AlgorithmDefinition(
+        algorithm_id="extreme_point_best_fit_balance_fixture",
+        family="experimental_constructive_heuristic",
+        description="CLI-only Level 7 compound-root Best Fit with prospective COG tie-breaking",
+        supported_levels=("level_07",), local_friendly=True,
+        display_name=LocalizedText(vi="Experimental â€” Balance-aware Best Fit", en="Experimental â€” Balance-aware Best Fit"),
+        localized_description=LocalizedText(
+            vi="Best Fit fixture dùng COG dự kiến làm tie-break; cân bằng chỉ là ràng buộc validation cuối.",
+            en="Fixture Best Fit uses prospective COG as a tie-break; balance remains a final validation constraint.",
+        ),
+    ),
 }
 
 

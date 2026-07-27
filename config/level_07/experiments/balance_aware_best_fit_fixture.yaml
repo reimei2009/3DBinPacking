@@ -1,0 +1,29 @@
+extends: ../../level_06/experimental.yaml
+project:
+  level_id: level_07
+  algorithm_id: extreme_point_best_fit_balance_fixture
+  random_seed: 42
+instance:
+  item_count: 3
+  container_count: 1
+  item_selection_strategy: prefix
+  item_selection_seed: null
+model:
+  enforce_nesting: true
+  enforce_balance: true
+paths:
+  raw_items_csv: data/raw/level_07/balance_discriminator_items.csv
+  items_source_mapping: null
+  processed_dir: data/processed/level_07/balance_discriminator_fixture
+  manifest_json: data/processed/level_07/balance_discriminator_fixture/latest_manifest.json
+containers:
+  - {container_id: C1, length_mm: 400, width_mm: 200, height_mm: 250, max_weight_kg: 500, cost: 100, availability: 1}
+balance:
+  rules_file: config/level_07/balance_rules.yaml
+fixture:
+  fixture_id: balance_discriminator_v1
+  required_item_count: 3
+  required_container_count: 1
+  required_environment: local
+  required_item_selection_strategy: prefix
+  required_item_selection_seed: null

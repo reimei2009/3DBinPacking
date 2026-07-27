@@ -19,6 +19,8 @@ from ..schemas import Container, Item, Placement, RunResult, SolveResult
 from .level_07_candidate_contract import load_runtime_candidate_contract
 from .level_07_fixture_bundle import validate_level_07_fixture_bundle
 from .level_07_fixture_output import write_level_07_fixture_bundle_run
+from .level_07_pipeline import ALGORITHM_ID as BALANCE_ALGORITHM_ID
+from .level_07_pipeline import run_from_config as run_balance_from_config
 from .nesting_engine import NestingRelation
 
 
@@ -28,6 +30,19 @@ FIXTURE_ID = "declared_multi_compound_chain_and_top_balance_v1"
 
 def run(request: ExperimentRequest) -> RunResult:
     """Execute the frozen fixture validation flow and persist isolated evidence."""
+    if request.algorithm_id == BALANCE_ALGORITHM_ID:
+        _guard_balance_request(request, load_config(request.config_path))
+        return run_balance_from_config(
+            request.config_path, item_count=request.item_count,
+            container_count=request.container_count, level_id=request.level_id,
+            algorithm_id=request.algorithm_id, environment=request.environment,
+            random_seed=request.random_seed, algorithm_parameters=request.algorithm_parameters,
+            config_overrides=request.config_overrides,
+            item_selection_strategy=request.item_selection_strategy,
+            item_selection_seed=request.item_selection_seed,
+        )
+    if request.algorithm_id != ALGORITHM_ID:
+        raise ValueError("Level 7 exposes only its validation fixture or balance-aware Best Fit fixture")
     started_at = perf_counter()
     root = find_project_root(__file__)
     config = load_config(request.config_path)
@@ -77,6 +92,13 @@ def run(request: ExperimentRequest) -> RunResult:
 def prepare(request: ExperimentRequest) -> dict[str, Any]:
     root = find_project_root(__file__)
     config = load_config(request.config_path)
+    if request.algorithm_id == BALANCE_ALGORITHM_ID:
+        _guard_balance_request(request, config)
+        return prepare_instance(
+            root, config, item_count=request.item_count, container_count=request.container_count,
+            level_id="level_07", item_selection_strategy=request.item_selection_strategy,
+            item_selection_seed=request.item_selection_seed,
+        )
     _guard_request(request, config)
     return prepare_instance(
         root, config, item_count=request.item_count, container_count=request.container_count,
@@ -88,10 +110,13 @@ def prepare(request: ExperimentRequest) -> dict[str, Any]:
 def validate_run(run_dir: Path):
     """Independently recompute all inherited and Level 7 fixture evidence."""
     config = yaml.safe_load((run_dir / "resolved_config.yaml").read_text(encoding="utf-8"))
-    load_runtime_candidate_contract(config)
     items = load_items(run_dir / "input_snapshot/items.csv")
     containers = load_containers(run_dir / "input_snapshot/containers.csv")
     placements = load_placements(run_dir / "solution/placements.csv")
+    algorithm_id = str(config.get("project", {}).get("algorithm_id"))
+    if algorithm_id == BALANCE_ALGORITHM_ID:
+        return validate_level_07_fixture_bundle(items, containers, placements, config, []).result
+    load_runtime_candidate_contract(config)
     relations = _relations_from_csv(run_dir / "solution/nesting_relations.csv")
     return validate_level_07_fixture_bundle(items, containers, placements, config, relations).result
 
@@ -132,6 +157,32 @@ def _guard_request(request: ExperimentRequest, config: dict[str, Any]) -> None:
         raise ValueError("Level 7 fixture runtime does not accept runtime config overrides")
     if fixture.get("fixture_id") != contract.fixture_id or fixture["fixture_id"] != FIXTURE_ID:
         raise ValueError("Level 7 fixture configuration does not match the frozen acceptance fixture")
+
+
+def _guard_balance_request(request: ExperimentRequest, config: dict[str, Any]) -> None:
+    fixture = config.get("fixture", {})
+    expected = {
+        "level_id": "level_07", "algorithm_id": BALANCE_ALGORITHM_ID,
+        "item_count": int(fixture.get("required_item_count", -1)),
+        "container_count": int(fixture.get("required_container_count", -1)),
+        "environment": str(fixture.get("required_environment", "")),
+    }
+    actual = {
+        "level_id": request.level_id, "algorithm_id": request.algorithm_id,
+        "item_count": request.item_count, "container_count": request.container_count,
+        "environment": request.environment,
+    }
+    for field, value in expected.items():
+        if actual[field] != value:
+            raise ValueError(f"Level 7 balance fixture requires {field}={value!r}; got {actual[field]!r}")
+    if request.item_selection_strategy not in (None, "prefix") or request.item_selection_seed is not None:
+        raise ValueError("Level 7 balance fixture requires prefix selection with no selection seed")
+    if request.random_seed not in (None, 42):
+        raise ValueError("Level 7 balance fixture requires random_seed=42")
+    if request.algorithm_parameters:
+        raise ValueError("Level 7 balance fixture does not accept algorithm parameter overrides")
+    if request.config_overrides:
+        raise ValueError("Level 7 balance fixture does not accept runtime config overrides")
 
 
 def _fixture_layout(

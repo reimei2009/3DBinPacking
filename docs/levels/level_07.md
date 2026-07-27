@@ -1,15 +1,16 @@
 # Level 7 — Center of mass and balance (CLI acceptance fixture)
 
-Level 7 is registered only as a controlled CLI acceptance fixture. Its sole
-algorithm, `level_07_fixture_validation_bundle`, loads a frozen four-item,
+Level 7 is registered only for controlled CLI experiments. The acceptance
+algorithm `level_07_fixture_validation_bundle` loads a frozen four-item,
 one-container, prefix-selected local fixture and independently validates the
 inherited Level 6 compound geometry, nesting, support, stackability and static
 load-transfer evidence together with Level 7 center-of-mass balance.
 
 It returns `VALIDATION_ONLY`, not `FEASIBLE`, `OPTIMAL`, or an objective value.
-No packing solver, arbitrary item count, runtime selection policy, orientation
-choice, or optimization objective is exposed. Streamlit intentionally hides
-this level.
+The additional `extreme_point_best_fit_balance_fixture` is a separate frozen
+three-item discriminator fixture: it uses prospective COG only as a Best Fit
+tie-break, then requires independent final balance validation. Neither runtime
+accepts arbitrary input or is visible in Streamlit.
 
 Run it from the repository root:
 
@@ -17,6 +18,16 @@ Run it from the repository root:
 .\.venv\Scripts\python.exe .\scripts\run_experiment.py `
   --level level_07 `
   --config config\level_07\experimental.yaml `
+  --non-interactive --preview-limit 0
+```
+
+Run the balance-aware Best Fit fixture:
+
+```powershell
+.\.venv\Scripts\python.exe .\scripts\run_experiment.py `
+  --level level_07 `
+  --algorithm extreme_point_best_fit_balance_fixture `
+  --config config\level_07\experiments\balance_aware_best_fit_fixture.yaml `
   --non-interactive --preview-limit 0
 ```
 

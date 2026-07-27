@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Added the CLI-only Level 7 experimental balance-aware Extreme Point Best Fit
+  fixture. It uses prospective center-of-mass scoring solely as a constructive
+  tie-break and requires independent final balance validation.
+
 - Registered Level 7 as a CLI-only frozen acceptance fixture for compound-root
   center-of-mass and balance validation. It returns `VALIDATION_ONLY`, writes
   isolated evidence, supports independent re-validation, and is hidden from
