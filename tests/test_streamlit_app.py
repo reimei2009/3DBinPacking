@@ -195,3 +195,29 @@ def test_streamlit_exposes_level3_solvers_and_orientation_contract(root: Path):
     threshold = next(value for value in page.number_input if value.key == "level_03_support_threshold")
     assert threshold.value == 0.8
     assert any(r"\sum_{o\in O_i}r_{io}=1" in value.value for value in page.latex)
+
+
+def test_streamlit_blocks_oversized_level3_milp_before_execution(root: Path):
+    app = root / "src/container_packing/web/streamlit_app.py"
+    page = AppTest.from_file(str(app), default_timeout=30).run()
+    next(value for value in page.selectbox if value.key == "level_id").set_value("level_03").run()
+    next(value for value in page.selectbox if value.key == "algorithm_id").set_value("milp_big_m").run()
+    next(value for value in page.number_input if value.key == "item_count").set_value(10).run()
+
+    run_button = next(value for value in page.button if value.key == "run_experiment")
+    assert not page.exception
+    assert run_button.disabled
+    assert page.warning
+    assert "5" in page.warning[-1].value
+
+
+def test_streamlit_allows_level3_ffd_with_ten_items(root: Path):
+    app = root / "src/container_packing/web/streamlit_app.py"
+    page = AppTest.from_file(str(app), default_timeout=30).run()
+    next(value for value in page.selectbox if value.key == "level_id").set_value("level_03").run()
+    next(value for value in page.selectbox if value.key == "algorithm_id").set_value("extreme_point_ffd").run()
+    next(value for value in page.number_input if value.key == "item_count").set_value(10).run()
+
+    run_button = next(value for value in page.button if value.key == "run_experiment")
+    assert not page.exception
+    assert not run_button.disabled

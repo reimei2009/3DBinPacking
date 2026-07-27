@@ -100,7 +100,7 @@ def build_experiment_request(
     if algorithm_id not in level.supported_algorithms or level_id not in algorithm.supported_levels:
         raise ValueError(f"{algorithm_id} is not compatible with {level_id}")
     project_root = _root(root)
-    selected_config = level.default_config if config_path is None else Path(config_path)
+    selected_config = level.config_for_algorithm(algorithm_id) if config_path is None else Path(config_path)
     resolved_config = _resolve(project_root, selected_config)
     limits = get_instance_limits(resolved_config, root=project_root)
     if item_count > limits.available_items:

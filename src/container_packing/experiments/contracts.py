@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable, Any
+from typing import Callable, Any, Mapping
 
 
 @dataclass(frozen=True)
@@ -106,3 +106,8 @@ class LevelDefinition:
     validate_run: Callable[[Path], Any]
     contract: LevelContract
     web_visible: bool = True
+    algorithm_configs: Mapping[str, Path] = field(default_factory=dict)
+
+    def config_for_algorithm(self, algorithm_id: str) -> Path:
+        """Return the declared default config for one compatible algorithm."""
+        return self.algorithm_configs.get(algorithm_id, self.default_config)

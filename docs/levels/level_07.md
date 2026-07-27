@@ -99,3 +99,8 @@ Run the FFD A/B pair on the left-heavy fixture:
 
 The baseline intentionally exits with `INVALID_SOLUTION` (exit code `2`); that
 is expected A/B evidence, not a runtime failure.
+
+When using `--interactive`, selecting a Level 7 algorithm now automatically
+selects its matching fixture config and prints its frozen inputs. For example,
+the balance-aware FFD fixture is always `3 items / 1 container / prefix /
+local`; it intentionally does not accept arbitrary counts such as `20/5`.

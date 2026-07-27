@@ -29,6 +29,15 @@ def test_web_application_boundary_builds_registry_validated_request(root):
     assert request.random_seed == 11
 
 
+def test_application_boundary_uses_level7_algorithm_specific_fixture_config(root):
+    request = build_experiment_request(
+        level_id="level_07", algorithm_id="extreme_point_ffd_balance_fixture",
+        item_count=3, container_count=1, root=root,
+    )
+
+    assert request.config_path == root / "config/level_07/experiments/ffd_balance_aware_fixture.yaml"
+
+
 def test_application_boundary_rejects_unavailable_item_count(root):
     with pytest.raises(ValueError, match="only 501"):
         build_experiment_request(

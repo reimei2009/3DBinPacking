@@ -106,6 +106,10 @@ _TEXT = {
     "subset_limit": {"vi": "Giới hạn liệt kê tập container", "en": "Container subset enumeration limit"},
     "time_limit": {"vi": "Giới hạn thời gian MILP (giây)", "en": "MILP time limit (seconds)"},
     "mip_gap": {"vi": "Sai số tương đối MILP", "en": "MILP relative gap"},
+    "exact_reference_limit": {
+        "vi": "MILP Big-M là exact reference, chỉ dùng tối đa {limit} kiện. Giảm số kiện hoặc chọn Extreme Point FFD cho lượt chạy thực tế.",
+        "en": "MILP Big-M is an exact reference limited to {limit} items. Reduce the item count or select Extreme Point FFD for practical runs.",
+    },
     "hill_iterations": {"vi": "Số vòng lặp Hill Climbing", "en": "Hill-climbing iterations"},
     "neighbors": {"vi": "Số nghiệm lân cận mỗi vòng", "en": "Neighbors per iteration"},
     "annealing_iterations": {"vi": "Số vòng lặp Simulated Annealing", "en": "Annealing iterations"},

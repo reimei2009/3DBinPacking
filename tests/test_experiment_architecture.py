@@ -1,9 +1,11 @@
 from pathlib import Path
 import json
 
+import pytest
 import yaml
 
 from container_packing.algorithms.registry import get_algorithm, list_algorithms
+import container_packing.cli as cli
 from container_packing.cli import _parser, _resolve_request
 from container_packing.data_loader import load_config
 from container_packing.experiments.contracts import ExperimentRequest
@@ -246,6 +248,22 @@ def test_level3_cli_uses_configured_ffd_when_algorithm_is_omitted():
     assert request.algorithm_id == "extreme_point_ffd"
 
 
+def test_level3_cli_uses_exact_reference_config_and_rejects_oversized_milp_request():
+    reference = _resolve_request(_parser().parse_args([
+        "run", "--level", "level_03", "--algorithm", "milp_big_m",
+        "--items-count", "3", "--containers-count", "2", "--non-interactive",
+    ]))
+    assert reference.config_path.as_posix().endswith(
+        "config/level_03/experiments/milp_big_m_reference.yaml"
+    )
+
+    with pytest.raises(ValueError, match="limited to 5 items"):
+        _resolve_request(_parser().parse_args([
+            "run", "--level", "level_03", "--algorithm", "milp_big_m",
+            "--items-count", "10", "--containers-count", "2", "--non-interactive",
+        ]))
+
+
 def test_level4_cli_uses_configured_best_fit_when_algorithm_is_omitted():
     args = _parser().parse_args([
         "run", "--level", "level_04", "--items-count", "3",
@@ -262,6 +280,38 @@ def test_level5_cli_uses_configured_best_fit_when_algorithm_is_omitted():
     ])
     request = _resolve_request(args)
     assert request.algorithm_id == "extreme_point_best_fit"
+
+
+def test_level7_interactive_uses_selected_algorithm_fixture_and_locks_inputs(monkeypatch, capsys):
+    answers = {
+        "Level": "level_07",
+        "Algorithm": "extreme_point_ffd_balance_fixture",
+    }
+    monkeypatch.setattr(cli, "prompt_choice", lambda label, *_args: answers[label])
+    monkeypatch.setattr(
+        cli, "prompt_positive", lambda *_args: (_ for _ in ()).throw(AssertionError("fixture must not prompt"))
+    )
+
+    request = _resolve_request(_parser().parse_args(["run", "--interactive"]))
+
+    assert request.algorithm_id == "extreme_point_ffd_balance_fixture"
+    assert request.config_path.as_posix().endswith("config/level_07/experiments/ffd_balance_aware_fixture.yaml")
+    assert (request.item_count, request.container_count, request.environment) == (3, 1, "local")
+    assert request.item_selection_strategy == "prefix"
+    assert "Fixed fixture inputs: items=3, containers=1" in capsys.readouterr().out
+
+
+def test_level7_interactive_rejects_conflicting_explicit_fixture_flag(monkeypatch):
+    answers = {
+        "Level": "level_07",
+        "Algorithm": "extreme_point_ffd_balance_fixture",
+    }
+    monkeypatch.setattr(cli, "prompt_choice", lambda label, *_args: answers[label])
+
+    with pytest.raises(ValueError, match="Frozen fixture requires --items-count=3"):
+        _resolve_request(_parser().parse_args([
+            "run", "--interactive", "--items-count", "20",
+        ]))
 
 
 def test_two_runs_are_isolated_and_complete(root: Path, tmp_path: Path):

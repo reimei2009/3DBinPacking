@@ -82,6 +82,9 @@ It uses sparse Big-M constraints with `XYZ`/`YXZ` binary variables and the
 same floor/support grid as Level 2; decoded placements are still validated by
 the independent exact-union support validator. It is deliberately rejected
 above five items, so it cannot accidentally replace FFD in practical runs.
+The CLI and Streamlit UI expose this same configured limit before execution;
+the UI disables the MILP run action above five items instead of sending an
+oversized request to the solver.
 
 Run the reference only on its small config:
 

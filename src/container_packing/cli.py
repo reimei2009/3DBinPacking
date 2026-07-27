@@ -85,13 +85,39 @@ def _resolve_request(args: argparse.Namespace) -> ExperimentRequest:
     algorithm_id = args.algorithm_id or configured_algorithm
     if interactive:
         algorithm_id = prompt_choice("Algorithm", algorithm_ids, algorithm_id)
+    if args.config is None:
+        selected_config = level.config_for_algorithm(algorithm_id)
+        config_path = (
+            selected_config.resolve() if selected_config.is_absolute()
+            else (find_project_root() / selected_config).resolve()
+        )
+        config = load_config(config_path)
     defaults = config["instance"]
     item_count = args.items_count or int(defaults["item_count"])
     container_count = args.containers_count or int(defaults["container_count"])
     environment = args.environment or "local"
     item_selection = args.item_selection or str(defaults.get("item_selection_strategy", "prefix"))
     selection_seed = args.selection_seed if args.selection_seed is not None else defaults.get("item_selection_seed")
-    if interactive:
+    exact_reference_limit = _exact_reference_item_limit(algorithm_id, config)
+    if interactive and exact_reference_limit is not None:
+        print(
+            f"Exact MILP reference limit: at most {exact_reference_limit} items. "
+            "Use a heuristic such as extreme_point_ffd for practical runs."
+        )
+    fixed_fixture = _fixed_fixture_inputs(config)
+    if interactive and fixed_fixture is not None:
+        _reject_conflicting_fixture_flags(args, fixed_fixture)
+        print(
+            "Fixed fixture inputs: "
+            f"items={fixed_fixture['item_count']}, containers={fixed_fixture['container_count']}, "
+            f"environment={fixed_fixture['environment']}, selection={fixed_fixture['item_selection_strategy']}."
+        )
+        item_count = fixed_fixture["item_count"]
+        container_count = fixed_fixture["container_count"]
+        environment = fixed_fixture["environment"]
+        item_selection = fixed_fixture["item_selection_strategy"]
+        selection_seed = fixed_fixture["item_selection_seed"]
+    elif interactive:
         item_count = prompt_positive("Number of items", item_count)
         container_count = prompt_positive("Number of containers", container_count)
         environment = prompt_choice("Environment", ("local", "colab", "kaggle"), environment)
@@ -100,6 +126,11 @@ def _resolve_request(args: argparse.Namespace) -> ExperimentRequest:
             selection_seed = prompt_positive(
                 "Item-selection seed", int(selection_seed if selection_seed is not None else 42)
             )
+    if exact_reference_limit is not None and item_count > exact_reference_limit:
+        raise ValueError(
+            f"Exact MILP reference is limited to {exact_reference_limit} items; received {item_count}. "
+            "Use extreme_point_ffd for practical runs."
+        )
     return ExperimentRequest(
         level_id=level_id, algorithm_id=algorithm_id, config_path=config_path,
         item_count=item_count, container_count=container_count, environment=environment,
@@ -107,6 +138,48 @@ def _resolve_request(args: argparse.Namespace) -> ExperimentRequest:
         item_selection_strategy=item_selection,
         item_selection_seed=selection_seed,
     )
+
+
+def _fixed_fixture_inputs(config: dict) -> dict[str, object] | None:
+    """Read optional frozen input values from a versioned fixture config."""
+    fixture = config.get("fixture")
+    if not isinstance(fixture, dict):
+        return None
+    required = (
+        "required_item_count", "required_container_count", "required_environment",
+        "required_item_selection_strategy", "required_item_selection_seed",
+    )
+    if not all(key in fixture for key in required):
+        return None
+    return {
+        "item_count": int(fixture["required_item_count"]),
+        "container_count": int(fixture["required_container_count"]),
+        "environment": str(fixture["required_environment"]),
+        "item_selection_strategy": str(fixture["required_item_selection_strategy"]),
+        "item_selection_seed": fixture["required_item_selection_seed"],
+    }
+
+
+def _exact_reference_item_limit(algorithm_id: str, config: dict) -> int | None:
+    """Return a configured exact-reference cap without constraining other MILP levels."""
+    if algorithm_id != "milp_big_m":
+        return None
+    value = config.get("solver", {}).get("orientation_reference_max_items")
+    return None if value is None else int(value)
+
+
+def _reject_conflicting_fixture_flags(args: argparse.Namespace, fixed: dict[str, object]) -> None:
+    """Fail early when an explicit interactive flag conflicts with a frozen fixture."""
+    comparisons = (
+        ("--items-count", args.items_count, fixed["item_count"]),
+        ("--containers-count", args.containers_count, fixed["container_count"]),
+        ("--environment", args.environment, fixed["environment"]),
+        ("--item-selection", args.item_selection, fixed["item_selection_strategy"]),
+        ("--selection-seed", args.selection_seed, fixed["item_selection_seed"]),
+    )
+    for flag, value, expected in comparisons:
+        if value is not None and value != expected:
+            raise ValueError(f"Frozen fixture requires {flag}={expected!r}; got {value!r}")
 
 
 def _list_payload() -> dict:

@@ -443,6 +443,9 @@ _LEVELS["level_03"] = LevelDefinition(
     run=level_03.run,
     prepare=level_03.prepare,
     validate_run=level_03.validate_run,
+    algorithm_configs={
+        "milp_big_m": Path("config/level_03/experiments/milp_big_m_reference.yaml"),
+    },
     contract=LevelContract(
         title=LocalizedText(
             vi="Level 3 — Xoay ngang và ràng buộc hỗ trợ hình học",
@@ -793,6 +796,13 @@ _LEVELS["level_07"] = LevelDefinition(
     prepare=level_07.prepare,
     validate_run=level_07.validate_run,
     web_visible=False,
+    algorithm_configs={
+        "level_07_fixture_validation_bundle": Path("config/level_07/experimental.yaml"),
+        "extreme_point_best_fit_balance_fixture": Path("config/level_07/experiments/balance_aware_best_fit_fixture.yaml"),
+        "extreme_point_best_fit_balance_baseline_fixture": Path("config/level_07/experiments/balance_baseline_best_fit_fixture.yaml"),
+        "extreme_point_ffd_balance_fixture": Path("config/level_07/experiments/ffd_balance_aware_fixture.yaml"),
+        "extreme_point_ffd_balance_baseline_fixture": Path("config/level_07/experiments/ffd_balance_baseline_fixture.yaml"),
+    },
     contract=replace(
         _LEVELS["level_06"].contract,
         title=LocalizedText(
