@@ -16,6 +16,8 @@ from container_packing.levels.registry import get_level, list_levels
 ALGORITHM = "level_07_fixture_validation_bundle"
 BALANCE_ALGORITHM = "extreme_point_best_fit_balance_fixture"
 BASELINE_ALGORITHM = "extreme_point_best_fit_balance_baseline_fixture"
+FFD_ALGORITHM = "extreme_point_ffd_balance_fixture"
+FFD_BASELINE_ALGORITHM = "extreme_point_ffd_balance_baseline_fixture"
 
 
 def _runtime_config(root: Path, tmp_path: Path) -> Path:
@@ -189,4 +191,40 @@ def test_level7_symmetric_profile_has_equivalent_balance_for_a_b(root: Path, tmp
         assert result.metadata["balance_validation_status"] == "VALID"
     aware_top = next(value for value in aware.placements if value.item_id == "TOP")
     baseline_top = next(value for value in baseline.placements if value.item_id == "TOP")
+    assert aware_top == baseline_top
+
+
+def test_level7_balance_aware_ffd_selects_balanced_side_within_first_container(root: Path, tmp_path: Path) -> None:
+    aware = _run_balance_profile(root, tmp_path, "ffd_balance_aware_fixture.yaml", FFD_ALGORITHM)
+    baseline = _run_balance_profile(root, tmp_path, "ffd_balance_baseline_fixture.yaml", FFD_BASELINE_ALGORITHM)
+
+    aware_top = next(value for value in aware.placements if value.item_id == "TOP")
+    baseline_top = next(value for value in baseline.placements if value.item_id == "TOP")
+    assert aware.solve.status == "FEASIBLE"
+    assert aware.validation is not None and aware.validation.valid
+    assert (aware_top.x_mm, aware_top.y_mm, aware_top.z_mm) == (200.0, 0.0, 100.0)
+    assert aware.metadata["first_fit_candidate_selection_policy"].startswith("level_07_first_feasible")
+    assert aware.metadata["balance_construction_mode"].startswith("first_feasible_container")
+    assert aware.metadata["balance_validation_status"] == "VALID"
+    assert baseline.solve.status == "FEASIBLE"
+    assert baseline.validation is not None and not baseline.validation.valid
+    assert baseline.metadata["status"] == "INVALID_SOLUTION"
+    assert (baseline_top.x_mm, baseline_top.y_mm, baseline_top.z_mm) == (0.0, 0.0, 100.0)
+    assert baseline.metadata["first_fit_candidate_selection_policy"] == "extreme_point_first_fit_default_v1"
+
+
+def test_level7_balance_aware_ffd_handles_right_heavy_and_symmetric_profiles(root: Path, tmp_path: Path) -> None:
+    right = _run_balance_profile(root, tmp_path, "ffd_balance_right_heavy_aware_fixture.yaml", FFD_ALGORITHM)
+    symmetric_aware = _run_balance_profile(root, tmp_path, "ffd_balance_symmetric_aware_fixture.yaml", FFD_ALGORITHM)
+    symmetric_baseline = _run_balance_profile(
+        root, tmp_path, "ffd_balance_symmetric_baseline_fixture.yaml", FFD_BASELINE_ALGORITHM
+    )
+
+    right_top = next(value for value in right.placements if value.item_id == "TOP")
+    aware_top = next(value for value in symmetric_aware.placements if value.item_id == "TOP")
+    baseline_top = next(value for value in symmetric_baseline.placements if value.item_id == "TOP")
+    assert right.validation is not None and right.validation.valid
+    assert right_top.x_mm == 0.0
+    assert symmetric_aware.validation is not None and symmetric_aware.validation.valid
+    assert symmetric_baseline.validation is not None and symmetric_baseline.validation.valid
     assert aware_top == baseline_top

@@ -1,4 +1,5 @@
-from container_packing.algorithms.heuristics.extreme_point_ffd import solve_level1
+from container_packing.algorithms.heuristics.extreme_point_ffd import solve, solve_level1
+from container_packing.algorithms.heuristics.first_fit_selection import FirstFitCandidate
 from container_packing.algorithms.orientation import horizontal_orientation_provider
 from container_packing.algorithms.feasibility import ExactSupportFeasibilityPolicy
 from container_packing.levels.level_01_validation import validate_solution
@@ -64,3 +65,40 @@ def test_horizontal_ffd_passes_rotated_candidates_through_exact_support_policy()
     assert outcome.solve.status == "FEASIBLE"
     assert {placement.orientation_code for placement in outcome.placements} == {"YXZ"}
     assert validate_level3(items, containers, outcome.placements).result.valid
+
+
+def test_first_fit_selection_policy_only_sees_the_first_feasible_container():
+    class RecordingSelection:
+        policy_id = "test_recording_first_fit_selection"
+
+        def __init__(self) -> None:
+            self.container_ids: list[str] = []
+
+        def select(self, state, candidates: tuple[FirstFitCandidate, ...]):
+            self.container_ids.append(state.container.container_id)
+            return candidates[-1].placement
+
+        def metadata(self) -> dict[str, object]:
+            return {"selection_policy": self.policy_id}
+
+    selector = RecordingSelection()
+    outcome = solve(
+        [Item("A", 10, 10, 10, 1)],
+        [container("C1"), container("C2")],
+        candidate_selection_policy=selector,
+    )
+
+    assert outcome.solve.status == "FEASIBLE"
+    assert selector.container_ids == ["C1"]
+    assert outcome.placements[0].container_id == "C1"
+    assert outcome.metadata["selection_policy"] == selector.policy_id
+
+
+def test_default_ffd_signature_is_unchanged_without_selection_policy():
+    items = [Item("A", 10, 10, 10, 1), Item("B", 10, 10, 10, 1)]
+    containers = [container("C")]
+    default = solve_level1(items, containers)
+    explicit_none = solve(items, containers, candidate_selection_policy=None)
+
+    assert explicit_none.placements == default.placements
+    assert "first_fit_candidate_selection_policy" not in default.metadata

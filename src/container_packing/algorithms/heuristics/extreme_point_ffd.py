@@ -10,6 +10,7 @@ from ..contracts import AlgorithmOutcome
 from ..feasibility import FixedOrientationFeasibilityPolicy, PlacementFeasibilityPolicy
 from ..orientation import OrientationProvider, fixed_orientation_provider
 from .extreme_point_core import constructive_search, item_sort_key, pack_order_first_fit
+from .first_fit_selection import FirstFitCandidateSelectionPolicy
 from ...schemas import Container, Item, SolveResult
 
 
@@ -17,6 +18,7 @@ def solve(
     items: list[Item], containers: list[Container], settings: dict[str, Any] | None = None,
     *, policy: PlacementFeasibilityPolicy | None = None,
     orientation_provider: OrientationProvider | None = None,
+    candidate_selection_policy: FirstFitCandidateSelectionPolicy | None = None,
 ) -> AlgorithmOutcome:
     """Pack all items with an explicit orientation provider; not globally optimal."""
     settings = settings or {}
@@ -31,6 +33,7 @@ def solve(
         return pack_order_first_fit(
             items, containers, tolerance, stats, policy,
             orientation_provider=selected_orientation_provider,
+            candidate_selection_policy=candidate_selection_policy,
         )
     search = constructive_search(
         ordered_items, containers, tolerance, subset_limit, pack_order, selected_policy,
@@ -72,6 +75,7 @@ def solve(
             "n_containers": len(containers),
             **selected_orientation_provider.metadata(),
             **selected_policy.metadata(),
+            **({} if candidate_selection_policy is None else candidate_selection_policy.metadata()),
         },
     )
 

@@ -177,6 +177,28 @@ _ALGORITHMS = {
             en="Best Fit comparator without COG scoring; final balance validation remains mandatory.",
         ),
     ),
+    "extreme_point_ffd_balance_fixture": AlgorithmDefinition(
+        algorithm_id="extreme_point_ffd_balance_fixture",
+        family="experimental_constructive_heuristic",
+        description="CLI-only Level 7 First Fit with prospective COG tie-breaking inside its first feasible container",
+        supported_levels=("level_07",), local_friendly=True,
+        display_name=LocalizedText(vi="Experimental â€” Balance-aware First Fit", en="Experimental â€” Balance-aware First Fit"),
+        localized_description=LocalizedText(
+            vi="Giữ First Fit theo container; COG chỉ chọn extreme point trong container khả thi đầu tiên.",
+            en="Preserves First Fit container choice; COG selects only an extreme point within the first feasible container.",
+        ),
+    ),
+    "extreme_point_ffd_balance_baseline_fixture": AlgorithmDefinition(
+        algorithm_id="extreme_point_ffd_balance_baseline_fixture",
+        family="experimental_constructive_heuristic",
+        description="CLI-only Level 7 canonical First Fit baseline for balance A/B acceptance",
+        supported_levels=("level_07",), local_friendly=True,
+        display_name=LocalizedText(vi="Experimental â€” Balance baseline First Fit", en="Experimental â€” Balance baseline First Fit"),
+        localized_description=LocalizedText(
+            vi="Comparator First Fit không dùng COG; final balance validator vẫn bắt buộc.",
+            en="Comparator First Fit without COG scoring; final balance validation remains mandatory.",
+        ),
+    ),
 }
 
 

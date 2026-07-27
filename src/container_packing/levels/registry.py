@@ -780,12 +780,14 @@ _LEVELS["level_06"] = replace(
 
 _LEVELS["level_07"] = LevelDefinition(
     level_id="level_07",
-    description="CLI-only center-of-mass balance acceptance fixtures, including a controlled Best Fit A/B comparator",
+    description="CLI-only center-of-mass balance acceptance fixtures, including controlled Best Fit and First Fit A/B comparators",
     default_config=Path("config/level_07/experimental.yaml"),
     supported_algorithms=(
         "level_07_fixture_validation_bundle",
         "extreme_point_best_fit_balance_fixture",
         "extreme_point_best_fit_balance_baseline_fixture",
+        "extreme_point_ffd_balance_fixture",
+        "extreme_point_ffd_balance_baseline_fixture",
     ),
     run=level_07.run,
     prepare=level_07.prepare,

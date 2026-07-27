@@ -10,6 +10,7 @@ from ..orientation import OrientationProvider, fixed_orientation_provider
 from ...geometry.orientation import OrientedDimensions
 from ...schemas import Container, Item, Placement
 from .constructive_common import candidate_subsets, container_orders, item_sort_key
+from .first_fit_selection import FirstFitCandidate, FirstFitCandidateSelectionPolicy
 
 Point = tuple[float, float, float]
 PackOrder = Callable[
@@ -126,11 +127,32 @@ def place_candidate(state: ContainerState, placement: Placement, tolerance: floa
 def pack_order_first_fit(
     items: list[Item], containers: tuple[Container, ...], tolerance: float, stats: SearchStats,
     policy: PlacementFeasibilityPolicy, *, orientation_provider: OrientationProvider | None = None,
+    candidate_selection_policy: FirstFitCandidateSelectionPolicy | None = None,
 ) -> list[Placement] | None:
     """Place the first feasible extreme-point/orientation candidate in order."""
     selected_provider = orientation_provider or fixed_orientation_provider()
     states = [ContainerState(container) for container in containers]
     for item in items:
+        if candidate_selection_policy is not None:
+            selected: tuple[ContainerState, Placement] | None = None
+            for state in states:
+                candidates: list[FirstFitCandidate] = []
+                for point in sorted(state.extreme_points, key=lambda value: (value[2], value[1], value[0])):
+                    stats.extreme_points_evaluated += 1
+                    for orientation_rank, dimensions in enumerate(selected_provider.candidates(item)):
+                        stats.orientation_candidates_evaluated += 1
+                        candidate = candidate_placement(state, item, point, dimensions)
+                        if selected_policy_allows(state, candidate, tolerance, policy):
+                            candidates.append(FirstFitCandidate(
+                                candidate, (float(point[2]), float(point[1]), float(point[0]), orientation_rank)
+                            ))
+                if candidates:
+                    selected = state, candidate_selection_policy.select(state, tuple(candidates))
+                    break
+            if selected is None:
+                return None
+            place_candidate(selected[0], selected[1], tolerance)
+            continue
         selected: tuple[ContainerState, Placement] | None = None
         for state in states:
             for point in sorted(state.extreme_points, key=lambda value: (value[2], value[1], value[0])):

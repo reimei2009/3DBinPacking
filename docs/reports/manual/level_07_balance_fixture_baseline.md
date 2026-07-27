@@ -3,8 +3,9 @@
 ## Scope and provenance
 
 - Level: `level_07`, CLI-only; Streamlit remains hidden.
-- Constructors: canonical Extreme Point Best Fit baseline and prospective-COG
-  Best Fit.
+- Constructors: canonical/prospective-COG Extreme Point Best Fit, plus a
+  canonical/prospective-COG First Fit pair that preserves first-feasible
+  container selection.
 - Shared constraints: compound geometry, exact support, base-center support,
   stackability, static load transfer, and final center-of-mass balance.
 - Profile: `symmetric_center_band_v1`, target longitudinal COG ratio `0.5`,
@@ -32,6 +33,17 @@ is still authoritative.
 
 - Keep prospective COG as a **soft Best Fit tie-break**.
 - Keep Level 7 balance as a **hard final independent validation**.
-- Do not port FFD yet. The next candidate should be considered only after a
-  separate design decision for FFD candidate ranking, because classic First Fit
-  does not evaluate all feasible placements in the same way as Best Fit.
+- FFD was ported only through a separate intra-container selection policy;
+  First Fit container semantics remain intact. Do not generalize it beyond
+  these fixtures until a broader acceptance benchmark is approved.
+
+## First Fit acceptance extension
+
+The controlled FFD pair is now implemented with a strictly narrower COG hook:
+it never changes the first feasible container. Within that one container it
+ranks feasible candidates by balance-band violation, COG offset, then canonical
+FFD `(z, y, x, orientation)` order. It has the same acceptance outcomes as the
+Best Fit table above: left-heavy baseline `TOP x=0` is invalid whereas aware
+FFD selects `TOP x=200` and is valid; right-heavy selects left; symmetric keeps
+the deterministic canonical tie. This remains fixture evidence, not a
+production-scale FFD benchmark.

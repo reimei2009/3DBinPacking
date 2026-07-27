@@ -13,6 +13,7 @@ from .level_07_best_fit_adapter import (
     solve_balance_aware_best_fit_fixture,
     solve_balance_baseline_best_fit_fixture,
 )
+from .level_07_ffd_adapter import solve_balance_aware_ffd_fixture, solve_balance_baseline_ffd_fixture
 from .level_07_fixture_bundle import balance_rules, validate_level_07_fixture_bundle
 from .load_balance import ContainerBalanceSettings
 from .pipeline import LevelRuntimeStrategy, run_configured_level
@@ -20,7 +21,9 @@ from .pipeline import LevelRuntimeStrategy, run_configured_level
 
 ALGORITHM_ID = "extreme_point_best_fit_balance_fixture"
 BASELINE_ALGORITHM_ID = "extreme_point_best_fit_balance_baseline_fixture"
-ALGORITHM_IDS = (ALGORITHM_ID, BASELINE_ALGORITHM_ID)
+FFD_ALGORITHM_ID = "extreme_point_ffd_balance_fixture"
+FFD_BASELINE_ALGORITHM_ID = "extreme_point_ffd_balance_baseline_fixture"
+ALGORITHM_IDS = (ALGORITHM_ID, BASELINE_ALGORITHM_ID, FFD_ALGORITHM_ID, FFD_BASELINE_ALGORITHM_ID)
 
 
 def _guard(config: dict[str, Any]) -> None:
@@ -34,7 +37,7 @@ def _guard(config: dict[str, Any]) -> None:
     if config.get("project", {}).get("level_id") != "level_07":
         raise ValueError("Level 7 balance runtime requires project.level_id='level_07'")
     if config.get("project", {}).get("algorithm_id") not in ALGORITHM_IDS:
-        raise ValueError("Level 7 balance runtime exposes only the fixed Best Fit A/B fixture algorithms")
+        raise ValueError("Level 7 balance runtime exposes only fixed Best Fit or FFD A/B fixture algorithms")
     if not bool(config.get("model", {}).get("enforce_balance", False)):
         raise ValueError("Level 7 balance runtime requires model.enforce_balance=true")
     ContainerBalanceSettings.from_config(balance_rules(config))
@@ -45,7 +48,11 @@ def _execute(algorithm_id: str, items, containers, settings):
         return solve_balance_aware_best_fit_fixture(items, containers, settings).outcome
     if algorithm_id == BASELINE_ALGORITHM_ID:
         return solve_balance_baseline_best_fit_fixture(items, containers, settings).outcome
-    raise ValueError("Level 7 balance runtime exposes only the fixed Best Fit A/B fixture algorithms")
+    if algorithm_id == FFD_ALGORITHM_ID:
+        return solve_balance_aware_ffd_fixture(items, containers, settings).outcome
+    if algorithm_id == FFD_BASELINE_ALGORITHM_ID:
+        return solve_balance_baseline_ffd_fixture(items, containers, settings).outcome
+    raise ValueError("Level 7 balance runtime exposes only the fixed Best Fit and FFD A/B fixture algorithms")
 
 
 STRATEGY = LevelRuntimeStrategy(
@@ -77,6 +84,8 @@ STRATEGY = LevelRuntimeStrategy(
     algorithm_roles={
         ALGORITHM_ID: "experimental_balance_aware_constructive",
         BASELINE_ALGORITHM_ID: "experimental_balance_baseline_comparator",
+        FFD_ALGORITHM_ID: "experimental_balance_aware_first_fit",
+        FFD_BASELINE_ALGORITHM_ID: "experimental_balance_first_fit_baseline_comparator",
     },
 )
 

@@ -15,7 +15,7 @@ accepts arbitrary input or is visible in Streamlit.
 canonical Best Fit score only; it is an A/B comparator and is expected to fail
 final balance validation on this deliberately asymmetric fixture.
 
-The same controlled A/B pair also has right-heavy and symmetric profiles. They
+The same controlled Best Fit A/B pair also has right-heavy and symmetric profiles. They
 are regression acceptance fixtures, not a performance benchmark: right-heavy
 must select the left support position, while the symmetric profile keeps the
 same deterministic placement and equivalent balance evidence for both scores.
@@ -68,3 +68,34 @@ clearance, or a practical balance-aware packing solver.
 
 The accepted three-profile A/B evidence is recorded in
 `docs/reports/manual/level_07_balance_fixture_baseline.md`.
+
+Level 7 also exposes a controlled First-Fit A/B pair:
+`extreme_point_ffd_balance_fixture` and
+`extreme_point_ffd_balance_baseline_fixture`. Both preserve First Fit's
+container decision: they stop at the first feasible container. The aware
+variant evaluates every feasible extreme-point/orientation candidate *only in
+that container* and ranks it by prospective balance-band violation, total COG
+offset, then the canonical FFD order `(z, y, x, orientation)`. The baseline
+uses canonical FFD unchanged. The left-heavy fixture therefore has the same
+negative-control result as Best Fit: baseline `TOP x=0` is invalid, while the
+aware FFD selects `TOP x=200` and validates. Right-heavy selects left; the
+symmetric profile retains the canonical FFD tie outcome.
+
+Run the FFD A/B pair on the left-heavy fixture:
+
+```powershell
+.\.venv\Scripts\python.exe .\scripts\run_experiment.py `
+  --level level_07 `
+  --algorithm extreme_point_ffd_balance_baseline_fixture `
+  --config config\level_07\experiments\ffd_balance_baseline_fixture.yaml `
+  --non-interactive --preview-limit 0
+
+.\.venv\Scripts\python.exe .\scripts\run_experiment.py `
+  --level level_07 `
+  --algorithm extreme_point_ffd_balance_fixture `
+  --config config\level_07\experiments\ffd_balance_aware_fixture.yaml `
+  --non-interactive --preview-limit 0
+```
+
+The baseline intentionally exits with `INVALID_SOLUTION` (exit code `2`); that
+is expected A/B evidence, not a runtime failure.

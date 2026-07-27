@@ -1,0 +1,3 @@
+extends: balance_aware_best_fit_fixture.yaml
+project:
+  algorithm_id: extreme_point_ffd_balance_fixture

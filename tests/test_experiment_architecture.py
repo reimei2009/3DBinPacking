@@ -76,11 +76,14 @@ def test_registry_only_exposes_runnable_implementations():
     assert [value.algorithm_id for value in list_algorithms(level_id="level_07")] == [
         "extreme_point_best_fit_balance_baseline_fixture",
         "extreme_point_best_fit_balance_fixture",
+        "extreme_point_ffd_balance_baseline_fixture",
+        "extreme_point_ffd_balance_fixture",
         "level_07_fixture_validation_bundle",
     ]
     assert get_level("level_07").supported_algorithms == (
         "level_07_fixture_validation_bundle", "extreme_point_best_fit_balance_fixture",
         "extreme_point_best_fit_balance_baseline_fixture",
+        "extreme_point_ffd_balance_fixture", "extreme_point_ffd_balance_baseline_fixture",
     )
     assert get_level("level_07").web_visible is False
     assert get_level("level_06").contract.title.resolve("en").endswith("(experimental)")

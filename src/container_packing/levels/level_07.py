@@ -42,7 +42,7 @@ def run(request: ExperimentRequest) -> RunResult:
             item_selection_seed=request.item_selection_seed,
         )
     if request.algorithm_id != ALGORITHM_ID:
-        raise ValueError("Level 7 exposes only its validation fixture or balance-aware Best Fit fixture")
+        raise ValueError("Level 7 exposes its validation fixture plus controlled balance-aware Best Fit/FFD fixtures")
     started_at = perf_counter()
     root = find_project_root(__file__)
     config = load_config(request.config_path)
