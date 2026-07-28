@@ -1,0 +1,5 @@
+package_code,outer_length_mm,outer_width_mm,outer_height_mm,gross_mass_kg,stack_family,stack_limit,nesting_family,nesting_capability,usable_inner_length_mm,usable_inner_width_mm,usable_inner_height_mm,allowed_nesting_depth,added_height_when_nested,customer_priority,source_comment
+COMP-ROOT-01,240,180,120,120,A,3,CRATE-G1,host,220,160,110,2,,high,synthetic company-schema root host
+COMP-MID-01,210,150,100,100,A,3,CRATE-G1,both,190,140,90,2,25,normal,synthetic company-schema intermediate
+COMP-CHILD-01,180,130,80,80,A,3,CRATE-G1,child,,,,,20,normal,synthetic company-schema leaf
+COMP-TOP-01,150,160,80,50,A,3,,none,,,,,,low,synthetic company-schema external top

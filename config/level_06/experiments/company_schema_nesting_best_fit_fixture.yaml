@@ -1,0 +1,4 @@
+# Best-Fit comparator over the synthetic company-schema end-to-end fixture.
+extends: company_schema_nesting_fixture.yaml
+project:
+  algorithm_id: extreme_point_best_fit_nesting_fixture

@@ -1,0 +1,22 @@
+# Tiny semantic acceptance only; not a performance or production benchmark.
+suite_id: level_06_compound_portfolio_fixture_local_v1
+level_id: level_06
+description: >
+ Compare the four experimental compound-root solvers on an identical nesting
+ chain plus an external compound that must be supported by the chain root.
+config: config/level_06/experiments/declared_nesting_multi_compound_fixture.yaml
+environment: local
+algorithms:
+  - extreme_point_ffd_nesting_fixture
+  - extreme_point_best_fit_nesting_fixture
+  - extreme_point_hill_climbing_nesting_fixture
+  - extreme_point_simulated_annealing_nesting_fixture
+seeds: [42]
+repeats: 2
+scenarios:
+  - scenario_id: declared_multi_compound_i4_c1
+    description: "Depth-two chain with one externally supported top compound."
+    item_count: 4
+    container_count: 1
+    item_selection: prefix
+    tags: [fixture, explicit_nesting, depth_two, multi_compound, support, load_transfer, deterministic]

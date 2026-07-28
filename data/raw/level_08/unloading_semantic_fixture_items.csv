@@ -1,0 +1,5 @@
+shipment_unit_id,outer_length_mm,outer_width_mm,outer_height_mm,gross_mass_kg,delivery_sequence,route_stop,delivery_metadata_source,fixture_note
+EARLY-001,100,80,60,10,1,STOP-A,synthetic_level_08_delivery_fixture_v1,early_delivery_item
+MID-001,100,80,60,10,2,STOP-B,synthetic_level_08_delivery_fixture_v1,middle_delivery_item
+LATE-001,100,80,60,10,3,STOP-C,synthetic_level_08_delivery_fixture_v1,late_delivery_item
+SAME-STOP-001,100,80,60,10,2,STOP-B,synthetic_level_08_delivery_fixture_v1,second_item_same_stop

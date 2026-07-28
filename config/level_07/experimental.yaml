@@ -1,0 +1,22 @@
+# The only executable Level 7 configuration: CLI-only frozen acceptance fixture.
+extends: runtime_candidate.yaml
+project:
+  level_id: level_07
+  algorithm_id: level_07_fixture_validation_bundle
+  random_seed: 42
+instance:
+  item_count: 4
+  container_count: 1
+  item_selection_strategy: prefix
+  item_selection_seed: null
+paths:
+  processed_dir: data/processed/level_07/declared_nesting_multi_compound_balance_fixture
+  manifest_json: data/processed/level_07/declared_nesting_multi_compound_balance_fixture/latest_manifest.json
+fixture:
+  layout_file: config/level_07/fixtures/declared_nesting_multi_compound_balance_layout.yaml
+  fixture_id: declared_multi_compound_chain_and_top_balance_v1
+  required_item_count: 4
+  required_container_count: 1
+  required_environment: local
+  required_item_selection_strategy: prefix
+  required_item_selection_seed: null

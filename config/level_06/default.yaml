@@ -1,0 +1,30 @@
+extends: ../level_05/default.yaml
+project:
+  level_id: level_06
+  algorithm_id: extreme_point_best_fit
+paths:
+  processed_dir: data/processed/level_06
+  manifest_json: data/processed/level_06/latest_manifest.json
+model:
+  enforce_nesting: false
+nesting:
+  rules_file: config/level_06/nesting_rules.yaml
+algorithms:
+  extreme_point_hill_climbing_nesting_fixture:
+    subset_enumeration_limit: 12
+    subset_candidate_limit: 48
+    max_iterations: 10
+    max_neighbors: 24
+    initial_constructor: extreme_point_best_fit
+    repair_constructor: extreme_point_best_fit
+  extreme_point_simulated_annealing_nesting_fixture:
+    subset_enumeration_limit: 12
+    subset_candidate_limit: 48
+    max_iterations: 200
+    max_neighbors: 48
+    neighbors_per_iteration: 3
+    initial_temperature: 0.05
+    cooling_rate: 0.99
+    minimum_temperature: 0.0001
+    initial_constructor: extreme_point_best_fit
+    repair_constructor: extreme_point_best_fit

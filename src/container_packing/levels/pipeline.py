@@ -13,7 +13,7 @@ from ..instance_data import prepare_instance
 from ..reporting import write_run_outputs, write_status_outputs
 from ..runtime.project import find_project_root
 from ..runtime.run_context import create_run_directory
-from ..schemas import Container, Item, Placement, RunResult, ValidationIssue, ValidationResult
+from ..schemas import Container, Item, Placement, RunResult, SolveResult, ValidationIssue, ValidationResult
 
 
 @dataclass(frozen=True)
@@ -96,12 +96,23 @@ def run_configured_level(
         }
     else:
         config.setdefault("algorithms", {}).setdefault(algorithm_id, {}).update(overrides)
+        # Level-scoped orchestration budgets are intentionally not solver
+        # algorithm parameters.  Preserve them in the strategy settings so a
+        # Level 7/8 repair policy can be configured once at the level root.
+        runtime_budget_settings = {
+            key: value for key, value in config.items()
+            if key.startswith("balance_") or key.startswith("delivery_")
+        }
         settings = {
             **config.get("algorithms", {}).get(algorithm_id, {}),
+            **runtime_budget_settings,
             "coordinate_tolerance_mm": tolerance, "random_seed": seed,
             "support": config.get("support", {}),
             "stackability": config.get("stackability", {}),
             "load_bearing": config.get("load_bearing", {}),
+            "nesting": config.get("nesting", {}),
+            "balance": config.get("balance", {}),
+            "unloading": config.get("unloading", {}),
             "load_tolerance_kg": config.get("validation", {}).get(
                 "load_tolerance_kg", 1e-6
             ),
@@ -121,7 +132,6 @@ def run_configured_level(
         "algorithm_id": algorithm_id, "environment": environment,
         "config_file": _display_path(root, config_file), "random_seed": seed,
         "algorithm_parameters": overrides, "config_overrides": dict(config_overrides or {}),
-        "algorithm_runtime_seconds": runtime,
         "algorithm_role": strategy.algorithm_roles.get(algorithm_id),
         "failure_interpretation": (
             "search_failure_not_mathematical_infeasibility_proof"
@@ -129,13 +139,18 @@ def run_configured_level(
         ),
         "time_limit_seconds": config.get("solver", {}).get("time_limit_seconds") if algorithm_id == "milp_big_m" else None,
         "solver_message": solve.message, "objective_value": solve.objective_value,
-        **outcome.metadata, "level": strategy.level_number,
+        **outcome.metadata,
+        # The orchestration timer covers every phase invoked by the strategy.
+        # Adapter-local timers remain phase diagnostics and must not overwrite it.
+        "algorithm_runtime_seconds": runtime,
+        "level": strategy.level_number,
         "items_data_status": "public benchmark sample",
         "cost_note": "Synthetic comparison score; not a real freight price.",
         "item_selection_strategy": manifest["item_selection_strategy"],
         "item_selection_seed": manifest["item_selection_seed"],
         "selected_item_ids_checksum": manifest["selected_item_ids_checksum"],
         "item_profile": manifest["item_profile"],
+        "source_adapter": manifest.get("source_adapter"),
         "active_constraints": list(strategy.active_constraints),
         "inactive_constraints": list(strategy.inactive_constraints),
         **strategy.metadata_defaults,
@@ -181,9 +196,21 @@ def run_configured_level(
     }
     if not bundle.result.valid:
         metadata["status"] = "INVALID_SOLUTION"
+        returned_solve = solve
+        if (
+            outcome.metadata.get("hide_objective_when_invalid")
+            or strategy.metadata_defaults.get("hide_objective_when_invalid")
+        ):
+            metadata["candidate_objective_value"] = metadata.get("objective_value")
+            metadata["objective_value"] = None
+            metadata["objective_reported"] = False
+            returned_solve = SolveResult(
+                "INVALID_SOLUTION", "Independent final validation rejected the constructed candidate.",
+                None, solve.vector, solve.raw_result,
+            )
         if write_outputs and run_dir is not None:
-            write_status_outputs(run_dir, metadata, config, validation=bundle.result, **output_arguments)
-        return RunResult(solve, placements, bundle.result, metadata)
+            write_run_outputs(run_dir, placements, containers, metadata, bundle.result, config, **output_arguments)
+        return RunResult(returned_solve, placements, bundle.result, metadata)
     if write_outputs and run_dir is not None:
         write_run_outputs(run_dir, placements, containers, metadata, bundle.result, config, **output_arguments)
     return RunResult(solve, placements, bundle.result, metadata)

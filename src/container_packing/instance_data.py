@@ -10,6 +10,8 @@ from typing import Any
 import pandas as pd
 
 from .provenance import sha256_file
+from .runtime.project import find_project_root
+from .source_adapter import CsvSourceResult, load_csv_source
 
 SOURCE_URL = "https://github.com/MRVSmartNetworks/container_loading_heuristics/tree/main/data/dataset_small"
 ITEM_SELECTION_STRATEGIES = (
@@ -43,6 +45,23 @@ def _portable_path(root: Path, value: Path) -> str:
         return value.relative_to(root).as_posix()
     except ValueError:
         return str(value.resolve())
+
+
+def _source_mapping_path(root: Path, value: str | Path | None) -> Path | None:
+    """Resolve a mapping beside a supplied root, then from tracked project assets.
+
+    Tests and programmatic callers may use a temporary output root while still
+    inheriting the repository's default source mapping.  An explicit mapping
+    path always remains authoritative and missing mappings still fail clearly.
+    """
+    if value is None:
+        return None
+    configured = Path(value)
+    primary = _path(root, configured)
+    if primary.exists() or configured.is_absolute():
+        return primary
+    project_asset = find_project_root(__file__) / configured
+    return project_asset if project_asset.exists() else primary
 
 
 def _selection_checksum(item_ids: list[str]) -> str:
@@ -117,9 +136,11 @@ def item_selection_fingerprint(
     *,
     strategy: str = "prefix",
     seed: int | None = None,
+    mapping_path: Path | None = None,
 ) -> dict[str, Any]:
     """Return the exact deterministic item identity used by benchmark comparison."""
-    source = pd.read_csv(source_path, encoding="utf-8-sig")
+    source_result = load_csv_source(source_path, mapping_path)
+    source = source_result.frame
     selected = select_item_rows(source, item_count, strategy=strategy, seed=seed)
     item_ids = selected["id_item"].astype(str).tolist()
     return {
@@ -128,6 +149,8 @@ def item_selection_fingerprint(
         "selected_item_ids_checksum": _selection_checksum(item_ids),
         "selection_strategy": strategy,
         "selection_seed": seed,
+        "source_adapter_id": source_result.adapter_id,
+        "source_mapping": source_result.mapped_columns,
     }
 
 
@@ -167,6 +190,58 @@ def _container_definitions(config: dict[str, Any], requested: int) -> list[dict[
     return selected
 
 
+def _container_frame(root: Path, config: dict[str, Any], requested: int, level_id: str) -> tuple[pd.DataFrame, Path | None]:
+    """Use an immutable canonical container CSV when declared, otherwise config containers."""
+    paths = config["paths"]
+    raw_value = paths.get("raw_containers_csv")
+    if not raw_value:
+        rows = []
+        level_label = level_id.replace("_", " ").title()
+        for definition in _container_definitions(config, requested):
+            length = float(definition["length_mm"])
+            width = float(definition["width_mm"])
+            height = float(definition["height_mm"])
+            rows.append({
+                "container_id": str(definition["container_id"]),
+                "length_mm": length, "width_mm": width, "height_mm": height,
+                "max_weight_kg": float(definition["max_weight_kg"]),
+                "availability": int(definition.get("availability", 1)),
+                "cost": float(definition["cost"]),
+                "volume_m3": length * width * height / 1_000_000_000,
+                "data_status": f"synthetic_{level_id}",
+                "unit_note": "mm, kg; cost is a synthetic comparison score",
+                "design_note": definition.get("design_note", f"Synthetic heterogeneous container defined by {level_label} configuration"),
+            })
+        return pd.DataFrame(rows), None
+    source_path = _path(root, raw_value)
+    if not source_path.exists():
+        raise FileNotFoundError(f"Missing raw container file: {source_path}")
+    frame = pd.read_csv(source_path, encoding="utf-8-sig")
+    required = {"container_id", "length_mm", "width_mm", "height_mm", "max_weight_kg", "cost"}
+    missing = sorted(required - set(frame.columns))
+    if missing:
+        raise ValueError(f"Raw container file {source_path} is missing required columns: {', '.join(missing)}")
+    if frame["container_id"].astype(str).duplicated().any():
+        raise ValueError(f"Raw container file {source_path} contains duplicate container_id values")
+    if requested > len(frame):
+        raise ValueError(f"Requested {requested} containers but raw container data contains only {len(frame)} rows")
+    selected = frame.head(requested).copy()
+    for column in ("length_mm", "width_mm", "height_mm", "max_weight_kg", "cost"):
+        selected[column] = pd.to_numeric(selected[column], errors="raise")
+        if (selected[column] <= 0).any():
+            raise ValueError(f"Raw container file {source_path} has non-positive {column}")
+    if "availability" not in selected:
+        selected["availability"] = 1
+    selected["availability"] = pd.to_numeric(selected["availability"], errors="raise").astype(int)
+    if (selected["availability"] <= 0).any():
+        raise ValueError(f"Raw container file {source_path} has non-positive availability")
+    selected["volume_m3"] = selected["length_mm"] * selected["width_mm"] * selected["height_mm"] / 1_000_000_000
+    selected["data_status"] = selected.get("data_status", f"raw_{level_id}")
+    selected["unit_note"] = selected.get("unit_note", "mm, kg; source-declared container data")
+    selected["design_note"] = selected.get("design_note", "Raw container source selected by configured order")
+    return selected, source_path
+
+
 def prepare_instance(
     root: Path,
     config: dict[str, Any],
@@ -191,14 +266,9 @@ def prepare_instance(
     raw_path = _path(root, paths["raw_items_csv"])
     if not raw_path.exists():
         raise FileNotFoundError(f"Missing raw benchmark file: {raw_path}")
-    source = pd.read_csv(raw_path, encoding="utf-8-sig")
-    required = {
-        "id_item", "length", "width", "height", "weight", "nesting_height",
-        "stackability_code", "forced_orientation", "max_stackability",
-    }
-    missing = required - set(source.columns)
-    if missing:
-        raise ValueError(f"Raw items file is missing columns: {sorted(missing)}")
+    mapping_path = _source_mapping_path(root, paths.get("items_source_mapping"))
+    source_result: CsvSourceResult = load_csv_source(raw_path, mapping_path)
+    source = source_result.frame
     if requested_items > len(source):
         raise ValueError(f"Requested {requested_items} items but raw data contains only {len(source)} rows")
 
@@ -214,36 +284,19 @@ def prepare_instance(
         "weight": "weight_kg", "nesting_height": "nesting_height_mm",
     })
     items["used_in_level1"] = 1
+    source_label = source_result.source_id
     selection_notes = {
-        "prefix": f"First {actual_items} rows of public dataset_small",
-        "stable_random": f"Stable hash sample of {actual_items} rows using selection seed {selection_seed}",
-        "volume_stratified": f"{actual_items} rows distributed across the public dataset_small volume range",
-        "largest_volume": f"{actual_items} largest-volume rows of public dataset_small",
-        "heaviest": f"{actual_items} heaviest rows of public dataset_small",
+        "prefix": f"First {actual_items} rows of {source_label}",
+        "stable_random": f"Stable hash sample of {actual_items} rows from {source_label} using selection seed {selection_seed}",
+        "volume_stratified": f"{actual_items} rows distributed across the {source_label} volume range",
+        "largest_volume": f"{actual_items} largest-volume rows of {source_label}",
+        "heaviest": f"{actual_items} heaviest rows of {source_label}",
     }
     level_label = level_id.replace("_", " ").title()
     items["level1_note"] = f"{selection_notes[strategy]}; advanced fields classified by {level_label} contract"
     items["source_url"] = SOURCE_URL
 
-    rows = []
-    for definition in _container_definitions(config, requested_containers):
-        length = float(definition["length_mm"])
-        width = float(definition["width_mm"])
-        height = float(definition["height_mm"])
-        rows.append({
-            "container_id": str(definition["container_id"]),
-            "length_mm": length, "width_mm": width, "height_mm": height,
-            "max_weight_kg": float(definition["max_weight_kg"]),
-            "availability": int(definition.get("availability", 1)),
-            "cost": float(definition["cost"]),
-            "volume_m3": length * width * height / 1_000_000_000,
-            "data_status": f"synthetic_{level_id}",
-            "unit_note": "mm, kg; cost is a synthetic comparison score",
-            "design_note": definition.get(
-                "design_note", f"Synthetic heterogeneous container defined by {level_label} configuration"
-            ),
-        })
-    containers = pd.DataFrame(rows)
+    containers, raw_containers_path = _container_frame(root, config, requested_containers, level_id)
     actual_containers = len(containers)
     selection_token = strategy if selection_seed is None else f"{strategy}_seed{selection_seed}"
     run_id = instance_id(actual_items, actual_containers, level_id)
@@ -265,8 +318,20 @@ def prepare_instance(
         "items_csv": _portable_path(root, items_path),
         "containers_csv": _portable_path(root, containers_path),
         "source_url": SOURCE_URL,
+        "source_adapter": {
+            "adapter_id": source_result.adapter_id,
+            "source_id": source_result.source_id,
+            "mapping_path": _portable_path(root, mapping_path) if mapping_path else None,
+            "mapped_columns": source_result.mapped_columns,
+            "preserved_extra_columns": list(source_result.preserved_extra_columns),
+            "nesting_semantics": source_result.nesting_semantics,
+            "nesting_data_source": source_result.nesting_data_source,
+            "delivery_semantics": source_result.delivery_semantics,
+            "delivery_data_source": source_result.delivery_data_source,
+        },
         "items_note": items["level1_note"].iloc[0],
         "raw_items_checksum": sha256_file(raw_path),
+        "raw_containers_checksum": None if raw_containers_path is None else sha256_file(raw_containers_path),
         "item_selection_strategy": strategy,
         "item_selection_seed": selection_seed,
         "selected_item_ids": items["id_item"].astype(str).tolist(),

@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable, Any
+from typing import Callable, Any, Mapping
 
 
 @dataclass(frozen=True)
@@ -87,6 +87,7 @@ class AlgorithmDefinition:
     gpu_recommended: bool = False
     display_name: LocalizedText | None = None
     localized_description: LocalizedText | None = None
+    web_visible: bool = True
 
     def name_for(self, language: str) -> str:
         return self.algorithm_id if self.display_name is None else self.display_name.resolve(language)
@@ -105,3 +106,9 @@ class LevelDefinition:
     prepare: Callable[[ExperimentRequest], dict[str, Any]]
     validate_run: Callable[[Path], Any]
     contract: LevelContract
+    web_visible: bool = True
+    algorithm_configs: Mapping[str, Path] = field(default_factory=dict)
+
+    def config_for_algorithm(self, algorithm_id: str) -> Path:
+        """Return the declared default config for one compatible algorithm."""
+        return self.algorithm_configs.get(algorithm_id, self.default_config)

@@ -1,0 +1,4 @@
+# Level 7 fixture composition only; it does not register Level 7 execution.
+extends: ../../level_06/experiments/declared_nesting_multi_compound_fixture.yaml
+balance:
+  rules_file: config/level_07/balance_rules.yaml

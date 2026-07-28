@@ -35,6 +35,14 @@ from container_packing.web.i18n import algorithm_family, text as t
 OPACITY_PRESETS = {"solid": DEFAULT_ITEM_OPACITY, "balanced": 0.75, "xray": 0.30}
 
 
+def _exact_reference_item_limit(algorithm_id: str, config: dict[str, Any]) -> int | None:
+    """Read an optional exact-reference cap from the selected algorithm config."""
+    if algorithm_id != "milp_big_m":
+        return None
+    value = config.get("solver", {}).get("orientation_reference_max_items")
+    return None if value is None else int(value)
+
+
 def _read_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
@@ -637,13 +645,16 @@ def main() -> None:
     st.title(t("title", language))
     st.caption(t("caption", language))
 
-    level_ids = [value.level_id for value in list_levels()]
+    level_ids = [value.level_id for value in list_levels() if value.web_visible]
     level_id = st.sidebar.selectbox(t("level", language), level_ids, key="level_id")
     level = get_level(level_id)
-    config_path = root / level.default_config
-    config = load_config(config_path)
-    algorithm_ids = [value.algorithm_id for value in list_algorithms(level_id=level_id)]
-    configured_algorithm = str(config.get("project", {}).get("algorithm_id", algorithm_ids[0]))
+    base_config_path = root / level.default_config
+    base_config = load_config(base_config_path)
+    algorithm_ids = [
+        value.algorithm_id for value in list_algorithms(level_id=level_id)
+        if value.web_visible
+    ]
+    configured_algorithm = str(base_config.get("project", {}).get("algorithm_id", algorithm_ids[0]))
     if configured_algorithm not in algorithm_ids:
         raise ValueError(f"Configured algorithm {configured_algorithm!r} is not compatible with {level_id}")
     if (
@@ -658,6 +669,10 @@ def main() -> None:
     )
     algorithm = get_algorithm(algorithm_id)
     st.sidebar.caption(f"{algorithm_family(algorithm.family, language)}: {algorithm.description_for(language)}")
+
+    selected_config = level.config_for_algorithm(algorithm_id)
+    config_path = root / selected_config
+    config = load_config(config_path)
 
     limits = get_instance_limits(config_path, root=root)
     instance_defaults = config["instance"]
@@ -682,7 +697,16 @@ def main() -> None:
     default_parameters = config.get("solver", {}) if algorithm_id == "milp_big_m" else config.get("algorithms", {}).get(algorithm_id, {})
     algorithm_parameters = _algorithm_parameters(algorithm_id, default_parameters, language)
     config_overrides = _level_config_overrides(level_id, config, language)
-    run_clicked = st.sidebar.button(t("run", language), type="primary", width="stretch", key="run_experiment")
+    exact_reference_limit = _exact_reference_item_limit(algorithm_id, config)
+    exact_reference_blocked = (
+        exact_reference_limit is not None and item_count > exact_reference_limit
+    )
+    if exact_reference_blocked:
+        st.sidebar.warning(t("exact_reference_limit", language).format(limit=exact_reference_limit))
+    run_clicked = st.sidebar.button(
+        t("run", language), type="primary", width="stretch", key="run_experiment",
+        disabled=exact_reference_blocked,
+    )
 
     if run_clicked:
         try:

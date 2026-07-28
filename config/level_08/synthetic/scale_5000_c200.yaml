@@ -1,0 +1,8 @@
+extends: small.yaml
+profile_id: level_08_scale_5000_c200_v1
+seed: 8200
+item_count: 5000
+container_count: 200
+item_file_name: level_08_scale_5000_c200_items.csv
+container_file_name: level_08_scale_5000_c200_containers.csv
+delivery_stop_count: 100

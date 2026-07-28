@@ -1,0 +1,3 @@
+extends: ffd_balance_right_heavy_aware_fixture.yaml
+project:
+  algorithm_id: extreme_point_ffd_balance_baseline_fixture

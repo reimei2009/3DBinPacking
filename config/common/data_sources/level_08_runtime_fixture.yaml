@@ -1,0 +1,19 @@
+adapter_id: csv_column_mapping_v1
+source_id: level_08_lifo_valid_runtime_fixture_v1
+columns:
+  id_item: [id_item]
+  length: [length]
+  width: [width]
+  height: [height]
+  weight: [weight]
+  nesting_height: [nesting_height]
+  stackability_code: [stackability_code]
+  forced_orientation: [forced_orientation]
+  max_stackability: [max_stackability]
+  delivery_priority: [delivery_priority]
+  delivery_stop_id: [delivery_stop_id]
+  delivery_data_source: [delivery_data_source]
+delivery:
+  semantics: priority_and_stop
+  data_source: synthetic_level_08_lifo_runtime_fixture_v1
+extra_columns: preserve

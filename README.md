@@ -1,5 +1,16 @@
 # 3D Container Packing
 
+Level 8 provides an explicit delivery/LIFO data contract, a pure straight-path
+unloadability engine, and one frozen CLI-only validation fixture. It is not a
+packing solver and remains hidden from the web UI.
+Synthetic semantic fixtures are tracked under `data/raw/level_08/`; generate
+large reproducible delivery inputs only when needed:
+
+```powershell
+.\.venv\Scripts\python.exe .\scripts\generate_level8_synthetic_data.py `
+  --profile config\level_08\synthetic\scale_1000_c80.yaml
+```
+
 Project thử nghiệm đa level/đa thuật toán. `level_01` chạy MILP, constructive heuristic, local search và metaheuristic với orientation cố định. `level_02` kế thừa Level 1 và thêm floor contact, tỷ lệ hỗ trợ đáy cùng hỗ trợ tâm đáy. Level 2 dùng MILP làm exact reference và dùng chung năm engine heuristic/metaheuristic với exact-support feasibility policy. Level 2 vẫn chưa mô hình hóa rotation, stackability, truyền tải, độ bền chịu tải hoặc ổn định vật lý đầy đủ.
 
 ## Web 3D R&D

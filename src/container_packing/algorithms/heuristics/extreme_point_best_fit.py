@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from typing import Any
+from math import isfinite
+from time import perf_counter
 
 from scipy.optimize import OptimizeResult
 
@@ -16,8 +18,11 @@ from .extreme_point_core import (
     constructive_search,
     item_sort_key,
     place_candidate,
+    resolved_item_order,
     selected_policy_allows,
 )
+from .candidate_scoring import CandidateScoringPolicy
+from .candidate_points import CandidatePointProvider
 from ...schemas import Container, Item, Placement, SolveResult
 
 
@@ -62,23 +67,48 @@ def best_fit_candidate_score(
 def pack_order_best_fit(
     items: list[Item], containers: tuple[Container, ...], tolerance: float, stats: SearchStats,
     policy: PlacementFeasibilityPolicy, *, orientation_provider: OrientationProvider | None = None,
+    candidate_scoring_policy: CandidateScoringPolicy | None = None,
+    candidate_point_provider: CandidatePointProvider | None = None,
 ) -> list[Placement] | None:
     """Place each item at the best feasible container/extreme-point candidate."""
     selected_provider = orientation_provider or fixed_orientation_provider()
     states = [ContainerState(container) for container in containers]
     for item in items:
+        if stats.time_limit_reached or (
+            stats.deadline_monotonic is not None and perf_counter() >= stats.deadline_monotonic
+        ):
+            stats.time_limit_reached = True
+            return None
         selected: tuple[tuple[float, ...], ContainerState, Placement] | None = None
         for container_rank, state in enumerate(states):
-            for point in sorted(state.extreme_points, key=lambda value: (value[2], value[1], value[0])):
+            if candidate_point_provider is None:
+                candidates_iter = (
+                    (point, dimensions)
+                    for point in sorted(state.extreme_points, key=lambda value: (value[2], value[1], value[0]))
+                    for dimensions in selected_provider.candidates(item)
+                )
+            else:
+                candidates_iter = (
+                    (point, dimensions)
+                    for dimensions in selected_provider.candidates(item)
+                    for point in candidate_point_provider.points(state, item, dimensions)
+                )
+            for point, dimensions in candidates_iter:
+                if stats.deadline_monotonic is not None and perf_counter() >= stats.deadline_monotonic:
+                    stats.time_limit_reached = True
+                    return None
                 stats.extreme_points_evaluated += 1
-                for dimensions in selected_provider.candidates(item):
-                    stats.orientation_candidates_evaluated += 1
-                    placement = candidate_placement(state, item, point, dimensions)
-                    if not selected_policy_allows(state, placement, tolerance, policy):
-                        continue
-                    candidate = best_fit_candidate_score(state, placement, container_rank)
-                    if selected is None or candidate < selected[0]:
-                        selected = candidate, state, placement
+                stats.orientation_candidates_evaluated += 1
+                placement = candidate_placement(state, item, point, dimensions)
+                if not selected_policy_allows(state, placement, tolerance, policy):
+                    continue
+                base_score = best_fit_candidate_score(state, placement, container_rank)
+                candidate = (
+                    base_score if candidate_scoring_policy is None else
+                    candidate_scoring_policy.score(state, placement, container_rank, base_score)
+                )
+                if selected is None or candidate < selected[0]:
+                    selected = candidate, state, placement
         if selected is None:
             return None
         place_candidate(selected[1], selected[2], tolerance)
@@ -89,6 +119,8 @@ def solve(
     items: list[Item], containers: list[Container], settings: dict[str, Any] | None = None,
     *, policy: PlacementFeasibilityPolicy | None = None,
     orientation_provider: OrientationProvider | None = None,
+    candidate_scoring_policy: CandidateScoringPolicy | None = None,
+    candidate_point_provider: CandidatePointProvider | None = None,
 ) -> AlgorithmOutcome:
     """Pack all items with deterministic Best Fit; FEASIBLE is not proof of optimality."""
     settings = settings or {}
@@ -98,18 +130,30 @@ def solve(
         raise ValueError("subset_enumeration_limit must be positive")
     selected_policy = policy or FixedOrientationFeasibilityPolicy()
     selected_orientation_provider = orientation_provider or fixed_orientation_provider()
-    ordered_items = sorted(items, key=item_sort_key)
+    deadline = settings.get("constructive_deadline_monotonic")
+    if deadline is not None and (not isinstance(deadline, (int, float)) or not isfinite(float(deadline))):
+        raise ValueError("constructive_deadline_monotonic must be a finite monotonic timestamp")
+    ordered_items = resolved_item_order(items, settings)
     def pack_order(items, containers, tolerance, stats, policy):
         return pack_order_best_fit(
             items, containers, tolerance, stats, policy,
             orientation_provider=selected_orientation_provider,
+            candidate_scoring_policy=candidate_scoring_policy,
+            candidate_point_provider=candidate_point_provider,
         )
     search = constructive_search(
         ordered_items, containers, tolerance, subset_limit, pack_order, selected_policy,
+        deadline_monotonic=None if deadline is None else float(deadline),
     )
 
     priority = 1.0 + sum(value.cost for value in containers)
-    if search.placements is None:
+    if search.time_limit_reached:
+        solve = SolveResult(
+            status="TIME_LIMIT",
+            message="Extreme-Point Best Fit stopped because its construction deadline was reached.",
+            objective_value=None, vector=None, raw_result=OptimizeResult(),
+        )
+    elif search.placements is None:
         solve = SolveResult(
             status="INFEASIBLE_HEURISTIC",
             message="Best-Fit heuristic found no complete packing; this is not a proof of infeasibility.",
@@ -146,8 +190,11 @@ def solve(
             "candidate_container_ids": [value.container_id for value in search.chosen_containers],
             "n_items": len(items),
             "n_containers": len(containers),
+            "construction_time_limit_reached": search.time_limit_reached,
             **selected_orientation_provider.metadata(),
             **selected_policy.metadata(),
+            **({} if candidate_scoring_policy is None else candidate_scoring_policy.metadata()),
+            **({} if candidate_point_provider is None else candidate_point_provider.metadata()),
         },
     )
 

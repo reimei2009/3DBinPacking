@@ -143,6 +143,59 @@ def test_named_suite_config_declares_a_level_specific_fair_protocol(root: Path):
     assert all("milp_big_m" not in scenario.algorithm_ids for scenario in suite.scenarios[1:])
 
 
+def test_level6_constructive_fixture_suite_uses_one_shared_declared_chain(root: Path):
+    suite = load_benchmark_suite(
+        root / "config/level_06/benchmarks/constructive_chain_fixture_local.yaml"
+    )
+
+    assert suite.level_id == "level_06"
+    assert suite.algorithms == (
+        "extreme_point_ffd_nesting_fixture",
+        "extreme_point_best_fit_nesting_fixture",
+    )
+    assert suite.seeds == (42,)
+    assert suite.repeats == 2
+    assert [scenario.scenario_id for scenario in suite.scenarios] == ["declared_chain_i3_c1"]
+
+
+def test_level6_constructive_fixture_benchmark_is_deterministic_and_writes_contract(
+    root: Path, tmp_path: Path
+):
+    suite = load_benchmark_suite(
+        root / "config/level_06/benchmarks/constructive_chain_fixture_local.yaml"
+    )
+    config = load_config(root / suite.config_path)
+    config["paths"]["processed_dir"] = str(tmp_path / "processed/level_06")
+    config["paths"]["manifest_json"] = str(tmp_path / "processed/level_06/latest_manifest.json")
+    config["paths"]["output_root"] = str(tmp_path / "outputs")
+    config_path = tmp_path / "level_06_chain_fixture.yaml"
+    config_path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
+
+    result = run_benchmark(
+        level_id=suite.level_id,
+        algorithm_ids=suite.algorithms,
+        item_counts=[3],
+        container_counts=[1],
+        repeats=suite.repeats,
+        seeds=suite.seeds,
+        config_path=config_path,
+        project_root=root,
+        scenarios=suite.scenarios,
+        suite_id=suite.suite_id,
+    )
+
+    assert result.successful
+    assert len(result.results) == 4
+    assert result.results["input_fingerprint"].nunique() == 1
+    assert result.results.groupby("algorithm")["placement_signature"].nunique().eq(1).all()
+    assert set(result.summary["algorithm"]) == set(suite.algorithms)
+    for run_dir in result.results["experiment_run_dir"]:
+        path = Path(run_dir)
+        assert (path / "solution/nesting_relations.csv").is_file()
+        assert (path / "solution/nesting_compounds.csv").is_file()
+        assert (path / "validation/compound_geometry_validation.json").is_file()
+
+
 def test_level2_suite_separates_exact_reference_and_heuristic_scale(root: Path):
     suite = load_benchmark_suite(root / "config/level_02/benchmarks/core_local.yaml")
     assert suite.level_id == "level_02"
@@ -336,6 +389,27 @@ def test_level5_portfolio_suite_declares_common_profiles_and_seed_sweep(root: Pa
     ]
     assert suite.scenarios[1].item_selection_strategy == "stable_random"
     assert suite.scenarios[1].item_selection_seed == 101
+
+
+def test_level7_acceptance_suites_separate_primary_and_comparator(root: Path):
+    primary = load_benchmark_suite(
+        root / "config/level_07/benchmarks/primary_best_fit_acceptance_local.yaml"
+    )
+    comparator = load_benchmark_suite(
+        root / "config/level_07/benchmarks/ffd_comparator_local.yaml"
+    )
+
+    assert primary.algorithms == ("extreme_point_best_fit_balance",)
+    assert primary.repeats == 2
+    assert comparator.algorithms == ("extreme_point_ffd_balance",)
+    assert comparator.repeats == 1
+    assert [value.scenario_id for value in primary.scenarios] == [
+        value.scenario_id for value in comparator.scenarios
+    ]
+    assert len(primary.scenarios) == 6
+    assert [value.item_selection_seed for value in primary.scenarios[-3:]] == [
+        101, 202, 303,
+    ]
 
 
 def test_level4_portfolio_algorithms_share_one_frozen_input(root: Path, tmp_path: Path):

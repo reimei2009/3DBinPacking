@@ -1,0 +1,69 @@
+# Level 7 experimental data contract. The profile is a final independent
+# validation rule and a construction tie-break; it is not vehicle certification.
+contract_version: 1
+level_id: level_07
+status: data_contract_only
+data_status: synthetic_research_profile_not_transport_certification
+
+fields:
+  weight_kg:
+    canonical_type: positive_number
+    owner: inherited_item_schema
+    meaning: item_mass_used_for_center_of_mass
+    unit: kg
+    status: inherited_active_when_level_07_runtime_is_enabled
+  target_longitudinal_ratio:
+    canonical_type: finite_number_in_closed_interval_0_1
+    meaning: target_x_center_of_mass_divided_by_container_length
+    status: declared_by_balance_profile
+  target_lateral_ratio:
+    canonical_type: finite_number_in_closed_interval_0_1
+    meaning: target_y_center_of_mass_divided_by_container_width
+    status: declared_by_balance_profile
+  max_longitudinal_offset_ratio:
+    canonical_type: finite_number_in_closed_interval_0_0_5
+    meaning: maximum_absolute_x_center_of_mass_offset_divided_by_container_length
+    status: declared_by_balance_profile
+  max_lateral_offset_ratio:
+    canonical_type: finite_number_in_closed_interval_0_0_5
+    meaning: maximum_absolute_y_center_of_mass_offset_divided_by_container_width
+    status: declared_by_balance_profile
+  balance_profile_source:
+    canonical_type: non_empty_string
+    meaning: provenance_of_target_and_tolerance_values
+    status: declared_by_balance_profile
+
+balance_profile:
+  mode: symmetric_center_band_v1
+  target_longitudinal_ratio: 0.5
+  target_lateral_ratio: 0.5
+  max_longitudinal_offset_ratio: 0.15
+  max_lateral_offset_ratio: 0.15
+  balance_profile_source: synthetic_symmetric_center_band_v1
+  # List form is intentional: validation rejects duplicate and unknown IDs.
+  # Each override may replace any target/tolerance and its provenance.
+  overrides: []
+
+center_of_mass:
+  model_id: mass_weighted_item_geometric_center_v1
+  longitudinal_axis: x
+  lateral_axis: y
+  vertical_axis: z
+  target_constraint: |
+    abs(X_cg / L_k - target_longitudinal_ratio_k)
+      <= max_longitudinal_offset_ratio_k
+    abs(Y_cg / W_k - target_lateral_ratio_k)
+      <= max_lateral_offset_ratio_k
+  vertical_center_of_mass: report_only_not_constrained
+
+output:
+  item_table: center_of_mass.csv
+  validation_document: balance_validation.json
+
+inactive_constraints:
+  - floor_zone_load_limits
+  - door_clearance
+  - axle_load_limits
+  - dynamic_transport_load
+  - rollover_stability
+  - moment_and_suspension_model

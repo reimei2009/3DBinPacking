@@ -1,0 +1,47 @@
+# Manual only: create scale_300_c25 data first. Do not run in pytest.
+suite_id: level_08_delivery_acceptance_manual_v1
+level_id: level_08
+description: >
+  Compare config-driven delivery-aware Best Fit and FFD with identical declared
+  priority/stop metadata. Successful runs require independent Level 1–8 validation.
+config: config/level_08/experiments/synthetic_delivery_300_local.yaml
+environment: local
+algorithms:
+  - extreme_point_best_fit_delivery
+  - extreme_point_ffd_delivery
+seeds: [42]
+repeats: 1
+scenarios:
+  - scenario_id: smoke_prefix_i20_c5_three_stops
+    item_count: 20
+    container_count: 5
+    item_selection: prefix
+    tags: [smoke, delivery, three_stops]
+  - scenario_id: practical_prefix_i100_c10_five_stops
+    item_count: 100
+    container_count: 10
+    item_selection: prefix
+    tags: [manual, practical, delivery]
+  - scenario_id: practical_prefix_i300_c25_ten_stops
+    item_count: 300
+    container_count: 25
+    item_selection: prefix
+    tags: [manual, scale, delivery]
+  - scenario_id: random_101_i300_c25_ten_stops
+    item_count: 300
+    container_count: 25
+    item_selection: stable_random
+    selection_seed: 101
+    tags: [manual, scale, stable_random, delivery]
+  - scenario_id: random_202_i300_c25_ten_stops
+    item_count: 300
+    container_count: 25
+    item_selection: stable_random
+    selection_seed: 202
+    tags: [manual, scale, stable_random, delivery]
+  - scenario_id: random_303_i300_c25_ten_stops
+    item_count: 300
+    container_count: 25
+    item_selection: stable_random
+    selection_seed: 303
+    tags: [manual, scale, stable_random, delivery]

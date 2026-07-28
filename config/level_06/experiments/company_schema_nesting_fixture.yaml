@@ -1,0 +1,13 @@
+# End-to-end adapter fixture; synthetic company-style CSV, not company data.
+extends: ../experimental.yaml
+instance:
+  item_count: 4
+  container_count: 1
+  item_selection_strategy: prefix
+paths:
+  raw_items_csv: data/raw/level_06/company_schema_nesting_fixture_items.csv
+  items_source_mapping: config/common/data_sources/level_06_company_schema_nesting_fixture.yaml
+  processed_dir: data/processed/level_06/company_schema_nesting_fixture
+  manifest_json: data/processed/level_06/company_schema_nesting_fixture/latest_manifest.json
+containers:
+  - {container_id: C1, length_mm: 240, width_mm: 180, height_mm: 300, max_weight_kg: 500, cost: 100, availability: 1}

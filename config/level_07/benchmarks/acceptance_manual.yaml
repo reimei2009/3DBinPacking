@@ -1,0 +1,47 @@
+# Manual Level 7 scale acceptance protocol. Do not run automatically in pytest.
+suite_id: level_07_hybrid_balance_acceptance_manual_v1
+level_id: level_07
+description: >
+  Compare the dynamic FFD and Best Fit balance pipelines on frozen input profiles.
+  A completed run must be independently assessed with assess_level7_acceptance.py.
+config: config/level_07/default.yaml
+environment: local
+algorithms:
+  - extreme_point_ffd_balance
+  - extreme_point_best_fit_balance
+seeds: [42]
+repeats: 1
+scenarios:
+  - scenario_id: smoke_prefix_i20_c5
+    item_count: 20
+    container_count: 5
+    item_selection: prefix
+    tags: [smoke, balance]
+  - scenario_id: practical_prefix_i100_c10
+    item_count: 100
+    container_count: 10
+    item_selection: prefix
+    tags: [manual, practical, balance]
+  - scenario_id: practical_prefix_i300_c25
+    item_count: 300
+    container_count: 25
+    item_selection: prefix
+    tags: [manual, scale, balance]
+  - scenario_id: random_101_i300_c25
+    item_count: 300
+    container_count: 25
+    item_selection: stable_random
+    selection_seed: 101
+    tags: [manual, scale, stable_random, balance]
+  - scenario_id: random_202_i300_c25
+    item_count: 300
+    container_count: 25
+    item_selection: stable_random
+    selection_seed: 202
+    tags: [manual, scale, stable_random, balance]
+  - scenario_id: random_303_i300_c25
+    item_count: 300
+    container_count: 25
+    item_selection: stable_random
+    selection_seed: 303
+    tags: [manual, scale, stable_random, balance]

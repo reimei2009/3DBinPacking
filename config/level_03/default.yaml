@@ -17,3 +17,6 @@ orientation:
   profile: horizontal_rotatable
   data_status: synthetic_orientation_profile
   allowed_codes: [XYZ, YXZ]
+solver:
+  # Exact orientation/support reference only; practical runs use heuristics.
+  orientation_reference_max_items: 5

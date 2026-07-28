@@ -1,0 +1,6 @@
+extends: delivery_three_stop_multi_container_baseline_fixture.yaml
+project:
+  algorithm_id: extreme_point_best_fit_delivery_aware_fixture
+paths:
+  processed_dir: data/processed/level_08/delivery_three_stop_multi_container_aware
+  manifest_json: data/processed/level_08/delivery_three_stop_multi_container_aware/latest_manifest.json

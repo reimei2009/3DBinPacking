@@ -1,0 +1,19 @@
+adapter_id: csv_column_mapping_v1
+source_id: synthetic_level_06_declared_nesting_chain_fixture_v1
+columns:
+  id_item: [sku]
+  length: [length_client_mm]
+  width: [width_client_mm]
+  height: [height_client_mm]
+  weight: [mass_client_kg]
+  nesting_group_id: [nest_group]
+  nesting_role: [nest_role]
+  inner_length_mm: [inside_l]
+  inner_width_mm: [inside_w]
+  inner_height_mm: [inside_h]
+  max_nesting_depth: [nest_depth]
+  nesting_increment_height_mm: [nest_increment]
+nesting:
+  semantics: incremental_height_of_item
+  data_source: synthetic_level_06_declared_nesting_chain_fixture_v1
+extra_columns: preserve

@@ -42,7 +42,6 @@ def validate_solution(
     weight_tolerance: float = 1e-6,
 ) -> Level04Validation:
     """Validate stack declarations independently of any future Level 4 solver."""
-    settings = StackabilitySettings.from_config(stackability_config)
     support = validate_level3_solution(
         items,
         containers,
@@ -52,10 +51,33 @@ def validate_solution(
         coordinate_tolerance=coordinate_tolerance,
         weight_tolerance=weight_tolerance,
     )
-    issues = list(support.result.issues)
+    return validate_stack_graph(
+        items, placements, parent_relations, stackability_config,
+        support_validation=support, support_epsilon_mm=support_epsilon_mm,
+    )
+
+
+def validate_stack_graph(
+    items: list[Item],
+    placements: list[Placement],
+    parent_relations: list[StackParentRelation],
+    stackability_config: dict[str, Any],
+    *,
+    support_validation: Any,
+    support_epsilon_mm: float = 1e-4,
+) -> Level04Validation:
+    """Validate only stackability using independently supplied support evidence.
+
+    This lets a future level supply an alternative external geometry projection
+    without duplicating or silently reverting to raw-item support checks.
+    """
+    settings = StackabilitySettings.from_config(stackability_config)
+    issues = list(support_validation.result.issues)
     attributes = {item.item_id: attributes_for_item(item, settings) for item in items}
     placement_by_id = {placement.item_id: placement for placement in placements}
-    support_by_item = {record.item_id: record for record in support.support_records}
+    support_by_item = {
+        record.item_id: record for record in support_validation.support_records
+    }
     parents: dict[str, StackParentRelation] = {}
 
     for relation in parent_relations:
@@ -107,7 +129,7 @@ def validate_solution(
 
     _append_cycle_issues(parents, issues)
     records = _stack_records(placement_by_id, parents, attributes, issues)
-    return Level04Validation(ValidationResult(valid=not issues, issues=issues), support, tuple(records))
+    return Level04Validation(ValidationResult(valid=not issues, issues=issues), support_validation, tuple(records))
 
 
 def _validate_relation(relation, parent, child, attributes, support_by_item, issues, epsilon: float) -> None:

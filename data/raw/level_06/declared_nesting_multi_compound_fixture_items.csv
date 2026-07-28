@@ -1,0 +1,5 @@
+sku,length_client_mm,width_client_mm,height_client_mm,mass_client_kg,stack_code,max_layers,nest_group,nest_role,inside_l,inside_w,inside_h,nest_depth,nest_increment,fixture_note
+ROOT-001,240,180,120,120,A,3,G1,host,220,160,110,2,,declared root host for external compound support fixture
+MIDDLE-001,210,150,100,100,A,3,G1,both,190,140,90,2,25,declared intermediate host and child
+CHILD-001,180,130,80,80,A,3,G1,child,,,,,20,declared leaf child
+TOP-001,150,160,80,50,A,3,,none,,,,,,independent external compound forced above root

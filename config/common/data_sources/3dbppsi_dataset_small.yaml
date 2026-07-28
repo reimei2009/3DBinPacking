@@ -1,0 +1,17 @@
+# Canonical mapping for the bundled public 3DBPPsi sample.
+adapter_id: csv_column_mapping_v1
+source_id: public_3dbppsi_dataset_small
+columns:
+  id_item: [id_item]
+  length: [length]
+  width: [width]
+  height: [height]
+  weight: [weight]
+  nesting_height: [nesting_height]
+  stackability_code: [stackability_code]
+  forced_orientation: [forced_orientation]
+  max_stackability: [max_stackability]
+nesting:
+  semantics: undeclared
+  data_source: public_3dbppsi_preserved_inactive
+extra_columns: preserve

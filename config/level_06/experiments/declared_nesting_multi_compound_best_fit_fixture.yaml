@@ -1,0 +1,4 @@
+# Best-Fit comparator over the same multi-compound semantic fixture.
+extends: declared_nesting_multi_compound_fixture.yaml
+project:
+  algorithm_id: extreme_point_best_fit_nesting_fixture

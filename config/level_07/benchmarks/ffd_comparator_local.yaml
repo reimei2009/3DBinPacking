@@ -1,0 +1,45 @@
+suite_id: level_07_ffd_comparator_v1
+level_id: level_07
+description: >
+  Fast-comparator characterization. Invalid profiles are recorded honestly but
+  do not block promotion of the Best Fit primary solver.
+config: config/level_07/default.yaml
+environment: local
+algorithms:
+  - extreme_point_ffd_balance
+seeds: [42]
+repeats: 1
+scenarios:
+  - scenario_id: smoke_prefix_i20_c5
+    item_count: 20
+    container_count: 5
+    item_selection: prefix
+    tags: [smoke, comparator]
+  - scenario_id: practical_prefix_i100_c10
+    item_count: 100
+    container_count: 10
+    item_selection: prefix
+    tags: [practical, comparator]
+  - scenario_id: practical_prefix_i300_c25
+    item_count: 300
+    container_count: 25
+    item_selection: prefix
+    tags: [scale, comparator]
+  - scenario_id: random_101_i300_c25
+    item_count: 300
+    container_count: 25
+    item_selection: stable_random
+    selection_seed: 101
+    tags: [scale, stable_random, comparator]
+  - scenario_id: random_202_i300_c25
+    item_count: 300
+    container_count: 25
+    item_selection: stable_random
+    selection_seed: 202
+    tags: [scale, stable_random, comparator]
+  - scenario_id: random_303_i300_c25
+    item_count: 300
+    container_count: 25
+    item_selection: stable_random
+    selection_seed: 303
+    tags: [scale, stable_random, comparator]

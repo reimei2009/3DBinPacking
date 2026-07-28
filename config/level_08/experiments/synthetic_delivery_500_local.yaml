@@ -1,0 +1,9 @@
+extends: synthetic_delivery_300_local.yaml
+instance:
+  item_count: 500
+  container_count: 50
+paths:
+  raw_items_csv: data/raw/level_08/generated/level_08_scale_500_c50_items.csv
+  raw_containers_csv: data/raw/level_08/generated/level_08_scale_500_c50_containers.csv
+  processed_dir: data/processed/level_08/synthetic_delivery_500
+  manifest_json: data/processed/level_08/synthetic_delivery_500/latest_manifest.json

@@ -1,0 +1,3 @@
+id_item,length,width,height,weight,nesting_height,stackability_code,forced_orientation,max_stackability
+MC-ONE,200,200,100,100,0,A,XYZ,3
+MC-TWO,200,200,100,80,0,A,XYZ,3

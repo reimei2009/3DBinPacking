@@ -38,3 +38,8 @@ data/processed/**
 !data/processed/**/
 !data/processed/**/.gitkeep
 !data/processed/**/README.md
+
+# Large Level 8 synthetic inputs are reproducibly generated from tracked YAML.
+data/raw/level_08/generated/**
+!data/raw/level_08/generated/
+!data/raw/level_08/generated/.gitkeep

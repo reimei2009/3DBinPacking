@@ -2,6 +2,164 @@
 
 ## Unreleased
 
+- Enforced the Level 8 delivery pipeline deadline across construction and
+  repair. Extreme-Point Best Fit/FFD stop at the shared monotonic deadline;
+  construction timeout returns `TIME_LIMIT`, no comparable objective, and no
+  hidden repair phase.
+
+- Replaced Level 8 full priority-order reconstruction with bounded local
+  delivery repair. It uses blocker contributors, relocation, transfer, swap,
+  and support-closure moves under one real pipeline deadline; invalid results
+  continue to suppress comparable objectives.
+
+- Promoted Level 8 to a CLI-only config-driven experimental runtime with
+  delivery-aware Best Fit as primary and FFD as a first-fit comparator. Each
+  run now persists delivery priority/stop distributions with the independent
+  Level 1–8 validation bundle.
+
+- Added the final controlled Level 8 three-stop/two-container acceptance
+  fixture. It proves deterministic delivery-aware Best Fit and FFD evidence
+  against an intentionally LIFO-invalid baseline without opening arbitrary
+  input support or changing the optimization objective.
+
+- Added a CLI-only Level 8 delivery-aware FFD fixture. It retains first-fit
+  container selection and ranks only feasible candidate positions inside that
+  first container by prospective direct rehandles/LIFO blockers.
+
+- Added a Level 8 CLI-only multi-container FFD negative control. It records
+  canonical first-feasible-container behavior when a later container would
+  avoid a LIFO violation, before any delivery-aware FFD policy is introduced.
+
+- Added a deterministic Level 8 two-stop/two-container Best Fit fixture. It
+  verifies isolated per-container COG/LIFO evidence and delivery-aware A/B
+  behavior before any arbitrary-instance or FFD expansion.
+
+- Added CLI-only Level 8 Best Fit delivery/LIFO A/B fixtures. The aware
+  candidate tie-break reduces prospective direct rehandles only after the
+  existing container-count/cost priorities and inherited hard constraints;
+  the ordinary Best Fit baseline is retained as expected-invalid evidence.
+
+- Registered the Level 8 CLI-only composed validation fixture. It validates the
+  inherited Level 1--7 bundle and static delivery/LIFO evidence in one isolated
+  run, without a packing solver or Streamlit exposure.
+
+- Preserved the best inherited-feasible placement between Level 7 local repair,
+  adaptive LNS and controlled rescue instead of restarting each phase from the
+  compact baseline. Phase-by-phase COG violations are now explicit metadata.
+- Split Level 7 scale acceptance into a deterministic two-repeat Best Fit
+  primary suite and a one-repeat FFD comparator suite, with an artifact-only
+  baseline report builder and explicit promotion gates.
+- Added artifact-only Level 7 scale-failure diagnosis with per-axis excess,
+  mass-shift direction, contributor evidence, and repair-operator
+  classification.
+- Changed Level 7 LNS neighborhood selection to prioritize compound support
+  closures by directional mass-moment contribution on the violated COG axis.
+- Added adaptive Level 7 LNS neighborhoods, duplicate-candidate suppression,
+  a 45-second total pipeline budget, controlled one-container rescue and a
+  bounded consolidation pass with explicit outcome classes.
+
+- Promoted Level 7 to an experimental dynamic balance runtime in Streamlit and
+  CLI. Balance-aware Best Fit and First Fit now accept configured item/container
+  counts and selection profiles, while frozen A/B fixture algorithms remain
+  CLI-only regression evidence. The primary objective is unchanged; COG is a
+  construction tie-break and final independent validation.
+
+- Reworked dynamic Level 7 construction into a two-stage pipeline: compact
+  Level 6-style baseline first, then bounded fixed-container balance repair.
+  Invalid candidates now suppress the comparable objective value.
+
+- Replaced Level 7's repeated full-solution rebuild repair with a deadline-aware
+  local COG engine. It caches per-container mass/moments, targets high-impact
+  compound roots, preserves support closures, evaluates relocation/swap/partial
+  repack candidates, and only then permits one extra container.
+
+- Added the Level 7 hybrid balance-repair stage: after the compact baseline and
+  a short local phase, deterministic LNS destroys and re-packs only a bounded
+  neighborhood in the most unbalanced containers and one donor. The default
+  time budget is now 8 seconds local, 17 seconds LNS, then 5 seconds for the
+  optional extra-container fallback.
+
+- Added Level 7 manual scale-acceptance protocol, isolated acceptance assessor,
+  and explicit strict versus one-extra-container execution profiles.
+
+- Added the Level 8 explicit delivery-priority/stop data contract, configurable
+  straight-path LIFO geometry primitives, semantic CSV fixture, and deterministic
+  synthetic-data profiles up to 5000 items / 200 containers. Level 8 has no
+  registered runtime, solver, changed objective, or generated benchmark in this
+  checkpoint.
+
+- Added an independent Level 8 static unload/LIFO validator and isolated
+  fixture-evidence writer for accessibility, direct rehandles, and validation
+  artifacts; Level 8 remains unregistered and solver-free.
+
+- Added CLI-only Level 7 First-Fit balance A/B fixtures. The COG-aware variant
+  retains the first feasible container and applies prospective COG ranking only
+  to candidates inside that container; canonical FFD remains unchanged for
+  Levels 1â€“6 and for the Level 7 baseline comparator.
+
+- Recorded the Level 7 three-profile balance-scoring acceptance baseline:
+  left-heavy discriminator, right-heavy direction check, and symmetric bias check.
+
+- Added right-heavy and symmetric Level 7 balance acceptance profiles to verify
+  that prospective COG scoring reverses direction correctly and does not add a
+  needless bias when geometry and mass are symmetric.
+
+- Added a CLI-only Level 7 canonical Best Fit baseline comparator on the balance
+  discriminator fixture, establishing A/B evidence for prospective COG scoring.
+
+- Added the CLI-only Level 7 experimental balance-aware Extreme Point Best Fit
+  fixture. It uses prospective center-of-mass scoring solely as a constructive
+  tie-break and requires independent final balance validation.
+
+- Registered Level 7 as a CLI-only frozen acceptance fixture for compound-root
+  center-of-mass and balance validation. It returns `VALIDATION_ONLY`, writes
+  isolated evidence, supports independent re-validation, and is hidden from
+  Streamlit; it does not add a practical solver or objective.
+
+- Added Level 7's inactive, versioned container center-of-mass and horizontal
+  balance data contract. It includes explicit target/tolerance provenance and
+  per-container overrides but does not register a runtime or change Levels 1–6.
+- Added a pure Level 7 mass-weighted center-of-mass engine and independent
+  balance validator for synthetic fixtures; neither is connected to a solver
+  or runtime yet.
+- Added a fixture-only Level 7 composition bundle that appends independent COG
+  evidence to the inherited Level 6 compound support, stackability, and
+  load-transfer evidence.
+- Added an isolated Level 7 fixture output writer for COG/balance evidence and
+  a frozen CLI-only candidate contract with completed manual-review provenance.
+- Added the Level 6 experimental compound-root Hill Climbing and Simulated
+  Annealing portfolio. Both keep deterministic nesting relations immutable and
+  search only over compound roots; FFD remains the experimental default.
+- Added a configurable CSV source adapter and the Level 6 explicit nesting
+  data contract; nesting remains inactive until declared compatibility data and
+  a future runtime integration are implemented.
+- Added the Level 6 pure explicit-nesting chain/effective-height engine and
+  independent relation validator; no Level 6 solver or geometry relaxation is
+  active.
+- Added fixture-only composition of Level 5 and Level 6 nesting validation,
+  including isolated nesting relation/height artifacts through the shared writer.
+- Defined the inactive Level 6 compound nesting projection contract for future
+  geometry, support, stackability, and external load-transfer composition.
+- Added an independent Level 6 compound geometry fixture validator for projected
+  bounds, non-overlap, exact support, and base-center support.
+- Switched the Level 6 fixture bundle to compound geometry/support and compound
+  stackability/load-transfer validation without activating a solver runtime.
+- Added deterministic fixture-only Level 6 nesting relation construction using
+  explicit metadata, best-fit host ranking, and canonical chain validation;
+  no nesting-aware solver is active yet.
+- Added a fixture-only nesting-aware FFD adapter that packs compound roots then
+  validates expanded logical members through independent compound validation.
+- Added a fixture-only Level 6 compound candidate policy that reuses Level 5
+  exact support, stackability and load-bearing checks during FFD construction.
+- Added an isolated Level 6 fixture FFD output writer with compound-validation
+  artifacts and nesting-construction provenance; no Level 6 CLI/UI exists.
+- Frozen a typed Level 6 runtime-candidate contract, isolated output schema and
+  deterministic acceptance fixture gate before any registry/CLI/UI promotion.
+- Registered the single Level 6 compound-root FFD candidate as experimental,
+  with no practical default, additional solver portfolio, or large benchmark.
+- Added a tracked Level 6 explicit host-child CSV fixture, source mapping and
+  small experiment config for observable nesting acceptance evidence.
+
 - Activated the isolated Level 5 runtime with Extreme Point Best Fit, recursive
   contact-area load transfer, candidate load-bearing feasibility, and final
   independent validation.

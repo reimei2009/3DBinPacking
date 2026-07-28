@@ -1,0 +1,7 @@
+extends: balance_aware_best_fit_fixture.yaml
+paths:
+  raw_items_csv: data/raw/level_07/balance_symmetric_items.csv
+  processed_dir: data/processed/level_07/balance_symmetric_fixture
+  manifest_json: data/processed/level_07/balance_symmetric_fixture/latest_manifest.json
+fixture:
+  fixture_id: balance_symmetric_v1

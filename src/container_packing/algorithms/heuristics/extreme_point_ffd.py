@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 from typing import Any
+from math import isfinite
 
 from scipy.optimize import OptimizeResult
 
 from ..contracts import AlgorithmOutcome
 from ..feasibility import FixedOrientationFeasibilityPolicy, PlacementFeasibilityPolicy
 from ..orientation import OrientationProvider, fixed_orientation_provider
-from .extreme_point_core import constructive_search, item_sort_key, pack_order_first_fit
+from .extreme_point_core import constructive_search, pack_order_first_fit, resolved_item_order
+from .first_fit_selection import FirstFitCandidateSelectionPolicy
+from .candidate_points import CandidatePointProvider
 from ...schemas import Container, Item, SolveResult
 
 
@@ -17,6 +20,8 @@ def solve(
     items: list[Item], containers: list[Container], settings: dict[str, Any] | None = None,
     *, policy: PlacementFeasibilityPolicy | None = None,
     orientation_provider: OrientationProvider | None = None,
+    candidate_selection_policy: FirstFitCandidateSelectionPolicy | None = None,
+    candidate_point_provider: CandidatePointProvider | None = None,
 ) -> AlgorithmOutcome:
     """Pack all items with an explicit orientation provider; not globally optimal."""
     settings = settings or {}
@@ -26,18 +31,30 @@ def solve(
         raise ValueError("subset_enumeration_limit must be positive")
     selected_policy = policy or FixedOrientationFeasibilityPolicy()
     selected_orientation_provider = orientation_provider or fixed_orientation_provider()
-    ordered_items = sorted(items, key=item_sort_key)
+    deadline = settings.get("constructive_deadline_monotonic")
+    if deadline is not None and (not isinstance(deadline, (int, float)) or not isfinite(float(deadline))):
+        raise ValueError("constructive_deadline_monotonic must be a finite monotonic timestamp")
+    ordered_items = resolved_item_order(items, settings)
     def pack_order(items, containers, tolerance, stats, policy):
         return pack_order_first_fit(
             items, containers, tolerance, stats, policy,
             orientation_provider=selected_orientation_provider,
+            candidate_selection_policy=candidate_selection_policy,
+            candidate_point_provider=candidate_point_provider,
         )
     search = constructive_search(
         ordered_items, containers, tolerance, subset_limit, pack_order, selected_policy,
+        deadline_monotonic=None if deadline is None else float(deadline),
     )
 
     priority = 1.0 + sum(value.cost for value in containers)
-    if search.placements is None:
+    if search.time_limit_reached:
+        solve = SolveResult(
+            status="TIME_LIMIT",
+            message="Extreme-Point FFD stopped because its construction deadline was reached.",
+            objective_value=None, vector=None, raw_result=OptimizeResult(),
+        )
+    elif search.placements is None:
         solve = SolveResult(
             status="INFEASIBLE_HEURISTIC",
             message="Heuristic found no complete packing; this is not a proof of infeasibility.",
@@ -70,8 +87,11 @@ def solve(
             "candidate_container_ids": [value.container_id for value in search.chosen_containers],
             "n_items": len(items),
             "n_containers": len(containers),
+            "construction_time_limit_reached": search.time_limit_reached,
             **selected_orientation_provider.metadata(),
             **selected_policy.metadata(),
+            **({} if candidate_selection_policy is None else candidate_selection_policy.metadata()),
+            **({} if candidate_point_provider is None else candidate_point_provider.metadata()),
         },
     )
 

@@ -1,0 +1,51 @@
+# Controlled contract for the registered experimental Level 6 portfolio.
+extends: default.yaml
+runtime_candidate:
+  contract_version: 2
+  status: experimental_registered_not_default
+  algorithm_id: extreme_point_ffd_nesting_fixture
+  supported_algorithm_ids:
+    - extreme_point_ffd_nesting_fixture
+    - extreme_point_best_fit_nesting_fixture
+    - extreme_point_hill_climbing_nesting_fixture
+    - extreme_point_simulated_annealing_nesting_fixture
+  entry_point: container_packing.levels.level_06_ffd_adapter.solve_nesting_aware_ffd_fixture
+  orientation_mode: fixed_xyz_only
+  construction_policy: explicit_nesting_best_fit_chain_v1
+  feasibility_policy: level_06_compound_geometry_payload_exact_support_stackability_load_bearing
+  validator: compound_root_effective_envelope_geometry_v1
+  output:
+    run_path: outputs/level_06/runs/<run_id>
+    required_solution_tables:
+      - nesting_relations.csv
+      - nesting_height.csv
+      - nesting_compounds.csv
+      - compound_support.csv
+      - stacks.csv
+      - load_bearing.csv
+      - load_transfer.csv
+    required_validation_documents:
+      - nesting_validation.json
+      - compound_geometry_validation.json
+      - stack_validation.json
+      - load_bearing_validation.json
+    required_metadata:
+      - fixture_adapter
+      - nesting_construction_policy
+      - feasibility_policy
+      - compound_validation_status
+      - compound_relation_graph_mode
+      - compound_search_item_count
+  acceptance_fixture:
+    fixture_id: declared_multi_compound_chain_and_top_v1
+    expected_status: FEASIBLE
+    expected_validation_status: VALID
+    expected_compound_count: 2
+    expected_relation_count: 2
+    deterministic_repeats: 2
+  promotion_gates:
+    - independent_compound_validation_valid
+    - output_contract_complete
+    - deterministic_fixture_signature
+    - level_01_to_level_05_regression_passes
+    - fixed_relation_graph_deterministic_portfolio

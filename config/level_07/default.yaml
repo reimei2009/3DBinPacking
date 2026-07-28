@@ -1,0 +1,54 @@
+# Generic Level 7 experimental runtime. Explicit nesting remains optional: if
+# metadata is undeclared, every item is a separate compound root.
+extends: ../level_06/experimental.yaml
+project:
+  level_id: level_07
+  algorithm_id: extreme_point_best_fit_balance
+  random_seed: 42
+instance:
+  item_count: 20
+  container_count: 5
+  item_selection_strategy: prefix
+  item_selection_seed: null
+paths:
+  processed_dir: data/processed/level_07
+  manifest_json: data/processed/level_07/latest_manifest.json
+model:
+  enforce_nesting: true
+  enforce_balance: true
+balance_pipeline_time_limit_seconds: 45
+balance:
+  rules_file: config/level_07/balance_rules.yaml
+algorithms:
+  extreme_point_best_fit_balance:
+    subset_enumeration_limit: 12
+    balance_repair_time_limit_seconds: 45
+    balance_repair_fixed_subset_seconds: 10
+    balance_repair_lns_seconds: 30
+    balance_repair_extra_container_seconds: 5
+    balance_repair_max_candidates: 4096
+    balance_repair_contributor_limit: 12
+    balance_repair_max_extra_containers: 1
+    balance_repair_lns_max_candidates: 8192
+    balance_repair_lns_neighborhood_size: 8
+    balance_repair_lns_neighborhood_sizes: [4, 8, 12]
+    balance_repair_lns_affected_container_limit: 3
+    balance_repair_lns_max_rounds: 3
+    balance_repair_extra_max_candidates: 8192
+    balance_repair_consolidation_seconds: 2
+  extreme_point_ffd_balance:
+    subset_enumeration_limit: 12
+    balance_repair_time_limit_seconds: 45
+    balance_repair_fixed_subset_seconds: 10
+    balance_repair_lns_seconds: 30
+    balance_repair_extra_container_seconds: 5
+    balance_repair_max_candidates: 4096
+    balance_repair_contributor_limit: 12
+    balance_repair_max_extra_containers: 1
+    balance_repair_lns_max_candidates: 8192
+    balance_repair_lns_neighborhood_size: 8
+    balance_repair_lns_neighborhood_sizes: [4, 8, 12]
+    balance_repair_lns_affected_container_limit: 3
+    balance_repair_lns_max_rounds: 3
+    balance_repair_extra_max_candidates: 8192
+    balance_repair_consolidation_seconds: 2

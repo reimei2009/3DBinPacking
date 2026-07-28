@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 from ..experiments.contracts import (
@@ -12,7 +13,7 @@ from ..experiments.contracts import (
     MathematicalExpression,
     VariableDefinition,
 )
-from . import level_01, level_02, level_03, level_04, level_05
+from . import level_01, level_02, level_03, level_04, level_05, level_06, level_07, level_08
 
 _LEVELS = {
     "level_01": LevelDefinition(
@@ -187,6 +188,110 @@ _LEVELS = {
 }
 
 
+# Level 5 is registered later in this declarative module. The Level 6 entry is
+# completed from that contract after all prior levels have been constructed.
+_LEVEL_05_CONTRACT = _LEVELS["level_01"].contract
+_LEVELS["level_06"] = LevelDefinition(
+    level_id="level_06",
+    description="Experimental explicit nesting through deterministic compound-root constructive heuristics",
+    default_config=Path("config/level_06/experimental.yaml"),
+    supported_algorithms=(
+        "extreme_point_ffd_nesting_fixture",
+        "extreme_point_best_fit_nesting_fixture",
+        "extreme_point_hill_climbing_nesting_fixture",
+        "extreme_point_simulated_annealing_nesting_fixture",
+    ),
+    run=level_06.run,
+    prepare=level_06.prepare,
+    validate_run=level_06.validate_run,
+    contract=LevelContract(
+        title=LocalizedText(
+            vi="Level 6 — Nesting tường minh (thử nghiệm)",
+            en="Level 6 — Explicit nesting (experimental)",
+        ),
+        problem=LocalizedText(
+            vi="Xếp compound root tạo từ các quan hệ host–child đã khai báo rõ; child là logical member.",
+            en="Pack compound roots formed from explicit host-child relations; children are logical members.",
+        ),
+        notation=_LEVEL_05_CONTRACT.notation + (
+            MathematicalExpression(
+                "nesting_relation",
+                LocalizedText(vi="Quan hệ lồng", en="Nesting relation"),
+                r"n_{hi}=1\Longleftrightarrow i\text{ is nested in host }h",
+                LocalizedText(
+                    vi="Quan hệ chỉ được tạo khi metadata compatibility, kích thước trong và depth hợp lệ.",
+                    en="A relation exists only with compatible metadata, inner dimensions and valid depth.",
+                ),
+                "src/container_packing/levels/nesting_construction.py::construct_nesting_relations",
+            ),
+        ),
+        objective=_LEVEL_05_CONTRACT.objective,
+        variables=_LEVEL_05_CONTRACT.variables + (
+            VariableDefinition(
+                "n[h,i]",
+                r"n_{hi}\in\{0,1\}",
+                LocalizedText(vi="Quan hệ rời rạc suy ra", en="Derived discrete relation"),
+                LocalizedText(vi="host h, child i", en="host h, child i"),
+                LocalizedText(
+                    vi="Biểu diễn child i là thành viên logical của host h trong compound.",
+                    en="Represents child i as a logical member of host h's compound.",
+                ),
+                "src/container_packing/levels/nesting_engine.py::NestingRelation",
+            ),
+        ),
+        active_constraints=_LEVEL_05_CONTRACT.active_constraints + (
+            ConstraintDefinition(
+                "explicit_nesting_compatibility",
+                LocalizedText(vi="Tương thích lồng tường minh", en="Explicit nesting compatibility"),
+                r"n_{hi}=1\Rightarrow g_h=g_i,\;d_i\preceq d_h^{inner},\;\operatorname{depth}(i)\le D_h",
+                LocalizedText(
+                    vi="Group, role, kích thước trong và giới hạn depth phải hợp lệ trước khi tạo compound.",
+                    en="Group, role, inner dimensions and depth must be valid before creating a compound.",
+                ),
+                "src/container_packing/levels/nesting.py::NestingCapabilityProvider",
+            ),
+            ConstraintDefinition(
+                "compound_root_external_geometry",
+                LocalizedText(vi="Hình học ngoài theo compound root", en="Compound-root external geometry"),
+                r"H_{root}^{eff}=h_{root}+\sum_{i\in chain(root)\setminus\{root\}}\Delta h_i",
+                LocalizedText(
+                    vi="Chỉ envelope root là đối tượng boundary, non-overlap, support, stack và load ở bên ngoài.",
+                    en="Only the root envelope participates in external boundary, non-overlap, support, stack and load checks.",
+                ),
+                "src/container_packing/levels/level_06_compound_validation.py::validate_compound_geometry",
+            ),
+        ),
+        inactive_constraints=tuple(
+            value for value in _LEVEL_05_CONTRACT.inactive_constraints if value.en != "nesting"
+        ) + (
+            LocalizedText(vi="truyền tải nội bộ khi lồng", en="internal nesting load transfer"),
+            LocalizedText(vi="xoay orientation-aware khi lồng", en="orientation-aware nesting"),
+            LocalizedText(vi="ổn định vật lý đầy đủ", en="full physical stability"),
+        ),
+        assumptions=_LEVEL_05_CONTRACT.assumptions + (
+            LocalizedText(
+                vi="Chỉ metadata nesting khai báo rõ được kích hoạt; dữ liệu thiếu metadata vẫn là non-nesting.",
+                en="Only explicitly declared nesting metadata is active; missing metadata remains non-nesting.",
+            ),
+        ),
+        limitations=(
+            LocalizedText(
+                vi="FFD, Best Fit, Hill Climbing và SA là portfolio experimental; chưa có practical default hay benchmark quy mô lớn.",
+                en="FFD, Best Fit, Hill Climbing and SA form an experimental portfolio without a practical default or large-scale benchmark.",
+            ),
+            LocalizedText(
+                vi="Chưa mô hình hóa lực, áp suất, contact nội bộ hoặc orientation-aware nesting.",
+                en="Internal forces, pressure, internal contacts and orientation-aware nesting are not modeled.",
+            ),
+        ),
+        solution_claim=LocalizedText(
+            vi="Nghiệm experimental hợp lệ độc lập theo compound geometry và ràng buộc ngoài kế thừa.",
+            en="An independently valid experimental solution under compound geometry and inherited external constraints.",
+        ),
+    ),
+)
+
+
 _LEVEL_01_CONTRACT = _LEVELS["level_01"].contract
 _LEVELS["level_02"] = LevelDefinition(
     level_id="level_02",
@@ -338,6 +443,9 @@ _LEVELS["level_03"] = LevelDefinition(
     run=level_03.run,
     prepare=level_03.prepare,
     validate_run=level_03.validate_run,
+    algorithm_configs={
+        "milp_big_m": Path("config/level_03/experiments/milp_big_m_reference.yaml"),
+    },
     contract=LevelContract(
         title=LocalizedText(
             vi="Level 3 — Xoay ngang và ràng buộc hỗ trợ hình học",
@@ -648,6 +756,229 @@ _LEVELS["level_05"] = LevelDefinition(
                 "stackability, and static-load-feasible solution under the Level 5 "
                 "research profile."
             ),
+        ),
+    ),
+)
+
+
+_level_05_contract = _LEVELS["level_05"].contract
+_level_06_definition = _LEVELS["level_06"]
+_level_06_contract = _level_06_definition.contract
+_LEVELS["level_06"] = replace(
+    _level_06_definition,
+    contract=replace(
+        _level_06_contract,
+        notation=_level_05_contract.notation + _level_06_contract.notation[-1:],
+        objective=_level_05_contract.objective,
+        variables=_level_05_contract.variables + _level_06_contract.variables[-1:],
+        active_constraints=(
+            _level_05_contract.active_constraints + _level_06_contract.active_constraints[-2:]
+        ),
+        inactive_constraints=tuple(
+            value for value in _level_05_contract.inactive_constraints if value.en != "nesting"
+        ) + _level_06_contract.inactive_constraints[-3:],
+        assumptions=_level_05_contract.assumptions + _level_06_contract.assumptions[-1:],
+    ),
+)
+
+_LEVELS["level_07"] = LevelDefinition(
+    level_id="level_07",
+    description="Experimental center-of-mass balance runtime with controlled fixtures and arbitrary-input constructive solvers",
+    default_config=Path("config/level_07/default.yaml"),
+    supported_algorithms=(
+        "extreme_point_best_fit_balance",
+        "extreme_point_ffd_balance",
+        "level_07_fixture_validation_bundle",
+        "extreme_point_best_fit_balance_fixture",
+        "extreme_point_best_fit_balance_baseline_fixture",
+        "extreme_point_ffd_balance_fixture",
+        "extreme_point_ffd_balance_baseline_fixture",
+    ),
+    run=level_07.run,
+    prepare=level_07.prepare,
+    validate_run=level_07.validate_run,
+    web_visible=True,
+    algorithm_configs={
+        "extreme_point_best_fit_balance": Path("config/level_07/default.yaml"),
+        "extreme_point_ffd_balance": Path("config/level_07/experiments/fast.yaml"),
+        "level_07_fixture_validation_bundle": Path("config/level_07/experimental.yaml"),
+        "extreme_point_best_fit_balance_fixture": Path("config/level_07/experiments/balance_aware_best_fit_fixture.yaml"),
+        "extreme_point_best_fit_balance_baseline_fixture": Path("config/level_07/experiments/balance_baseline_best_fit_fixture.yaml"),
+        "extreme_point_ffd_balance_fixture": Path("config/level_07/experiments/ffd_balance_aware_fixture.yaml"),
+        "extreme_point_ffd_balance_baseline_fixture": Path("config/level_07/experiments/ffd_balance_baseline_fixture.yaml"),
+    },
+    contract=replace(
+        _LEVELS["level_06"].contract,
+        title=LocalizedText(
+            vi="Level 7 â€” Trá»ng tÃ¢m vÃ  cÃ¢n báº±ng (fixture CLI)",
+            en="Level 7 — Center of mass and balance (experimental)",
+        ),
+        problem=LocalizedText(
+            vi="XÃ¡c minh fixture compound-root Ä‘Ã£ Ä‘Ã³ng theo trá»ng tÃ¢m khÃ‘i lÆ°á»£ng; khÃ´ng tá»‘i Æ°u hÃ³a packing.",
+            en="Pack compound roots with per-container center-of-mass balance and independently validate every inherited constraint.",
+        ),
+        notation=_LEVELS["level_06"].contract.notation + (
+            MathematicalExpression(
+                "center_of_mass",
+                LocalizedText(vi="Trá»ng tÃ¢m container", en="Container center of mass"),
+                r"X_k^{cg}=\frac{\sum_{i\in k}q_i(x_i+\ell_i/2)}{\sum_{i\in k}q_i},\quad Y_k^{cg}=\frac{\sum_{i\in k}q_i(y_i+w_i/2)}{\sum_{i\in k}q_i}",
+                LocalizedText(
+                    vi="TÃ­nh láº¡i Ä‘á»™c láº­p tá»« compound-root placements vÃ  khá»‘i lÆ°á»£ng.",
+                    en="Recomputed independently from compound-root placements and masses.",
+                ),
+                "src/container_packing/levels/center_of_mass.py::evaluate_center_of_mass",
+            ),
+        ),
+        objective=MathematicalExpression(
+            "validation_only",
+            LocalizedText(vi="KhÃ´ng cÃ³ hÃ m má»¥c tiÃªu solver", en="No solver objective"),
+            r"\text{validation only}",
+            LocalizedText(
+                vi="Runtime chá»‰ táº¡o báº±ng chá»©ng fixture, khÃ´ng tÃ¬m phÆ°Æ¡ng Ã¡n xáº¿p.",
+                en="The runtime produces fixture evidence only and does not search for a packing solution.",
+            ),
+            "src/container_packing/levels/level_07.py::run",
+        ),
+        active_constraints=_LEVELS["level_06"].contract.active_constraints + (
+            ConstraintDefinition(
+                "compound_root_center_of_mass_balance",
+                LocalizedText(vi="CÃ¢n báº±ng trá»ng tÃ¢m", en="Center-of-mass balance"),
+                r"|X_k^{cg}/L_k-t_k^x|\le\tau_k^x,\quad |Y_k^{cg}/W_k-t_k^y|\le\tau_k^y",
+                LocalizedText(
+                    vi="Kiá»ƒm tra ngÆ°á»¡ng dÃ£i cÃ¢n báº±ng dÃ i vÃ  ngang cho fixture Ä‘Ã£ Ä‘Ã³ng.",
+                    en="Checks longitudinal and lateral balance bands for the frozen fixture.",
+                ),
+                "src/container_packing/levels/level_07_validation.py::validate_container_balance",
+            ),
+        ),
+        inactive_constraints=_LEVELS["level_06"].contract.inactive_constraints + (
+            LocalizedText(vi="solver cÃ¢n báº±ng thá»±c táº¿", en="practical balance-aware solver"),
+            LocalizedText(vi="táº£i theo vÃ¹ng sÃ n", en="floor-zone load limits"),
+            LocalizedText(vi="khoáº£ng trá»‘ng cá»­a", en="door clearance"),
+            LocalizedText(vi="giá»›i háº¡n táº£i trá»¥c", en="axle load limits"),
+        ),
+        assumptions=_LEVELS["level_06"].contract.assumptions + (
+            LocalizedText(
+                vi="Chá»‰ chấp nhận fixture prefix 4 kiá»‡n/1 container, hÆ°á»›ng XYZ vÃ  environment local.",
+                en="Accepts only the prefix 4-item/1-container fixture, XYZ orientation, and local environment.",
+            ),
+        ),
+        limitations=_LEVELS["level_06"].contract.limitations + (
+            LocalizedText(
+                vi="VALIDATION_ONLY khÃ´ng pháº£i nghiá»‡m tá»‘i Æ°u hay solver packing thá»±c táº¿.",
+                en="VALIDATION_ONLY is neither an optimal solution nor a practical packing solver.",
+            ),
+        ),
+        solution_claim=LocalizedText(
+            vi="Báº±ng chá»©ng fixture Ä‘Æ°á»£c validation Ä‘á»™c láº­p cho Level 6 vÃ  ngÆ°á»¡ng cÃ¢n báº±ng Level 7.",
+            en="Independently validated fixture evidence for Level 6 and Level 7 balance bands.",
+        ),
+    ),
+)
+
+# The original acceptance-fixture contract remains documented above for its
+# regression algorithms.  The registered experimental runtime inherits the
+# Level 6 objective and adds balance as final validation plus a construction
+# tie-break for its web-visible algorithms.
+_level_07_definition = _LEVELS["level_07"]
+_LEVELS["level_07"] = replace(
+    _level_07_definition,
+    contract=replace(
+        _level_07_definition.contract,
+        title=LocalizedText(
+            vi="Level 7 — Trọng tâm và cân bằng tải (thực nghiệm)",
+            en="Level 7 — Center of mass and balance (experimental)",
+        ),
+        problem=LocalizedText(
+            vi="Xếp compound root với cân bằng trọng tâm theo từng container, rồi kiểm định độc lập toàn bộ ràng buộc kế thừa.",
+            en="Pack compound roots with per-container center-of-mass balance and independently validate every inherited constraint.",
+        ),
+        objective=_LEVELS["level_06"].contract.objective,
+        assumptions=_level_07_definition.contract.assumptions[:-1] + (
+            LocalizedText(
+                vi="Cân bằng là kiểm định cứng cuối cùng và tie-break mềm khi dựng nghiệm; COG tạm thời lệch không tự loại placement.",
+                en="Balance is a hard final validation and a soft construction tie-break; temporary COG deviation does not itself prune a placement.",
+            ),
+        ),
+        limitations=_level_07_definition.contract.limitations[:-1] + (
+            LocalizedText(
+                vi="Best Fit và FFD mới ở mức thực nghiệm; chưa có tải trục, tải vùng sàn, khoảng trống cửa, mô-men hay chứng nhận vận tải.",
+                en="Best Fit and FFD remain experimental; axle loads, floor zones, door clearance, moments, and transport certification are inactive.",
+            ),
+        ),
+        solution_claim=LocalizedText(
+            vi="Nghiệm hình học, nesting, support, stackability, chịu tải và cân bằng trọng tâm đều được kiểm định độc lập.",
+            en="Geometry, nesting, support, stackability, load-bearing, and center-of-mass balance are independently validated.",
+        ),
+    ),
+)
+
+_level_08_base = _LEVELS["level_07"].contract
+_LEVELS["level_08"] = LevelDefinition(
+    level_id="level_08",
+    description="CLI-only static delivery/LIFO validation fixture over inherited Level 1–7 evidence",
+    default_config=Path("config/level_08/default.yaml"),
+    supported_algorithms=(
+        "level_08_fixture_validation_bundle",
+        "extreme_point_best_fit_delivery_baseline_fixture",
+        "extreme_point_best_fit_delivery_aware_fixture",
+        "extreme_point_ffd_delivery_negative_control_fixture",
+        "extreme_point_ffd_delivery_aware_fixture",
+        "extreme_point_best_fit_delivery",
+        "extreme_point_ffd_delivery",
+    ),
+    run=level_08.run,
+    prepare=level_08.prepare,
+    validate_run=level_08.validate_run,
+    web_visible=False,
+    algorithm_configs={
+        "level_08_fixture_validation_bundle": Path("config/level_08/runtime_candidate.yaml"),
+        "extreme_point_best_fit_delivery_baseline_fixture": Path("config/level_08/experiments/delivery_best_fit_baseline_fixture.yaml"),
+        "extreme_point_best_fit_delivery_aware_fixture": Path("config/level_08/experiments/delivery_best_fit_aware_fixture.yaml"),
+        "extreme_point_ffd_delivery_negative_control_fixture": Path("config/level_08/experiments/ffd_multi_container_negative_control_fixture.yaml"),
+        "extreme_point_ffd_delivery_aware_fixture": Path("config/level_08/experiments/ffd_delivery_aware_fixture.yaml"),
+        "extreme_point_best_fit_delivery": Path("config/level_08/default.yaml"),
+        "extreme_point_ffd_delivery": Path("config/level_08/experiments/ffd_delivery_local.yaml"),
+    },
+    contract=replace(
+        _level_08_base,
+        title=LocalizedText(
+            vi="Level 8 — Thứ tự giao và tháo dỡ LIFO (fixture CLI)",
+            en="Level 8 — Delivery order and LIFO unloading (CLI fixture)",
+        ),
+        problem=LocalizedText(
+            vi="Kiểm định độc lập khả năng tháo thẳng qua cửa với ưu tiên giao hàng, sau toàn bộ ràng buộc Level 1–7.",
+            en="Independently validate straight-path unloadability with delivery priorities after every Level 1–7 constraint.",
+        ),
+        objective=MathematicalExpression(
+            "validation_only", LocalizedText(vi="Không có hàm mục tiêu solver", en="No solver objective"),
+            r"\text{validation only}",
+            LocalizedText(vi="Runtime chỉ tạo bằng chứng fixture, không tìm nghiệm packing.", en="The runtime produces fixture evidence only and does not search for a packing solution."),
+            "src/container_packing/levels/level_08.py::run",
+        ),
+        active_constraints=_level_08_base.active_constraints + (
+            ConstraintDefinition(
+                "static_lifo_unloadability",
+                LocalizedText(vi="Tháo dỡ LIFO tĩnh", en="Static LIFO unloadability"),
+                r"p_j>p_i \land j\in B_i \Rightarrow \text{rehandle}_{ji}=1",
+                LocalizedText(vi="Kiện giao muộn chắn đường thẳng của kiện giao sớm là vi phạm LIFO.", en="A later-delivery item blocking an earlier item's straight path is a LIFO violation."),
+                "src/container_packing/levels/level_08_validation.py::validate_unloading_lifo",
+            ),
+        ),
+        inactive_constraints=_level_08_base.inactive_constraints + (
+            LocalizedText(vi="solver nhận biết thứ tự giao", en="delivery-aware packing solver"),
+            LocalizedText(vi="chuỗi tháo dỡ chính xác", en="exact removal sequence"),
+            LocalizedText(vi="thiết bị và vùng chứa tạm", en="handling equipment and staging"),
+        ),
+        assumptions=_level_08_base.assumptions + (
+            LocalizedText(vi="Cửa ở x_min và tháo theo đường thẳng -x; priority nhỏ được giao trước.", en="The door is at x_min with straight -x removal; lower priority is delivered earlier."),
+        ),
+        limitations=_level_08_base.limitations + (
+            LocalizedText(vi="CLI fixture chỉ là validation; chưa có solver hoặc mô phỏng thao tác thực tế.", en="The CLI fixture is validation-only; no solver or physical handling simulation is active."),
+        ),
+        solution_claim=LocalizedText(
+            vi="Bằng chứng fixture được kiểm định độc lập từ Level 1 đến Level 8.",
+            en="Fixture evidence is independently validated from Level 1 through Level 8.",
         ),
     ),
 )

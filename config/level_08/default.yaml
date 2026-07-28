@@ -1,0 +1,41 @@
+extends: ../level_07/default.yaml
+project:
+  level_id: level_08
+  algorithm_id: extreme_point_best_fit_delivery
+  random_seed: 42
+instance:
+  item_count: 6
+  container_count: 2
+  item_selection_strategy: prefix
+  item_selection_seed: null
+paths:
+  raw_items_csv: data/raw/level_08/delivery_three_stop_multi_container_items.csv
+  items_source_mapping: config/common/data_sources/level_08_runtime_fixture.yaml
+  processed_dir: data/processed/level_08/default_delivery
+  manifest_json: data/processed/level_08/default_delivery/latest_manifest.json
+  output_root: outputs
+containers:
+  - {container_id: C1, length_mm: 300, width_mm: 80, height_mm: 60, max_weight_kg: 30, cost: 100, availability: 1}
+  - {container_id: C2, length_mm: 300, width_mm: 80, height_mm: 60, max_weight_kg: 30, cost: 100, availability: 1}
+unloading:
+  rules_file: config/level_08/unloading_rules.yaml
+algorithms:
+  extreme_point_best_fit_delivery:
+    subset_enumeration_limit: 12
+  extreme_point_ffd_delivery:
+    subset_enumeration_limit: 12
+delivery_construction_mode: compact_then_delivery_priority
+delivery_construction_compare_max_items: 100
+delivery_pipeline_time_limit_seconds: 45
+delivery_repair_time_limit_seconds: 45
+delivery_repair_fixed_subset_seconds: 35
+delivery_repair_extra_container_seconds: 10
+delivery_repair_max_candidates: 256
+delivery_repair_contributor_limit: 8
+delivery_repair_relocation_transfer_max_candidates: 128
+delivery_repair_swap_max_candidates: 64
+delivery_repair_neighborhood_max_candidates: 64
+delivery_repair_neighborhood_sizes: [4, 8, 12]
+delivery_repair_operator_time_fractions: [0.5, 0.25, 0.25]
+delivery_repair_extra_max_candidates: 128
+delivery_repair_max_extra_containers: 1

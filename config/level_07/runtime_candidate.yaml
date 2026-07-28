@@ -1,0 +1,48 @@
+# Controlled contract for the registered CLI-only Level 7 fixture runtime.
+extends: fixtures/declared_nesting_multi_compound_balance_fixture.yaml
+runtime_candidate:
+  contract_version: 1
+  status: experimental_registered_cli_only
+  algorithm_id: level_07_fixture_validation_bundle
+  entry_point: container_packing.levels.level_07.run
+  orientation_mode: fixed_xyz_compound_roots_only
+  inherited_validator: level_06_compound_root_bundle_v1
+  balance_validator: mass_weighted_item_geometric_center_v1
+  output:
+    run_path: outputs/level_07/runs/<run_id>
+    required_solution_tables:
+      - nesting_relations.csv
+      - nesting_height.csv
+      - nesting_compounds.csv
+      - compound_support.csv
+      - stacks.csv
+      - load_bearing.csv
+      - load_transfer.csv
+      - center_of_mass.csv
+    required_validation_documents:
+      - nesting_validation.json
+      - compound_geometry_validation.json
+      - stack_validation.json
+      - load_bearing_validation.json
+      - balance_validation.json
+    required_metadata:
+      - level_07_fixture_validation_only
+      - center_of_mass_model
+      - balance_profile
+      - balance_validation_status
+      - balanced_container_count
+      - unbalanced_container_count
+  acceptance_fixture:
+    fixture_id: declared_multi_compound_chain_and_top_balance_v1
+    expected_validation_status: VALID
+    expected_compound_count: 2
+    expected_relation_count: 2
+    expected_load_transfer_edge_count: 1
+    expected_balanced_container_count: 1
+    deterministic_repeats: 2
+  promotion_gates:
+    - independent_level_06_bundle_valid
+    - independent_balance_validation_valid
+    - isolated_level_07_output_contract_complete
+    - deterministic_fixture_artifacts
+    - manual_review_completed_before_cli_registration

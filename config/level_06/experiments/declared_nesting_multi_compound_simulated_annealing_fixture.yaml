@@ -1,0 +1,7 @@
+# Quality compound-root search with fixed relations and Level 4 p006 settings.
+extends: declared_nesting_multi_compound_fixture.yaml
+project:
+  algorithm_id: extreme_point_simulated_annealing_nesting_fixture
+tuning:
+  parameter_set_id: p006_3f888c7c
+  inherited_research_profile: level_04_quality

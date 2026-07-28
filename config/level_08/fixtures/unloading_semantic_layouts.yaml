@@ -1,0 +1,23 @@
+fixture_id: level_08_straight_path_semantics_v1
+door_face: x_min
+container:
+  container_id: C1
+  length_mm: 400
+  width_mm: 100
+  height_mm: 100
+layouts:
+  no_blocker:
+    placements:
+      - {item_id: EARLY-001, container_id: C1, x_mm: 0, y_mm: 0, z_mm: 0}
+  lifo_valid:
+    placements:
+      - {item_id: EARLY-001, container_id: C1, x_mm: 0, y_mm: 0, z_mm: 0}
+      - {item_id: LATE-001, container_id: C1, x_mm: 100, y_mm: 0, z_mm: 0}
+  later_priority_blocker:
+    placements:
+      - {item_id: EARLY-001, container_id: C1, x_mm: 100, y_mm: 0, z_mm: 0}
+      - {item_id: LATE-001, container_id: C1, x_mm: 0, y_mm: 0, z_mm: 0}
+  multiple_stops_same_priority:
+    placements:
+      - {item_id: MID-001, container_id: C1, x_mm: 0, y_mm: 0, z_mm: 0}
+      - {item_id: SAME-STOP-001, container_id: C1, x_mm: 100, y_mm: 0, z_mm: 0}
