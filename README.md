@@ -1,7 +1,8 @@
 # 3D Container Packing
 
-Level 8 currently provides an explicit delivery/LIFO **data contract and pure
-straight-path unloadability engine only**. It is not a registered solver yet.
+Level 8 provides an explicit delivery/LIFO data contract, a pure straight-path
+unloadability engine, and one frozen CLI-only validation fixture. It is not a
+packing solver and remains hidden from the web UI.
 Synthetic semantic fixtures are tracked under `data/raw/level_08/`; generate
 large reproducible delivery inputs only when needed:
 

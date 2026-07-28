@@ -13,7 +13,7 @@ from ..experiments.contracts import (
     MathematicalExpression,
     VariableDefinition,
 )
-from . import level_01, level_02, level_03, level_04, level_05, level_06, level_07
+from . import level_01, level_02, level_03, level_04, level_05, level_06, level_07, level_08
 
 _LEVELS = {
     "level_01": LevelDefinition(
@@ -909,6 +909,62 @@ _LEVELS["level_07"] = replace(
         solution_claim=LocalizedText(
             vi="Nghiệm hình học, nesting, support, stackability, chịu tải và cân bằng trọng tâm đều được kiểm định độc lập.",
             en="Geometry, nesting, support, stackability, load-bearing, and center-of-mass balance are independently validated.",
+        ),
+    ),
+)
+
+_level_08_base = _LEVELS["level_07"].contract
+_LEVELS["level_08"] = LevelDefinition(
+    level_id="level_08",
+    description="CLI-only static delivery/LIFO validation fixture over inherited Level 1–7 evidence",
+    default_config=Path("config/level_08/runtime_candidate.yaml"),
+    supported_algorithms=("level_08_fixture_validation_bundle",),
+    run=level_08.run,
+    prepare=level_08.prepare,
+    validate_run=level_08.validate_run,
+    web_visible=False,
+    algorithm_configs={
+        "level_08_fixture_validation_bundle": Path("config/level_08/runtime_candidate.yaml"),
+    },
+    contract=replace(
+        _level_08_base,
+        title=LocalizedText(
+            vi="Level 8 — Thứ tự giao và tháo dỡ LIFO (fixture CLI)",
+            en="Level 8 — Delivery order and LIFO unloading (CLI fixture)",
+        ),
+        problem=LocalizedText(
+            vi="Kiểm định độc lập khả năng tháo thẳng qua cửa với ưu tiên giao hàng, sau toàn bộ ràng buộc Level 1–7.",
+            en="Independently validate straight-path unloadability with delivery priorities after every Level 1–7 constraint.",
+        ),
+        objective=MathematicalExpression(
+            "validation_only", LocalizedText(vi="Không có hàm mục tiêu solver", en="No solver objective"),
+            r"\text{validation only}",
+            LocalizedText(vi="Runtime chỉ tạo bằng chứng fixture, không tìm nghiệm packing.", en="The runtime produces fixture evidence only and does not search for a packing solution."),
+            "src/container_packing/levels/level_08.py::run",
+        ),
+        active_constraints=_level_08_base.active_constraints + (
+            ConstraintDefinition(
+                "static_lifo_unloadability",
+                LocalizedText(vi="Tháo dỡ LIFO tĩnh", en="Static LIFO unloadability"),
+                r"p_j>p_i \land j\in B_i \Rightarrow \text{rehandle}_{ji}=1",
+                LocalizedText(vi="Kiện giao muộn chắn đường thẳng của kiện giao sớm là vi phạm LIFO.", en="A later-delivery item blocking an earlier item's straight path is a LIFO violation."),
+                "src/container_packing/levels/level_08_validation.py::validate_unloading_lifo",
+            ),
+        ),
+        inactive_constraints=_level_08_base.inactive_constraints + (
+            LocalizedText(vi="solver nhận biết thứ tự giao", en="delivery-aware packing solver"),
+            LocalizedText(vi="chuỗi tháo dỡ chính xác", en="exact removal sequence"),
+            LocalizedText(vi="thiết bị và vùng chứa tạm", en="handling equipment and staging"),
+        ),
+        assumptions=_level_08_base.assumptions + (
+            LocalizedText(vi="Cửa ở x_min và tháo theo đường thẳng -x; priority nhỏ được giao trước.", en="The door is at x_min with straight -x removal; lower priority is delivered earlier."),
+        ),
+        limitations=_level_08_base.limitations + (
+            LocalizedText(vi="CLI fixture chỉ là validation; chưa có solver hoặc mô phỏng thao tác thực tế.", en="The CLI fixture is validation-only; no solver or physical handling simulation is active."),
+        ),
+        solution_claim=LocalizedText(
+            vi="Bằng chứng fixture được kiểm định độc lập từ Level 1 đến Level 8.",
+            en="Fixture evidence is independently validated from Level 1 through Level 8.",
         ),
     ),
 )

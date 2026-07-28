@@ -1,8 +1,8 @@
 # Level 8 — Delivery order, LIFO, and multiple stops
 
-Status: **fixture-only independent validation evidence**. Level 8 is not in
-the runtime registry, has no solver, does not change the optimization
-objective, and has no CLI/UI experiment entrypoint.
+Status: **CLI-only composed validation fixture**. Level 8 is registered for
+one frozen local fixture, has no packing solver, does not change the
+optimization objective, and remains hidden from Streamlit.
 
 ## Activated semantics
 
@@ -38,9 +38,23 @@ A fixture writer can persist independent evidence only under
 These artifacts must record door face, clearance, priority convention, blocker
 IDs, direct accessibility, LIFO status, and rehandle count.
 
-`level_08_fixture_validation_bundle` is an internal writer identifier, not a
-registered algorithm. It never invokes a solver and is used only by tests until
-the runtime-candidate gate is explicitly approved.
+`level_08_fixture_validation_bundle` is the sole registered CLI algorithm. It
+prepares a versioned fixture input, validates the inherited Level 1--7 bundle,
+then independently validates static unload/LIFO evidence. It never reads a
+previous run output or invokes a solver.
+
+Run the fixture:
+
+```powershell
+.\.venv\Scripts\python.exe .\scripts\run_experiment.py `
+  --level level_08 --algorithm level_08_fixture_validation_bundle `
+  --items-count 2 --containers-count 1 --environment local `
+  --non-interactive --preview-limit 0
+```
+
+The run must return `VALIDATION_ONLY` and include all inherited evidence plus
+`unloading_accessibility.csv`, `rehandle_plan.csv`, and
+`unloading_validation.json` under its isolated Level 8 run directory.
 
 ## Data and provenance
 

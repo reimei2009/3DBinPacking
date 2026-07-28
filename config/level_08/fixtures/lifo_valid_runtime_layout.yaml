@@ -1,0 +1,6 @@
+fixture_id: level_08_lifo_valid_runtime_fixture_v1
+orientation_code: XYZ
+placements:
+  - {item_id: EARLY-001, container_id: C1, x_mm: 0, y_mm: 0, z_mm: 0}
+  - {item_id: LATE-001, container_id: C1, x_mm: 100, y_mm: 0, z_mm: 0}
+relations: []

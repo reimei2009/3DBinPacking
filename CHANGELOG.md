@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Registered the Level 8 CLI-only composed validation fixture. It validates the
+  inherited Level 1--7 bundle and static delivery/LIFO evidence in one isolated
+  run, without a packing solver or Streamlit exposure.
+
 - Preserved the best inherited-feasible placement between Level 7 local repair,
   adaptive LNS and controlled rescue instead of restarting each phase from the
   compact baseline. Phase-by-phase COG violations are now explicit metadata.

@@ -226,6 +226,21 @@ _ALGORITHMS = {
             en="Experimental arbitrary-input FFD preserving First Fit container choice with in-container COG guidance.",
         ),
     ),
+    "level_08_fixture_validation_bundle": AlgorithmDefinition(
+        algorithm_id="level_08_fixture_validation_bundle",
+        family="fixture_validation",
+        description="CLI-only Level 8 composed delivery/LIFO validation fixture; not a packing solver",
+        supported_levels=("level_08",), local_friendly=True,
+        display_name=LocalizedText(
+            vi="Level 8 — Fixture kiểm định LIFO",
+            en="Level 8 — LIFO validation fixture",
+        ),
+        localized_description=LocalizedText(
+            vi="Kiểm định kế thừa Level 1–7 và khả năng tháo dỡ LIFO tĩnh; không chạy solver.",
+            en="Validates inherited Level 1–7 evidence and static LIFO unloadability; no solver runs.",
+        ),
+        web_visible=False,
+    ),
 }
 
 

@@ -16,7 +16,7 @@ from container_packing.runtime.inputs import prompt_choice, prompt_positive
 
 def test_registry_only_exposes_runnable_implementations():
     assert [value.level_id for value in list_levels()] == [
-        "level_01", "level_02", "level_03", "level_04", "level_05", "level_06", "level_07",
+        "level_01", "level_02", "level_03", "level_04", "level_05", "level_06", "level_07", "level_08",
     ]
     assert [value.algorithm_id for value in list_algorithms(level_id="level_01")] == [
         "extreme_point_best_fit", "extreme_point_ffd", "extreme_point_hill_climbing",

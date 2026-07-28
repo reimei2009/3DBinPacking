@@ -35,7 +35,7 @@ def _settings(root: Path) -> UnloadingSettings:
     return UnloadingSettings.from_config(load_config(root / "config/level_08/unloading_rules.yaml"))
 
 
-def test_level8_contract_is_data_only_and_does_not_register_a_runtime(root: Path) -> None:
+def test_level8_contract_keeps_solver_inactive_until_explicit_runtime_promotion(root: Path) -> None:
     config = load_config(root / "config/level_08/unloading_rules.yaml")
     settings = _settings(root)
 
@@ -48,7 +48,7 @@ def test_level8_contract_is_data_only_and_does_not_register_a_runtime(root: Path
         "validation_document": "unloading_validation.json",
     }
     assert [value.level_id for value in list_levels()] == [
-        "level_01", "level_02", "level_03", "level_04", "level_05", "level_06", "level_07",
+        "level_01", "level_02", "level_03", "level_04", "level_05", "level_06", "level_07", "level_08",
     ]
 
 
