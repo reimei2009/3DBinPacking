@@ -86,6 +86,21 @@ def _ffd_aware_config(root: Path, tmp_path: Path) -> Path:
     return path
 
 
+def _three_stop_config(root: Path, tmp_path: Path, algorithm: str) -> Path:
+    names = {
+        BASELINE: "delivery_three_stop_multi_container_baseline_fixture.yaml",
+        AWARE: "delivery_three_stop_multi_container_aware_fixture.yaml",
+        FFD_AWARE: "ffd_delivery_three_stop_multi_container_aware_fixture.yaml",
+    }
+    config = deepcopy(load_config(root / "config/level_08/experiments" / names[algorithm]))
+    config["paths"]["processed_dir"] = str(tmp_path / algorithm / "processed")
+    config["paths"]["manifest_json"] = str(tmp_path / algorithm / "processed" / "latest_manifest.json")
+    config["paths"]["output_root"] = str(tmp_path / algorithm / "outputs")
+    path = tmp_path / f"three_stop_{algorithm}.yaml"
+    path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
+    return path
+
+
 def test_level8_cli_fixture_composes_inherited_and_unloading_evidence(root: Path, tmp_path: Path) -> None:
     result = run_experiment(_request(_runtime_config(root, tmp_path)))
     run_dir = Path(result.metadata["run_dir"])
@@ -223,3 +238,33 @@ def test_level8_delivery_aware_ffd_changes_only_point_inside_first_container(roo
     assert {value.item_id: (value.container_id, value.x_mm) for value in result.placements} == {
         "LATE-001": ("C1", 100.0), "EARLY-001": ("C1", 0.0),
     }
+
+
+def test_level8_three_stop_multi_container_acceptance_for_best_fit_and_ffd(root: Path, tmp_path: Path) -> None:
+    baseline = run_experiment(_request(
+        _three_stop_config(root, tmp_path, BASELINE), algorithm_id=BASELINE,
+        item_count=6, container_count=2,
+    ))
+    results = []
+    for algorithm in (AWARE, FFD_AWARE):
+        config_path = _three_stop_config(root, tmp_path, algorithm)
+        first = run_experiment(_request(config_path, algorithm_id=algorithm, item_count=6, container_count=2))
+        second = run_experiment(_request(config_path, algorithm_id=algorithm, item_count=6, container_count=2))
+        results.append(first)
+        assert first.solve.status == "FEASIBLE"
+        assert first.validation is not None and first.validation.valid
+        assert first.metadata["container_count"] == 2
+        assert first.metadata["total_direct_rehandles"] == 0
+        assert [(value.item_id, value.container_id, value.x_mm) for value in first.placements] == [
+            (value.item_id, value.container_id, value.x_mm) for value in second.placements
+        ]
+        run_dir = Path(first.metadata["run_dir"])
+        accessibility = (run_dir / "solution" / "unloading_accessibility.csv").read_text(encoding="utf-8")
+        assert all(stop in accessibility for stop in ("STOP-A", "STOP-B", "STOP-C"))
+        assert len((run_dir / "solution" / "center_of_mass.csv").read_text(encoding="utf-8").splitlines()) == 3
+        assert get_level("level_08").validate_run(run_dir).valid
+
+    assert baseline.solve.status == "INVALID_SOLUTION"
+    assert baseline.validation is not None and not baseline.validation.valid
+    assert baseline.metadata["total_direct_rehandles"] > 0
+    assert baseline.metadata["input_fingerprint"] == results[0].metadata["input_fingerprint"] == results[1].metadata["input_fingerprint"]

@@ -27,12 +27,20 @@ class DeliveryDoorPointProvider(CandidatePointProvider):
         points = set(state.extreme_points)
         if self.settings.door_face == "x_min":
             points.add((state.container.length_mm - dimensions.length_mm, 0.0, 0.0))
+            points.update(
+                (placement.x_mm - dimensions.length_mm, placement.y_mm, placement.z_mm)
+                for placement in state.placements
+                if placement.x_mm >= dimensions.length_mm
+            )
         elif self.settings.door_face == "x_max":
             points.add((0.0, 0.0, 0.0))
         return tuple(sorted(points, key=lambda value: (value[2], value[1], value[0])))
 
     def metadata(self) -> dict[str, object]:
-        return {"candidate_point_provider": self.policy_id}
+        return {
+            "candidate_point_provider": self.policy_id,
+            "delivery_candidate_point_modes": ["far_door_anchor", "front_contact_anchor"],
+        }
 
 
 @dataclass

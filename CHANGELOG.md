@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Added the final controlled Level 8 three-stop/two-container acceptance
+  fixture. It proves deterministic delivery-aware Best Fit and FFD evidence
+  against an intentionally LIFO-invalid baseline without opening arbitrary
+  input support or changing the optimization objective.
+
 - Added a CLI-only Level 8 delivery-aware FFD fixture. It retains first-fit
   container selection and ranks only feasible candidate positions inside that
   first container by prospective direct rehandles/LIFO blockers.

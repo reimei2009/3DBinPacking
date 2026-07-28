@@ -89,6 +89,13 @@ fixture. It preserves `C1` as the first feasible container, but evaluates its
 feasible extreme points (including the declared far-door anchor) and selects a
 LIFO-valid placement. Thus it is not global Best Fit or a hidden fallback.
 
+The final controlled acceptance fixture has three ordered stops (`STOP-A`,
+`STOP-B`, `STOP-C`), six items, and two payload-forced containers. The Best
+Fit baseline intentionally creates direct later-priority blockers. Delivery-
+aware Best Fit and FFD must both remain deterministic, use two containers,
+write independent evidence for each container, and finish `VALID`. It does not
+enable arbitrary input sizes or change the primary objective.
+
 ## Data and provenance
 
 Legacy 3DBPPsi rows do not have delivery metadata. They are preserved as

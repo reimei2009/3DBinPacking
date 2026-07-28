@@ -40,6 +40,7 @@ FIXTURE_ID = "level_08_lifo_valid_runtime_fixture_v1"
 DELIVERY_FIXTURE_ID = "level_08_delivery_best_fit_ab_v1"
 MULTI_CONTAINER_FIXTURE_ID = "level_08_delivery_multi_stop_multi_container_v1"
 FFD_NEGATIVE_CONTROL_FIXTURE_ID = "level_08_ffd_multi_container_negative_control_v1"
+THREE_STOP_MULTI_CONTAINER_FIXTURE_ID = "level_08_delivery_three_stop_multi_container_v1"
 
 
 def run(request: ExperimentRequest) -> RunResult:
@@ -163,10 +164,10 @@ def _guard_request(request: ExperimentRequest, config: dict[str, Any]) -> None:
             )
     expected_fixture_ids = {
         VALIDATION_ALGORITHM_ID: {FIXTURE_ID},
-        BASELINE_ALGORITHM_ID: {DELIVERY_FIXTURE_ID, MULTI_CONTAINER_FIXTURE_ID},
-        AWARE_ALGORITHM_ID: {DELIVERY_FIXTURE_ID, MULTI_CONTAINER_FIXTURE_ID},
+        BASELINE_ALGORITHM_ID: {DELIVERY_FIXTURE_ID, MULTI_CONTAINER_FIXTURE_ID, THREE_STOP_MULTI_CONTAINER_FIXTURE_ID},
+        AWARE_ALGORITHM_ID: {DELIVERY_FIXTURE_ID, MULTI_CONTAINER_FIXTURE_ID, THREE_STOP_MULTI_CONTAINER_FIXTURE_ID},
         FFD_NEGATIVE_CONTROL_ALGORITHM_ID: {FFD_NEGATIVE_CONTROL_FIXTURE_ID},
-        FFD_AWARE_ALGORITHM_ID: {FFD_NEGATIVE_CONTROL_FIXTURE_ID},
+        FFD_AWARE_ALGORITHM_ID: {FFD_NEGATIVE_CONTROL_FIXTURE_ID, THREE_STOP_MULTI_CONTAINER_FIXTURE_ID},
     }
     if request.algorithm_id not in ALGORITHM_IDS:
         raise ValueError(f"Unsupported Level 8 fixture algorithm: {request.algorithm_id}")
