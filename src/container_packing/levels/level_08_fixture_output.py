@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from hashlib import sha256
 from pathlib import Path
 from typing import Any
 
@@ -99,6 +100,13 @@ def write_level_08_composed_validation_run(
     instance_id: str,
     random_seed: int,
     runtime_seconds: float,
+    algorithm_id: str = "level_08_fixture_validation_bundle",
+    algorithm_role: str = "cli_only_composed_validation_fixture",
+    solver: str = "not_applicable_validation_only",
+    solver_message: str = "Level 8 composed inherited and unload/LIFO fixture validation; no packing solver was invoked.",
+    status: str | None = None,
+    objective_value: float | None = None,
+    metadata_extra: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Write one Level 8 run containing inherited and unloading evidence."""
     _assert_isolated_run_dir(run_dir)
@@ -108,12 +116,12 @@ def write_level_08_composed_validation_run(
     metadata = {
         "level_id": "level_08",
         "run_id": run_id,
-        "algorithm_id": "level_08_fixture_validation_bundle",
-        "algorithm_role": "cli_only_composed_validation_fixture",
-        "solver": "not_applicable_validation_only",
-        "solver_message": "Level 8 composed inherited and unload/LIFO fixture validation; no packing solver was invoked.",
-        "status": "VALIDATION_ONLY" if inherited.result.valid and unloading.result.valid else "INVALID_SOLUTION",
-        "objective_value": None,
+        "algorithm_id": algorithm_id,
+        "algorithm_role": algorithm_role,
+        "solver": solver,
+        "solver_message": solver_message,
+        "status": status or ("VALIDATION_ONLY" if inherited.result.valid and unloading.result.valid else "INVALID_SOLUTION"),
+        "objective_value": objective_value,
         "environment": "local",
         "instance_id": instance_id,
         "random_seed": random_seed,
@@ -122,6 +130,7 @@ def write_level_08_composed_validation_run(
         "container_count": len(selected),
         "total_container_cost": total_cost,
         "selected_containers": selected,
+        "input_fingerprint": _input_fingerprint(items_path, containers_path),
         "algorithm_runtime_seconds": runtime_seconds,
         "unloading_model": "straight_path_static_lifo_v1",
         "door_face": unloading.settings.door_face if unloading.settings else None,
@@ -130,17 +139,17 @@ def write_level_08_composed_validation_run(
         "total_direct_rehandles": sum(record.minimum_rehandle_count for record in unloading.records),
         "lifo_compliant_item_count": sum(record.lifo_compliant for record in unloading.records),
         "lifo_noncompliant_item_count": sum(not record.lifo_compliant for record in unloading.records),
-        "level_08_runtime_status": "cli_only_validation_fixture",
+        "level_08_runtime_status": "cli_only_validation_fixture" if algorithm_id == "level_08_fixture_validation_bundle" else "cli_only_constructive_ab_fixture",
         "active_constraints": [
             "inherited_level_01_to_level_07_validation",
             "explicit_delivery_metadata", "static_straight_path_accessibility",
             "lifo_later_priority_blockers",
         ],
         "inactive_constraints": [
-            "level_08_solver", "exact_removal_sequence", "handling_equipment",
-            "temporary_staging_space", "delivery_aware_search",
+            "exact_removal_sequence", "handling_equipment", "temporary_staging_space",
         ],
         **inherited.metadata,
+        **(metadata_extra or {}),
     }
     documents = {
         **inherited.validation_documents,
@@ -189,3 +198,11 @@ def _ensure_empty_rehandle_schema(run_dir: Path, validation: Level08UnloadingVal
         "target_item_id", "container_id", "target_delivery_priority", "blocker_item_id",
         "blocker_relation", "rehandle_rank", "counting_model",
     ]).to_csv(run_dir / "solution" / "rehandle_plan.csv", index=False, encoding="utf-8")
+
+
+def _input_fingerprint(items_path: Path, containers_path: Path) -> str:
+    """Stable identity for comparing A/B runs that share the same input snapshot."""
+    digest = sha256()
+    for path in (items_path, containers_path):
+        digest.update(path.read_bytes())
+    return digest.hexdigest()

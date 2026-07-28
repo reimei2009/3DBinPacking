@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Added CLI-only Level 8 Best Fit delivery/LIFO A/B fixtures. The aware
+  candidate tie-break reduces prospective direct rehandles only after the
+  existing container-count/cost priorities and inherited hard constraints;
+  the ordinary Best Fit baseline is retained as expected-invalid evidence.
+
 - Registered the Level 8 CLI-only composed validation fixture. It validates the
   inherited Level 1--7 bundle and static delivery/LIFO evidence in one isolated
   run, without a packing solver or Streamlit exposure.

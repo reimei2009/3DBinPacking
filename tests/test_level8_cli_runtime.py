@@ -14,6 +14,8 @@ from container_packing.levels.registry import get_level, list_levels
 
 
 ALGORITHM = "level_08_fixture_validation_bundle"
+BASELINE = "extreme_point_best_fit_delivery_baseline_fixture"
+AWARE = "extreme_point_best_fit_delivery_aware_fixture"
 
 
 def _runtime_config(root: Path, tmp_path: Path) -> Path:
@@ -35,6 +37,17 @@ def _request(config_path: Path, **overrides) -> ExperimentRequest:
     }
     values.update(overrides)
     return ExperimentRequest(**values)
+
+
+def _delivery_config(root: Path, tmp_path: Path, algorithm: str) -> Path:
+    name = "delivery_best_fit_aware_fixture.yaml" if algorithm == AWARE else "delivery_best_fit_baseline_fixture.yaml"
+    config = deepcopy(load_config(root / "config/level_08/experiments" / name))
+    config["paths"]["processed_dir"] = str(tmp_path / algorithm / "processed")
+    config["paths"]["manifest_json"] = str(tmp_path / algorithm / "processed" / "latest_manifest.json")
+    config["paths"]["output_root"] = str(tmp_path / algorithm / "outputs")
+    path = tmp_path / f"{algorithm}.yaml"
+    path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
+    return path
 
 
 def test_level8_cli_fixture_composes_inherited_and_unloading_evidence(root: Path, tmp_path: Path) -> None:
@@ -94,3 +107,24 @@ def test_level8_cli_list_and_run_are_available_without_web_exposure(root: Path, 
         "--config", str(config_path), "--non-interactive", "--preview-limit", "0",
     ]) == 0
     assert "VALIDATION_ONLY" in capsys.readouterr().out
+
+
+def test_level8_delivery_aware_best_fit_beats_lifo_invalid_baseline(root: Path, tmp_path: Path) -> None:
+    baseline = run_experiment(_request(_delivery_config(root, tmp_path, BASELINE), algorithm_id=BASELINE))
+    aware = run_experiment(_request(_delivery_config(root, tmp_path, AWARE), algorithm_id=AWARE))
+
+    assert baseline.solve.status == "INVALID_SOLUTION"
+    assert baseline.validation is not None and not baseline.validation.valid
+    assert baseline.metadata["objective_value"] is None
+    assert {value.item_id: value.x_mm for value in baseline.placements} == {
+        "EARLY-001": 150.0, "LATE-001": 0.0,
+    }
+    assert aware.solve.status == "FEASIBLE"
+    assert aware.validation is not None and aware.validation.valid
+    assert aware.solve.objective_value == 201.0
+    assert {value.item_id: value.x_mm for value in aware.placements} == {
+        "EARLY-001": 0.0, "LATE-001": 100.0,
+    }
+    assert aware.metadata["candidate_scoring_policy"] == "level_08_prospective_direct_rehandle_tiebreak_v1"
+    assert aware.metadata["total_direct_rehandles"] == 0
+    assert baseline.metadata["input_fingerprint"] == aware.metadata["input_fingerprint"]

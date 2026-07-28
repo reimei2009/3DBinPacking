@@ -10,22 +10,29 @@ import yaml
 from scipy.optimize import OptimizeResult
 
 from ..data_loader import load_config, load_containers, load_items, load_placements
+from ..algorithms.heuristics.extreme_point_best_fit import solve as solve_best_fit
 from ..experiments.contracts import ExperimentRequest
 from ..instance_data import prepare_instance
 from ..runtime.project import find_project_root
 from ..runtime.run_context import make_run_id
 from ..schemas import Placement, RunResult, SolveResult, ValidationResult
 from .level_07_fixture_bundle import validate_level_07_fixture_bundle
+from .level_06_compound_adapter import Level06CompoundAdapter
+from .level_08_delivery_scoring import DeliveryAwareCandidateScoringPolicy, DeliveryDoorPointProvider
 from .level_08_fixture_output import write_level_08_composed_validation_run
 from .level_08_validation import validate_unloading_lifo
 
 
-ALGORITHM_ID = "level_08_fixture_validation_bundle"
+VALIDATION_ALGORITHM_ID = "level_08_fixture_validation_bundle"
+BASELINE_ALGORITHM_ID = "extreme_point_best_fit_delivery_baseline_fixture"
+AWARE_ALGORITHM_ID = "extreme_point_best_fit_delivery_aware_fixture"
+ALGORITHM_IDS = (VALIDATION_ALGORITHM_ID, BASELINE_ALGORITHM_ID, AWARE_ALGORITHM_ID)
 FIXTURE_ID = "level_08_lifo_valid_runtime_fixture_v1"
+DELIVERY_FIXTURE_ID = "level_08_delivery_best_fit_ab_v1"
 
 
 def run(request: ExperimentRequest) -> RunResult:
-    """Validate one versioned Level 1--8 semantic fixture without a solver."""
+    """Run one frozen Level 8 evidence or delivery-aware A/B fixture."""
     started = perf_counter()
     root = find_project_root(__file__)
     config = load_config(request.config_path)
@@ -35,31 +42,56 @@ def run(request: ExperimentRequest) -> RunResult:
     containers_path = _resolve_path(root, manifest["containers_csv"])
     items = load_items(items_path)
     containers = load_containers(containers_path)
-    placements = _fixture_placements(root, config, items, containers)
-    inherited = validate_level_07_fixture_bundle(
-        items, containers, placements, config, relations=[]
-    )
+    if request.algorithm_id == VALIDATION_ALGORITHM_ID:
+        placements = _fixture_placements(root, config, items, containers)
+        inherited = validate_level_07_fixture_bundle(items, containers, placements, config, relations=[])
+        status = "VALIDATION_ONLY"
+        objective_value = None
+        solver = "not_applicable_validation_only"
+        solver_message = "Level 8 composed inherited and unload/LIFO fixture validation; no packing solver was invoked."
+        role = "cli_only_composed_validation_fixture"
+        metadata_extra: dict[str, Any] = {"candidate_scoring_policy": "not_applicable_validation_only"}
+    else:
+        adapter_result = _solve_delivery_best_fit(request.algorithm_id, items, containers, config)
+        placements = list(adapter_result.placements)
+        if adapter_result.validation is None:
+            inherited = validate_level_07_fixture_bundle(items, containers, placements, config, relations=[])
+        else:
+            inherited = adapter_result.validation
+        status = "FEASIBLE" if inherited.result.valid else "INVALID_SOLUTION"
+        objective_value = adapter_result.outcome.solve.objective_value if inherited.result.valid else None
+        solver = adapter_result.outcome.backend
+        solver_message = adapter_result.outcome.solve.message
+        role = "cli_only_delivery_aware_best_fit_fixture" if request.algorithm_id == AWARE_ALGORITHM_ID else "cli_only_delivery_baseline_best_fit_fixture"
+        metadata_extra = dict(adapter_result.outcome.metadata)
     unloading = validate_unloading_lifo(
         items, placements, _unloading_rules(root, config),
         tolerance_mm=float(config.get("validation", {}).get("coordinate_tolerance_mm", 1e-6)),
     )
     issues = [*inherited.result.issues, *unloading.result.issues]
     combined = ValidationResult(not issues, issues)
+    if request.algorithm_id != VALIDATION_ALGORITHM_ID:
+        status = "FEASIBLE" if combined.valid else "INVALID_SOLUTION"
+        if not combined.valid:
+            objective_value = None
     seed = int(config["project"]["random_seed"])
-    run_id = make_run_id("level_08", ALGORITHM_ID, len(items), len(containers), seed)
+    run_id = make_run_id("level_08", request.algorithm_id, len(items), len(containers), seed)
     run_dir = _resolve_path(root, config["paths"].get("output_root", "outputs")) / "level_08" / "runs" / run_id
     metadata = write_level_08_composed_validation_run(
         run_dir, items, containers, placements, inherited, unloading, config,
         items_path=items_path, containers_path=containers_path, project_root=root,
         run_id=run_id, instance_id=manifest["instance_id"], random_seed=seed,
         runtime_seconds=perf_counter() - started,
+        algorithm_id=request.algorithm_id, algorithm_role=role, solver=solver,
+        solver_message=solver_message, status=status, objective_value=objective_value,
+        metadata_extra=metadata_extra,
     )
     metadata["run_dir"] = _portable_path(root, run_dir)
     return RunResult(
         SolveResult(
-            "VALIDATION_ONLY" if combined.valid else "INVALID_SOLUTION",
-            "Level 8 composed fixture validation; no packing solver was invoked.",
-            None, None, OptimizeResult(),
+            status,
+            solver_message,
+            objective_value, None, OptimizeResult(),
         ),
         placements, combined, metadata,
     )
@@ -98,7 +130,7 @@ def _guard_request(request: ExperimentRequest, config: dict[str, Any]) -> None:
     if not isinstance(fixture, dict) or not isinstance(runtime, dict):
         raise ValueError("Level 8 CLI runtime requires fixture and runtime_candidate configuration")
     expected = {
-        "level_id": "level_08", "algorithm_id": ALGORITHM_ID,
+        "level_id": "level_08", "algorithm_id": str(config["project"]["algorithm_id"]),
         "item_count": int(fixture["required_item_count"]),
         "container_count": int(fixture["required_container_count"]),
         "environment": str(fixture["required_environment"]),
@@ -113,7 +145,10 @@ def _guard_request(request: ExperimentRequest, config: dict[str, Any]) -> None:
             raise ValueError(
                 f"Level 8 fixture runtime requires {field}={expected_value!r}; got {actual[field]!r}"
             )
-    if fixture.get("fixture_id") != FIXTURE_ID:
+    expected_fixture_id = FIXTURE_ID if request.algorithm_id == VALIDATION_ALGORITHM_ID else DELIVERY_FIXTURE_ID
+    if request.algorithm_id not in ALGORITHM_IDS:
+        raise ValueError(f"Unsupported Level 8 fixture algorithm: {request.algorithm_id}")
+    if fixture.get("fixture_id") != expected_fixture_id:
         raise ValueError("Level 8 fixture configuration does not match the frozen acceptance fixture")
     if request.item_selection_strategy not in (None, "prefix") or request.item_selection_seed is not None:
         raise ValueError("Level 8 fixture runtime requires prefix selection with no selection seed")
@@ -121,6 +156,33 @@ def _guard_request(request: ExperimentRequest, config: dict[str, Any]) -> None:
         raise ValueError("Level 8 fixture runtime requires random_seed=42")
     if request.algorithm_parameters or request.config_overrides:
         raise ValueError("Level 8 fixture runtime does not accept runtime overrides")
+
+
+def _solve_delivery_best_fit(algorithm_id: str, items, containers, config: dict[str, Any]):
+    """Use the Level 6 compound adapter so all inherited hard constraints stay active."""
+    if algorithm_id == AWARE_ALGORITHM_ID:
+        rules = _unloading_rules(find_project_root(__file__), config)
+        from .unloading import UnloadingSettings
+        settings = UnloadingSettings.from_config(rules)
+        scorer = DeliveryAwareCandidateScoringPolicy({item.item_id: item for item in items}, settings)
+        provider = DeliveryDoorPointProvider(settings)
+
+        def solver(compounds, available, settings_dict, **kwargs):
+            return solve_best_fit(
+                compounds, available, settings_dict,
+                candidate_scoring_policy=scorer, candidate_point_provider=provider, **kwargs,
+            )
+    else:
+        def solver(compounds, available, settings_dict, **kwargs):
+            return solve_best_fit(compounds, available, settings_dict, **kwargs)
+
+    adapter = Level06CompoundAdapter(
+        algorithm_id=algorithm_id,
+        adapter_id="level_08_delivery_best_fit_ab_v1",
+        solver=solver,
+        validator=validate_level_07_fixture_bundle,
+    )
+    return adapter.solve(items, containers, config)
 
 
 def _fixture_placements(root: Path, config: dict[str, Any], items, containers) -> list[Placement]:

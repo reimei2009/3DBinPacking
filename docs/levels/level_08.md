@@ -1,8 +1,8 @@
 # Level 8 — Delivery order, LIFO, and multiple stops
 
-Status: **CLI-only composed validation fixture**. Level 8 is registered for
-one frozen local fixture, has no packing solver, does not change the
-optimization objective, and remains hidden from Streamlit.
+Status: **CLI-only experimental fixtures**. Level 8 remains hidden from
+Streamlit. It has a validation-only fixture plus a small Best Fit A/B fixture;
+neither is an arbitrary-instance or production delivery solver.
 
 ## Activated semantics
 
@@ -38,7 +38,7 @@ A fixture writer can persist independent evidence only under
 These artifacts must record door face, clearance, priority convention, blocker
 IDs, direct accessibility, LIFO status, and rehandle count.
 
-`level_08_fixture_validation_bundle` is the sole registered CLI algorithm. It
+`level_08_fixture_validation_bundle` is the validation-only CLI algorithm. It
 prepares a versioned fixture input, validates the inherited Level 1--7 bundle,
 then independently validates static unload/LIFO evidence. It never reads a
 previous run output or invokes a solver.
@@ -56,6 +56,20 @@ The run must return `VALIDATION_ONLY` and include all inherited evidence plus
 `unloading_accessibility.csv`, `rehandle_plan.csv`, and
 `unloading_validation.json` under its isolated Level 8 run directory.
 
+The A/B fixture verifies that a delivery-aware Best Fit tie-break, after
+container count, cost, and all inherited hard constraints, can avoid a
+later-delivery blocker. The baseline deliberately uses ordinary Best Fit and
+is expected to be `INVALID_SOLUTION`; the aware variant must be `FEASIBLE` and
+`VALID`:
+
+```powershell
+.\.venv\Scripts\python.exe .\scripts\run_experiment.py `
+  --level level_08 --algorithm extreme_point_best_fit_delivery_aware_fixture `
+  --config config\level_08\experiments\delivery_best_fit_aware_fixture.yaml `
+  --items-count 2 --containers-count 1 --environment local `
+  --non-interactive --preview-limit 0
+```
+
 ## Data and provenance
 
 Legacy 3DBPPsi rows do not have delivery metadata. They are preserved as
@@ -70,7 +84,7 @@ are the source of truth.
 
 ## Inactive
 
-- delivery-aware constructive or metaheuristic solvers;
+- arbitrary-instance delivery-aware constructive or metaheuristic solvers;
 - exact removal-sequence optimization;
 - loading order, handling equipment, time, staging space, and door geometry;
 - vehicle axle/floor-zone constraints, dynamic transport loads, and vehicle

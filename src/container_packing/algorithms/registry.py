@@ -241,6 +241,22 @@ _ALGORITHMS = {
         ),
         web_visible=False,
     ),
+    "extreme_point_best_fit_delivery_baseline_fixture": AlgorithmDefinition(
+        algorithm_id="extreme_point_best_fit_delivery_baseline_fixture",
+        family="constructive_heuristic",
+        description="CLI-only Level 8 Best Fit baseline for the frozen delivery/LIFO A/B fixture",
+        supported_levels=("level_08",), local_friendly=True, web_visible=False,
+        display_name=LocalizedText(vi="Level 8 Best Fit baseline (fixture)", en="Level 8 Best Fit baseline (fixture)"),
+        localized_description=LocalizedText(vi="Comparator không dùng delivery scoring; có thể bị LIFO invalid.", en="Comparator without delivery scoring; it may be LIFO invalid."),
+    ),
+    "extreme_point_best_fit_delivery_aware_fixture": AlgorithmDefinition(
+        algorithm_id="extreme_point_best_fit_delivery_aware_fixture",
+        family="constructive_heuristic",
+        description="CLI-only Level 8 Best Fit with prospective direct-rehandle scoring",
+        supported_levels=("level_08",), local_friendly=True, web_visible=False,
+        display_name=LocalizedText(vi="Level 8 Best Fit delivery-aware (fixture)", en="Level 8 Best Fit delivery-aware (fixture)"),
+        localized_description=LocalizedText(vi="Best Fit với tie-break rehandle/LIFO trên fixture A/B.", en="Best Fit with a rehandle/LIFO tie-break on the A/B fixture."),
+    ),
 }
 
 

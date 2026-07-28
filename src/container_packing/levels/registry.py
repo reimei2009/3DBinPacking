@@ -918,13 +918,19 @@ _LEVELS["level_08"] = LevelDefinition(
     level_id="level_08",
     description="CLI-only static delivery/LIFO validation fixture over inherited Level 1–7 evidence",
     default_config=Path("config/level_08/runtime_candidate.yaml"),
-    supported_algorithms=("level_08_fixture_validation_bundle",),
+    supported_algorithms=(
+        "level_08_fixture_validation_bundle",
+        "extreme_point_best_fit_delivery_baseline_fixture",
+        "extreme_point_best_fit_delivery_aware_fixture",
+    ),
     run=level_08.run,
     prepare=level_08.prepare,
     validate_run=level_08.validate_run,
     web_visible=False,
     algorithm_configs={
         "level_08_fixture_validation_bundle": Path("config/level_08/runtime_candidate.yaml"),
+        "extreme_point_best_fit_delivery_baseline_fixture": Path("config/level_08/experiments/delivery_best_fit_baseline_fixture.yaml"),
+        "extreme_point_best_fit_delivery_aware_fixture": Path("config/level_08/experiments/delivery_best_fit_aware_fixture.yaml"),
     },
     contract=replace(
         _level_08_base,
