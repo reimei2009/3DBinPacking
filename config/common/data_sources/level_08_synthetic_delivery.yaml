@@ -1,0 +1,16 @@
+# Synthetic Level 8 source schema.  Company sources may use their own aliases.
+adapter_id: csv_column_mapping_v1
+source_id: synthetic_level_08_delivery_v1
+columns:
+  id_item: [shipment_unit_id]
+  length: [outer_length_mm]
+  width: [outer_width_mm]
+  height: [outer_height_mm]
+  weight: [gross_mass_kg]
+  delivery_priority: [delivery_sequence]
+  delivery_stop_id: [route_stop]
+  delivery_data_source: [delivery_metadata_source]
+delivery:
+  semantics: priority_and_stop
+  data_source: synthetic_level_08_delivery_v1
+extra_columns: preserve

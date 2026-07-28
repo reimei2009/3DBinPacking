@@ -41,6 +41,16 @@
 - Added Level 7 manual scale-acceptance protocol, isolated acceptance assessor,
   and explicit strict versus one-extra-container execution profiles.
 
+- Added the Level 8 explicit delivery-priority/stop data contract, configurable
+  straight-path LIFO geometry primitives, semantic CSV fixture, and deterministic
+  synthetic-data profiles up to 5000 items / 200 containers. Level 8 has no
+  registered runtime, solver, changed objective, or generated benchmark in this
+  checkpoint.
+
+- Added an independent Level 8 static unload/LIFO validator and isolated
+  fixture-evidence writer for accessibility, direct rehandles, and validation
+  artifacts; Level 8 remains unregistered and solver-free.
+
 - Added CLI-only Level 7 First-Fit balance A/B fixtures. The COG-aware variant
   retains the first feasible container and applies prospective COG ranking only
   to candidates inside that container; canonical FFD remains unchanged for

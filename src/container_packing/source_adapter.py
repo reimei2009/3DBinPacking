@@ -28,6 +28,11 @@ _OPTIONAL_DEFAULTS = {
     "max_nesting_depth": "",
     "nesting_increment_height_mm": "",
     "nesting_data_source": "undeclared",
+    # Delivery metadata is deliberately optional.  Levels 1--7 preserve it
+    # when a company source supplies it but never infer a delivery plan.
+    "delivery_priority": "",
+    "delivery_stop_id": "",
+    "delivery_data_source": "undeclared",
 }
 @dataclass(frozen=True)
 class CsvSourceResult:
@@ -36,6 +41,8 @@ class CsvSourceResult:
     source_id: str
     nesting_semantics: str
     nesting_data_source: str
+    delivery_semantics: str
+    delivery_data_source: str
     mapped_columns: dict[str, str | None]
     preserved_extra_columns: tuple[str, ...]
 
@@ -98,12 +105,28 @@ def load_csv_source(path: str | Path, mapping_path: str | Path | None = None) ->
         # Provenance declared by a source mapping applies to every row unless
         # the source explicitly provides a row-level provenance column.
         frame["nesting_data_source"] = nesting_source
+    delivery = mapping.get("delivery", {})
+    if not isinstance(delivery, dict):
+        raise SourceAdapterError("CSV source mapping delivery section must be a mapping")
+    delivery_semantics = str(delivery.get("semantics", "undeclared"))
+    if delivery_semantics not in {"undeclared", "priority_and_stop"}:
+        raise SourceAdapterError(
+            "delivery.semantics must be 'undeclared' or 'priority_and_stop'"
+        )
+    delivery_source = str(delivery.get("data_source", "undeclared")).strip() or "undeclared"
+    if delivery_semantics == "undeclared":
+        frame["delivery_data_source"] = "undeclared"
+    elif mapped["delivery_data_source"] is None:
+        frame["delivery_data_source"] = delivery_source
+    _validate_delivery(frame, source_path, delivery_semantics)
     return CsvSourceResult(
         frame=frame,
         adapter_id=str(mapping.get("adapter_id", "csv_column_mapping_v1")),
         source_id=source_id,
         nesting_semantics=semantics,
         nesting_data_source=nesting_source,
+        delivery_semantics=delivery_semantics,
+        delivery_data_source=delivery_source,
         mapped_columns=mapped,
         preserved_extra_columns=tuple(extras),
     )
@@ -116,6 +139,7 @@ def _load_mapping(path: str | Path | None) -> dict[str, Any]:
             "source_id": "legacy_3dbppsi_implicit",
             "columns": {field: [field] for field in (*_CORE_COLUMNS, *_OPTIONAL_DEFAULTS)},
             "nesting": {"semantics": "undeclared", "data_source": "undeclared"},
+            "delivery": {"semantics": "undeclared", "data_source": "undeclared"},
             "extra_columns": "preserve",
         }
     mapping_path = Path(path)
@@ -205,3 +229,44 @@ def _validate_optional(frame: pd.DataFrame, path: Path) -> None:
         raise SourceAdapterError(
             f"CSV item source {path}: row {row}, nesting_increment_height_mm must be positive when supplied"
         )
+
+
+def _validate_delivery(frame: pd.DataFrame, path: Path, semantics: str) -> None:
+    """Validate explicit Level 8 delivery fields without activating Level 8."""
+    priority = frame["delivery_priority"].astype(str).str.strip()
+    stop_ids = frame["delivery_stop_id"].astype(str).str.strip()
+    source = frame["delivery_data_source"].astype(str).str.strip()
+    supplied_priority = priority.ne("")
+    supplied_stop = stop_ids.ne("")
+    if semantics == "undeclared":
+        return
+    if not bool(supplied_priority.all()) or not bool(supplied_stop.all()):
+        row = int((~(supplied_priority & supplied_stop)).idxmax()) + 2
+        raise SourceAdapterError(
+            f"CSV item source {path}: row {row}, delivery_priority and delivery_stop_id are required "
+            "when delivery.semantics='priority_and_stop'"
+        )
+    numeric = pd.to_numeric(priority, errors="coerce")
+    invalid = numeric.isna() | (numeric <= 0) | (numeric % 1 != 0)
+    if bool(invalid.any()):
+        row = int(invalid.idxmax()) + 2
+        raise SourceAdapterError(
+            f"CSV item source {path}: row {row}, delivery_priority must be a positive integer"
+        )
+    if not bool(source.ne("").all()) or bool((source == "undeclared").any()):
+        row = int((source.eq("") | source.eq("undeclared")).idxmax()) + 2
+        raise SourceAdapterError(
+            f"CSV item source {path}: row {row}, delivery_data_source must be declared "
+            "when delivery.semantics='priority_and_stop'"
+        )
+    # Multiple items may belong to one stop, but a delivery priority must not
+    # identify two different stops; otherwise the unload sequence is ambiguous.
+    priority_to_stops = pd.DataFrame({"priority": numeric.astype(int), "stop": stop_ids}).groupby("priority")["stop"].nunique()
+    ambiguous = priority_to_stops[priority_to_stops > 1]
+    if not ambiguous.empty:
+        value = int(ambiguous.index[0])
+        raise SourceAdapterError(
+            f"CSV item source {path}: delivery_priority {value} maps to multiple delivery_stop_id values"
+        )
+    frame["delivery_priority"] = numeric.astype(int)
+    frame["delivery_stop_id"] = stop_ids

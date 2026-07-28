@@ -292,6 +292,8 @@ def prepare_instance(
             "preserved_extra_columns": list(source_result.preserved_extra_columns),
             "nesting_semantics": source_result.nesting_semantics,
             "nesting_data_source": source_result.nesting_data_source,
+            "delivery_semantics": source_result.delivery_semantics,
+            "delivery_data_source": source_result.delivery_data_source,
         },
         "items_note": items["level1_note"].iloc[0],
         "raw_items_checksum": sha256_file(raw_path),

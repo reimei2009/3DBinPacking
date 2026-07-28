@@ -1,0 +1,19 @@
+profile_id: level_08_small_v1
+seed: 8042
+item_count: 12
+container_count: 2
+output_dir: data/raw/level_08/generated
+item_file_name: level_08_small_items.csv
+container_file_name: level_08_small_containers.csv
+delivery_stop_count: 3
+dimensions_mm:
+  length: [200, 800]
+  width: [150, 600]
+  height: [100, 500]
+weight_kg: [5, 120]
+container_template:
+  length_mm: 6000
+  width_mm: 2400
+  height_mm: 2600
+  max_weight_kg: 18000
+  cost: 1000

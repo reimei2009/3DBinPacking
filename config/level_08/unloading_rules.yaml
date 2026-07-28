@@ -1,0 +1,46 @@
+# Level 8 data contract only.  No runtime, solver, objective, or registry entry
+# is activated by this checkpoint.
+contract_version: 1
+level_id: level_08
+status: data_contract_only
+data_status: explicit_delivery_metadata_required
+
+fields:
+  delivery_priority:
+    canonical_type: positive_integer
+    meaning: lower_number_is_delivered_earlier
+    status: active_for_future_level_08_only
+  delivery_stop_id:
+    canonical_type: non_empty_string
+    meaning: route_stop_identified_by_delivery_priority
+    status: active_for_future_level_08_only
+  delivery_data_source:
+    canonical_type: non_empty_string
+    meaning: provenance_of_delivery_priority_and_stop
+    status: active_for_future_level_08_only
+
+unloading_policy:
+  model_id: straight_path_static_lifo_v1
+  door_face: x_min
+  unload_axis: negative_x
+  path_clearance_mm: 0.0
+  delivery_priority_direction: ascending_is_earlier_delivery
+  rehandle_count_mode: direct_later_priority_blockers_v1
+  validation_mode: strict_lifo_no_later_priority_blockers
+  profile_source: synthetic_level_08_delivery_fixture_v1
+  disabled_without_explicit_metadata: unloading_disabled_undeclared
+
+output:
+  accessibility_table: unloading_accessibility.csv
+  rehandle_table: rehandle_plan.csv
+  validation_document: unloading_validation.json
+
+inactive_constraints:
+  - runtime_level_registration
+  - delivery_aware_solver
+  - exact_remove_sequence_optimization
+  - handling_equipment_kinematics
+  - temporary_staging_space
+  - loading_time_and_unloading_time
+  - door_opening_geometry
+  - axle_and_floor_zone_load_limits
