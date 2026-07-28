@@ -70,6 +70,11 @@ class Level06CompoundAdapter:
             for value in virtual_projection.compounds
         ]
         solver_settings = dict(config)
+        ordering = solver_settings.get("compound_item_ordering")
+        if ordering is not None:
+            solver_settings["item_order_override"] = _compound_item_order(
+                compound_items, ordering
+            )
         policy = build_level_06_compound_fixture_policy(compound_items, config)
         outcome = self.solver(
             compound_items,
@@ -88,6 +93,7 @@ class Level06CompoundAdapter:
             "n_items": len(items),
             "compound_candidate_count": len(compound_items),
             "compound_geometry_model": "compound_root_effective_envelope_geometry_v1",
+            **_compound_item_ordering_metadata(ordering),
             **policy.metadata(),
         })
         if outcome.solve.status != "FEASIBLE":
@@ -119,6 +125,51 @@ class Level06CompoundAdapter:
             projection,
             validation,
         )
+
+
+def _compound_item_order(items: list[Item], ordering: object) -> list[str]:
+    """Resolve an explicit declared-field order without level-specific solver code."""
+    if not isinstance(ordering, dict):
+        raise ValueError("compound_item_ordering must be a mapping")
+    field = ordering.get("source_field")
+    if not isinstance(field, str) or not field.strip():
+        raise ValueError("compound_item_ordering.source_field must be a non-empty string")
+    direction = ordering.get("direction")
+    if direction not in {"ascending", "descending"}:
+        raise ValueError("compound_item_ordering.direction must be ascending or descending")
+    values: dict[str, int] = {}
+    for item in items:
+        raw = item.source.get(field)
+        try:
+            value = int(str(raw))
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                f"Compound item {item.item_id} requires integer source field {field!r}"
+            ) from exc
+        if value <= 0:
+            raise ValueError(f"Compound item {item.item_id} field {field!r} must be positive")
+        values[item.item_id] = value
+    return [
+        item.item_id for item in sorted(
+            items,
+            key=lambda item: (
+                values[item.item_id] if direction == "ascending" else -values[item.item_id], -item.volume_m3,
+                -max(item.length_mm, item.width_mm, item.height_mm),
+                -item.weight_kg, item.item_id,
+            ),
+        )
+    ]
+
+
+def _compound_item_ordering_metadata(ordering: object) -> dict[str, object]:
+    if ordering is None:
+        return {"compound_item_ordering": "default_algorithm_order"}
+    assert isinstance(ordering, dict)
+    return {
+        "compound_item_ordering": "declared_source_field_order_then_volume_dimension_weight",
+        "compound_item_ordering_source_field": ordering["source_field"],
+        "compound_item_ordering_direction": ordering["direction"],
+    }
 
 
 def _virtual_placements(items: list[Item]) -> list[Placement]:

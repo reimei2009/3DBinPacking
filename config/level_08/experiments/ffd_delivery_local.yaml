@@ -1,0 +1,3 @@
+extends: ../default.yaml
+project:
+  algorithm_id: extreme_point_ffd_delivery

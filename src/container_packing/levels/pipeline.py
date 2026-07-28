@@ -13,7 +13,7 @@ from ..instance_data import prepare_instance
 from ..reporting import write_run_outputs, write_status_outputs
 from ..runtime.project import find_project_root
 from ..runtime.run_context import create_run_directory
-from ..schemas import Container, Item, Placement, RunResult, ValidationIssue, ValidationResult
+from ..schemas import Container, Item, Placement, RunResult, SolveResult, ValidationIssue, ValidationResult
 
 
 @dataclass(frozen=True)
@@ -96,14 +96,23 @@ def run_configured_level(
         }
     else:
         config.setdefault("algorithms", {}).setdefault(algorithm_id, {}).update(overrides)
+        # Level-scoped orchestration budgets are intentionally not solver
+        # algorithm parameters.  Preserve them in the strategy settings so a
+        # Level 7/8 repair policy can be configured once at the level root.
+        runtime_budget_settings = {
+            key: value for key, value in config.items()
+            if key.startswith("balance_") or key.startswith("delivery_")
+        }
         settings = {
             **config.get("algorithms", {}).get(algorithm_id, {}),
+            **runtime_budget_settings,
             "coordinate_tolerance_mm": tolerance, "random_seed": seed,
             "support": config.get("support", {}),
             "stackability": config.get("stackability", {}),
             "load_bearing": config.get("load_bearing", {}),
             "nesting": config.get("nesting", {}),
             "balance": config.get("balance", {}),
+            "unloading": config.get("unloading", {}),
             "load_tolerance_kg": config.get("validation", {}).get(
                 "load_tolerance_kg", 1e-6
             ),
@@ -187,13 +196,21 @@ def run_configured_level(
     }
     if not bundle.result.valid:
         metadata["status"] = "INVALID_SOLUTION"
-        if outcome.metadata.get("hide_objective_when_invalid"):
+        returned_solve = solve
+        if (
+            outcome.metadata.get("hide_objective_when_invalid")
+            or strategy.metadata_defaults.get("hide_objective_when_invalid")
+        ):
             metadata["candidate_objective_value"] = metadata.get("objective_value")
             metadata["objective_value"] = None
             metadata["objective_reported"] = False
+            returned_solve = SolveResult(
+                "INVALID_SOLUTION", "Independent final validation rejected the constructed candidate.",
+                None, solve.vector, solve.raw_result,
+            )
         if write_outputs and run_dir is not None:
             write_run_outputs(run_dir, placements, containers, metadata, bundle.result, config, **output_arguments)
-        return RunResult(solve, placements, bundle.result, metadata)
+        return RunResult(returned_solve, placements, bundle.result, metadata)
     if write_outputs and run_dir is not None:
         write_run_outputs(run_dir, placements, containers, metadata, bundle.result, config, **output_arguments)
     return RunResult(solve, placements, bundle.result, metadata)

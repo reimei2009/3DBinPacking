@@ -6,8 +6,13 @@ from pathlib import Path
 import pandas as pd
 
 from container_packing.data_loader import load_config
+from container_packing.algorithms.feasibility import FixedOrientationFeasibilityPolicy
+from container_packing.levels.level_08_delivery_repair import DeliveryRepairEngine
 from container_packing.levels.level_08_fixture_output import write_level_08_fixture_validation_run
 from container_packing.levels.level_08_validation import validate_unloading_lifo
+from container_packing.levels.unloading import (
+    UnloadingSettings, assess_unloading_accessibility, prospective_direct_rehandle_delta,
+)
 from container_packing.schemas import Container, Item, Placement
 
 
@@ -50,6 +55,63 @@ def test_independent_validator_rejects_later_priority_blocker_and_records_rehand
         "blocker_item_id": "LATE", "blocker_relation": "later_delivery_priority_direct_path_blocker",
         "rehandle_rank": 1, "counting_model": "direct_later_priority_blockers_v1",
     }]
+
+
+def test_prospective_delta_matches_new_candidate_lifo_pairs(root: Path) -> None:
+    items = _items()
+    settings = UnloadingSettings.from_config(_config(root))
+    existing = [_placement("EARLY", 100)]
+    candidate = _placement("LATE", 0)
+
+    delta = prospective_direct_rehandle_delta({item.item_id: item for item in items}, existing, candidate, settings)
+    complete = assess_unloading_accessibility(items, [*existing, candidate], settings)
+
+    assert delta == (1, 1)
+    assert sum(record.minimum_rehandle_count for record in complete) == 1
+
+
+def test_bounded_local_delivery_repair_moves_later_blocker_without_full_repack(root: Path) -> None:
+    items = _items()
+    settings = UnloadingSettings.from_config(_config(root))
+    initial = [_placement("EARLY", 100), _placement("LATE", 0)]
+    engine = DeliveryRepairEngine(
+        policy=FixedOrientationFeasibilityPolicy(), settings=settings,
+        coordinate_tolerance_mm=1e-6, support_epsilon_mm=1e-6,
+        max_candidates=32, contributor_limit=2,
+    )
+    result = engine.repair(
+        items, _containers(), initial,
+        validate_inherited=lambda placements: True,
+        validate_final=lambda placements: validate_unloading_lifo(items, placements, _config(root)).result.valid,
+        fixed_seconds=1.0, extra_seconds=0.0, extra_container=None,
+    )
+
+    assert result.placements is not None
+    assert result.stats.initial_rehandles == 1
+    assert result.stats.final_rehandles == 0
+    assert "relocate" in result.stats.accepted_moves
+
+
+def test_delivery_repair_reserves_swap_operator_budget(root: Path) -> None:
+    items = _items()
+    settings = UnloadingSettings.from_config(_config(root))
+    engine = DeliveryRepairEngine(
+        policy=FixedOrientationFeasibilityPolicy(), settings=settings,
+        coordinate_tolerance_mm=1e-6, support_epsilon_mm=1e-6,
+        max_candidates=16, contributor_limit=2,
+        relocation_transfer_max_candidates=0, swap_max_candidates=16,
+        neighborhood_max_candidates=0,
+    )
+    result = engine.repair(
+        items, _containers(), [_placement("EARLY", 100), _placement("LATE", 0)],
+        validate_inherited=lambda placements: True,
+        validate_final=lambda placements: validate_unloading_lifo(items, placements, _config(root)).result.valid,
+        fixed_seconds=1.0, extra_seconds=0.0, extra_container=None,
+    )
+
+    assert result.placements is not None
+    assert result.stats.swap_candidates > 0
+    assert result.stats.accepted_moves == ["swap"]
 
 
 def test_validator_requires_explicit_delivery_metadata(root: Path) -> None:

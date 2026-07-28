@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from collections import Counter
 from typing import Any, Iterable
 
 from ..schemas import Item, Placement, ValidationIssue, ValidationResult
 from .unloading import UnloadingAccessibility, UnloadingSettings, assess_unloading_accessibility
+from .pipeline import ValidationBundle
 
 
 @dataclass(frozen=True)
@@ -99,3 +101,51 @@ def validate_unloading_lifo(
                 record.container_id,
             ))
     return Level08UnloadingValidation(ValidationResult(not issues, issues), records, settings)
+
+
+def compose_level_08_validation(
+    inherited: ValidationBundle, unloading: Level08UnloadingValidation, items: Iterable[Item]
+) -> ValidationBundle:
+    """Append independent unloading evidence after the complete Level 1--7 bundle."""
+    item_list = list(items)
+    issues = [*inherited.result.issues, *unloading.result.issues]
+    priorities = [record.delivery_priority for record in unloading.records]
+    stops = sorted({record.delivery_stop_id for record in unloading.records})
+    priority_distribution = dict(sorted(Counter(priorities).items()))
+    stop_distribution = dict(sorted(Counter(record.delivery_stop_id for record in unloading.records).items()))
+    return ValidationBundle(
+        ValidationResult(not issues, issues),
+        solution_tables={
+            **inherited.solution_tables,
+            "unloading_accessibility.csv": unloading.accessibility_rows(),
+            "rehandle_plan.csv": unloading.rehandle_rows(),
+        },
+        validation_documents={
+            **inherited.validation_documents,
+            "unloading_validation.json": unloading.payload(),
+        },
+        solution_payload_extra={**inherited.solution_payload_extra, "unloading": unloading.payload()},
+        scene_item_metadata=inherited.scene_item_metadata,
+        extra_report_lines=[
+            *inherited.extra_report_lines,
+            f"- Level 8 static LIFO validation: {'VALID' if unloading.result.valid else 'INVALID'}.",
+            f"- Direct later-priority rehandles: {sum(record.minimum_rehandle_count for record in unloading.records)}",
+        ],
+        metadata={
+            **inherited.metadata,
+            "unloading_model": "straight_path_static_lifo_v1",
+            "door_face": unloading.settings.door_face if unloading.settings else None,
+            "delivery_priority_direction": unloading.settings.delivery_priority_direction if unloading.settings else None,
+            "rehandle_count_mode": unloading.settings.rehandle_count_mode if unloading.settings else None,
+            "total_direct_rehandles": sum(record.minimum_rehandle_count for record in unloading.records),
+            "lifo_compliant_item_count": sum(record.lifo_compliant for record in unloading.records),
+            "lifo_noncompliant_item_count": sum(not record.lifo_compliant for record in unloading.records),
+            "delivery_priority_min": min(priorities) if priorities else None,
+            "delivery_priority_max": max(priorities) if priorities else None,
+            "delivery_stop_count": len(stops),
+            "delivery_stop_ids": stops,
+            "delivery_priority_distribution": priority_distribution,
+            "delivery_stop_distribution": stop_distribution,
+            "delivery_item_count": len(item_list),
+        },
+    )

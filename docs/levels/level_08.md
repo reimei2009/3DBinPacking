@@ -1,8 +1,11 @@
 # Level 8 — Delivery order, LIFO, and multiple stops
 
-Status: **CLI-only experimental fixtures**. Level 8 remains hidden from
-Streamlit. It has a validation-only fixture plus a small Best Fit A/B fixture;
-neither is an arbitrary-instance or production delivery solver.
+Status: **CLI-only experimental runtime**. Level 8 remains hidden from
+Streamlit. Frozen fixtures remain regression evidence; config-driven Best Fit
+and FFD accept declared delivery metadata but are not yet production solvers.
+
+The fixture semantic baseline is recorded in
+`docs/reports/manual/level_08_fixture_baseline.md`.
 
 ## Activated semantics
 
@@ -89,6 +92,37 @@ fixture. It preserves `C1` as the first feasible container, but evaluates its
 feasible extreme points (including the declared far-door anchor) and selects a
 LIFO-valid placement. Thus it is not global Best Fit or a hidden fallback.
 
+For config-driven local experiments, use `extreme_point_best_fit_delivery`
+(primary) or `extreme_point_ffd_delivery` (fast comparator). Both require every
+selected row to declare priority, stop, and provenance. Missing or ambiguous
+delivery metadata fails before solver execution. Level 8 remains CLI-only until
+the 20–300 item acceptance protocol passes.
+
+When constructive placement is valid through Level 7 but fails strict LIFO,
+the runtime performs bounded local delivery repair on compound roots. It ranks
+the largest direct blocker contributors and attempts, in order, in-container
+relocation/transfer, leaf swap, and a 4/8/12-root conflict-neighborhood
+destroy/reinsert with complete support closures. Each operator has reserved
+candidate and time quotas, so relocation cannot consume the swap or
+neighborhood budget.
+Each accepted intermediate is independently valid through Level 7; only a
+final Level 8-valid result is reported as feasible. A monotonic 45-second
+deadline (by default) now covers construction and repair together. Construction
+checks that deadline between candidates; if it expires, the run returns
+`TIME_LIMIT`, writes status evidence only, suppresses the objective, and does
+not start repair. Repair receives only the remaining budget, reserves a
+separate rescue phase, and may open at most one additional container only after
+fixed-container repair. It never rebuilds all selected items.
+
+The delivery-aware construction pass uses reverse loading order: later delivery
+priorities are placed first toward the far side, then earlier deliveries are
+placed nearer the door. This produces the requested early-stop-near-door final
+layout while avoiding the infeasibility caused by trying to occupy door space
+with early items before later items have a feasible support-constrained route.
+For small instances the runtime can compare this pass with compact construction;
+the 300-item profile uses delivery-first directly to preserve its 45-second
+pipeline budget.
+
 The final controlled acceptance fixture has three ordered stops (`STOP-A`,
 `STOP-B`, `STOP-C`), six items, and two payload-forced containers. The Best
 Fit baseline intentionally creates direct later-priority blockers. Delivery-
@@ -110,7 +144,7 @@ are the source of truth.
 
 ## Inactive
 
-- arbitrary-instance delivery-aware constructive or metaheuristic solvers;
+- delivery-aware metaheuristic solvers beyond bounded local repair;
 - exact removal-sequence optimization;
 - loading order, handling equipment, time, staging space, and door geometry;
 - vehicle axle/floor-zone constraints, dynamic transport loads, and vehicle

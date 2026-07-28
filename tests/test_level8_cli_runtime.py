@@ -18,6 +18,8 @@ BASELINE = "extreme_point_best_fit_delivery_baseline_fixture"
 AWARE = "extreme_point_best_fit_delivery_aware_fixture"
 FFD_NEGATIVE_CONTROL = "extreme_point_ffd_delivery_negative_control_fixture"
 FFD_AWARE = "extreme_point_ffd_delivery_aware_fixture"
+GENERIC_BEST_FIT = "extreme_point_best_fit_delivery"
+GENERIC_FFD = "extreme_point_ffd_delivery"
 
 
 def _runtime_config(root: Path, tmp_path: Path) -> Path:
@@ -268,3 +270,62 @@ def test_level8_three_stop_multi_container_acceptance_for_best_fit_and_ffd(root:
     assert baseline.validation is not None and not baseline.validation.valid
     assert baseline.metadata["total_direct_rehandles"] > 0
     assert baseline.metadata["input_fingerprint"] == results[0].metadata["input_fingerprint"] == results[1].metadata["input_fingerprint"]
+
+
+@pytest.mark.parametrize(
+    ("algorithm", "config_name"),
+    [
+        (GENERIC_BEST_FIT, "default.yaml"),
+        (GENERIC_FFD, "ffd_delivery_local.yaml"),
+    ],
+)
+def test_level8_generic_runtime_is_config_driven_and_records_delivery_distribution(
+    root: Path, tmp_path: Path, algorithm: str, config_name: str
+) -> None:
+    config = deepcopy(load_config(root / "config/level_08" / (config_name if config_name == "default.yaml" else f"experiments/{config_name}")))
+    config["paths"]["processed_dir"] = str(tmp_path / algorithm / "processed")
+    config["paths"]["manifest_json"] = str(tmp_path / algorithm / "processed" / "latest_manifest.json")
+    config["paths"]["output_root"] = str(tmp_path / algorithm / "outputs")
+    config["delivery_repair_max_candidates"] = 77
+    config["delivery_construction_mode"] = "delivery_priority_primary"
+    config_path = tmp_path / f"{algorithm}.yaml"
+    config_path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
+
+    result = run_experiment(_request(
+        config_path, algorithm_id=algorithm, item_count=6, container_count=2,
+    ))
+
+    assert result.solve.status == "FEASIBLE"
+    assert result.validation is not None and result.validation.valid
+    assert result.metadata["delivery_priority_distribution"] == {1: 2, 2: 2, 3: 2}
+    assert result.metadata["delivery_stop_distribution"] == {"STOP-A": 2, "STOP-B": 2, "STOP-C": 2}
+    assert result.metadata["delivery_stop_count"] == 3
+    assert result.metadata["delivery_pipeline_time_limit_seconds"] == 45.0
+    assert result.metadata["delivery_repair_max_candidates"] == 77
+    assert result.metadata["delivery_construction_mode_selected"] == "delivery_priority_primary"
+    assert result.metadata["compound_item_ordering_source_field"] == "delivery_priority"
+    assert get_level("level_08").validate_run(Path(result.metadata["run_dir"])).valid
+
+
+@pytest.mark.parametrize("algorithm", [GENERIC_BEST_FIT, GENERIC_FFD])
+def test_level8_shared_pipeline_deadline_stops_construction_before_repair(
+    root: Path, tmp_path: Path, algorithm: str,
+) -> None:
+    config = deepcopy(load_config(root / "config/level_08/default.yaml"))
+    config["paths"]["processed_dir"] = str(tmp_path / algorithm / "processed")
+    config["paths"]["manifest_json"] = str(tmp_path / algorithm / "processed" / "latest_manifest.json")
+    config["paths"]["output_root"] = str(tmp_path / algorithm / "outputs")
+    config["delivery_pipeline_time_limit_seconds"] = 0.0
+    config_path = tmp_path / f"deadline_{algorithm}.yaml"
+    config_path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
+
+    result = run_experiment(_request(
+        config_path, algorithm_id=algorithm, item_count=6, container_count=2,
+    ))
+
+    assert result.solve.status == "TIME_LIMIT"
+    assert result.validation is None
+    assert result.metadata["objective_value"] is None
+    assert result.metadata["construction_time_limit_reached"] is True
+    assert result.metadata["delivery_repair_phase"] == "skipped_construction_time_limit"
+    assert result.metadata["delivery_repair_termination_reason"] == "construction_time_limit"

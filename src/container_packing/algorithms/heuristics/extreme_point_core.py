@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from time import perf_counter
 from typing import Callable
 
 from ..feasibility import FixedOrientationFeasibilityPolicy, PlacementFeasibilityPolicy
@@ -41,6 +42,8 @@ class SearchStats:
     packing_attempts: int = 0
     extreme_points_evaluated: int = 0
     orientation_candidates_evaluated: int = 0
+    deadline_monotonic: float | None = None
+    time_limit_reached: bool = False
 
 
 @dataclass(frozen=True)
@@ -48,6 +51,15 @@ class ConstructiveSearchResult:
     placements: list[Placement] | None
     chosen_containers: tuple[Container, ...]
     stats: SearchStats
+    time_limit_reached: bool = False
+
+
+def _deadline_reached(stats: SearchStats) -> bool:
+    """Stop constructive search at a caller-owned monotonic deadline."""
+    if stats.deadline_monotonic is None or perf_counter() < stats.deadline_monotonic:
+        return False
+    stats.time_limit_reached = True
+    return True
 
 
 def candidate_placement(
@@ -135,6 +147,8 @@ def pack_order_first_fit(
     selected_provider = orientation_provider or fixed_orientation_provider()
     states = [ContainerState(container) for container in containers]
     for item in items:
+        if _deadline_reached(stats):
+            return None
         if candidate_selection_policy is not None:
             selected: tuple[ContainerState, Placement] | None = None
             for state in states:
@@ -152,6 +166,8 @@ def pack_order_first_fit(
                         for point in _candidate_points(state, item, dimensions, candidate_point_provider)
                     )
                 for point, orientation_rank, dimensions in candidates_iter:
+                    if _deadline_reached(stats):
+                        return None
                     stats.extreme_points_evaluated += 1
                     stats.orientation_candidates_evaluated += 1
                     candidate = candidate_placement(state, item, point, dimensions)
@@ -181,6 +197,8 @@ def pack_order_first_fit(
                     for point in _candidate_points(state, item, dimensions, candidate_point_provider)
                 )
             for point, dimensions in candidates_iter:
+                if _deadline_reached(stats):
+                    return None
                 stats.extreme_points_evaluated += 1
                 stats.orientation_candidates_evaluated += 1
                 candidate = candidate_placement(state, item, point, dimensions)
@@ -239,11 +257,14 @@ def selected_policy_allows(
 def constructive_search(
     ordered_items: list[Item], containers: list[Container], tolerance: float,
     subset_limit: int, pack_order: PackOrder, policy: PlacementFeasibilityPolicy,
+    *, deadline_monotonic: float | None = None,
 ) -> ConstructiveSearchResult:
     total_weight = sum(value.weight_kg for value in ordered_items)
     total_volume = sum(value.volume_m3 for value in ordered_items)
-    stats = SearchStats()
+    stats = SearchStats(deadline_monotonic=deadline_monotonic)
     for subset in candidate_subsets(containers, subset_limit):
+        if _deadline_reached(stats):
+            return ConstructiveSearchResult(None, (), stats, time_limit_reached=True)
         stats.candidate_subsets_evaluated += 1
         if sum(value.max_weight_kg for value in subset) + tolerance < total_weight:
             continue
@@ -252,6 +273,8 @@ def constructive_search(
         for container_order in container_orders(subset):
             stats.packing_attempts += 1
             placements = pack_order(ordered_items, container_order, tolerance, stats, policy)
+            if stats.time_limit_reached:
+                return ConstructiveSearchResult(None, (), stats, time_limit_reached=True)
             if placements is not None:
                 chosen = tuple({value.container_id: value for value in container_order}.values())
                 return ConstructiveSearchResult(placements, chosen, stats)

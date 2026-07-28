@@ -187,6 +187,90 @@ def assess_unloading_accessibility(
     return tuple(records)
 
 
+def prospective_direct_rehandle_delta(
+    items_by_id: dict[str, Item],
+    placements: Iterable[Placement],
+    candidate: Placement,
+    settings: UnloadingSettings,
+    *,
+    tolerance_mm: float = 1e-6,
+) -> tuple[int, int]:
+    """Return the LIFO impact of adding one candidate placement.
+
+    The complete accessibility matrix is intentionally reserved for final
+    validation.  During constructive search every existing pair is identical
+    across alternatives in the same container state, so recomputing that
+    matrix for every extreme point is unnecessary and becomes cubic in the
+    number of items.  This helper evaluates only pairs involving ``candidate``
+    and returns ``(direct_rehandles, later_blockers)`` contributed by it.
+    """
+    if candidate.item_id not in items_by_id:
+        raise ValueError(f"Candidate {candidate.item_id} is absent from delivery metadata")
+    candidate_attributes = delivery_attributes_for_item(items_by_id[candidate.item_id])
+    if not candidate_attributes.declared_active or candidate_attributes.delivery_priority is None:
+        raise ValueError(f"Candidate {candidate.item_id} has undeclared delivery metadata")
+
+    direct_rehandles = 0
+    later_blockers = 0
+    for existing in placements:
+        if existing.container_id != candidate.container_id:
+            continue
+        existing_item = items_by_id.get(existing.item_id)
+        if existing_item is None:
+            raise ValueError(f"Placement {existing.item_id} is absent from delivery metadata")
+        existing_attributes = delivery_attributes_for_item(existing_item)
+        if not existing_attributes.declared_active or existing_attributes.delivery_priority is None:
+            raise ValueError(f"Placement {existing.item_id} has undeclared delivery metadata")
+
+        # Candidate blocks an already placed earlier delivery item.
+        if (
+            _blocks_straight_path(existing, candidate, settings, tolerance_mm)
+            and candidate_attributes.delivery_priority > existing_attributes.delivery_priority
+        ):
+            direct_rehandles += 1
+            later_blockers += 1
+
+        # An existing later delivery item blocks the candidate itself.
+        if (
+            _blocks_straight_path(candidate, existing, settings, tolerance_mm)
+            and existing_attributes.delivery_priority > candidate_attributes.delivery_priority
+        ):
+            direct_rehandles += 1
+            later_blockers += 1
+    return direct_rehandles, later_blockers
+
+
+def is_later_priority_direct_blocker(
+    items_by_id: dict[str, Item], target: Placement, blocker: Placement,
+    settings: UnloadingSettings, *, tolerance_mm: float = 1e-6,
+) -> bool:
+    """Whether ``blocker`` creates one strict-LIFO rehandle for ``target``.
+
+    This narrow primitive is shared by final validation and bounded local
+    repair.  It has no solver state and deliberately models only the static
+    straight-path convention declared by the Level 8 contract.
+    """
+    if target.item_id == blocker.item_id or target.container_id != blocker.container_id:
+        return False
+    target_item = items_by_id.get(target.item_id)
+    blocker_item = items_by_id.get(blocker.item_id)
+    if target_item is None or blocker_item is None:
+        raise ValueError("Unloading blocker check received an item absent from delivery metadata")
+    target_attributes = delivery_attributes_for_item(target_item)
+    blocker_attributes = delivery_attributes_for_item(blocker_item)
+    if (
+        not target_attributes.declared_active
+        or not blocker_attributes.declared_active
+        or target_attributes.delivery_priority is None
+        or blocker_attributes.delivery_priority is None
+    ):
+        raise ValueError("Unloading blocker check requires declared delivery metadata")
+    return (
+        blocker_attributes.delivery_priority > target_attributes.delivery_priority
+        and _blocks_straight_path(target, blocker, settings, tolerance_mm)
+    )
+
+
 def _validate_priority_stop_mapping(attributes: Iterable[DeliveryAttributes]) -> None:
     by_priority: dict[int, set[str]] = {}
     for value in attributes:

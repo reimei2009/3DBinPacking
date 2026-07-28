@@ -917,13 +917,15 @@ _level_08_base = _LEVELS["level_07"].contract
 _LEVELS["level_08"] = LevelDefinition(
     level_id="level_08",
     description="CLI-only static delivery/LIFO validation fixture over inherited Level 1–7 evidence",
-    default_config=Path("config/level_08/runtime_candidate.yaml"),
+    default_config=Path("config/level_08/default.yaml"),
     supported_algorithms=(
         "level_08_fixture_validation_bundle",
         "extreme_point_best_fit_delivery_baseline_fixture",
         "extreme_point_best_fit_delivery_aware_fixture",
         "extreme_point_ffd_delivery_negative_control_fixture",
         "extreme_point_ffd_delivery_aware_fixture",
+        "extreme_point_best_fit_delivery",
+        "extreme_point_ffd_delivery",
     ),
     run=level_08.run,
     prepare=level_08.prepare,
@@ -935,6 +937,8 @@ _LEVELS["level_08"] = LevelDefinition(
         "extreme_point_best_fit_delivery_aware_fixture": Path("config/level_08/experiments/delivery_best_fit_aware_fixture.yaml"),
         "extreme_point_ffd_delivery_negative_control_fixture": Path("config/level_08/experiments/ffd_multi_container_negative_control_fixture.yaml"),
         "extreme_point_ffd_delivery_aware_fixture": Path("config/level_08/experiments/ffd_delivery_aware_fixture.yaml"),
+        "extreme_point_best_fit_delivery": Path("config/level_08/default.yaml"),
+        "extreme_point_ffd_delivery": Path("config/level_08/experiments/ffd_delivery_local.yaml"),
     },
     contract=replace(
         _level_08_base,

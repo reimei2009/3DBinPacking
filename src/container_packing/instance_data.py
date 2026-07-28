@@ -190,6 +190,58 @@ def _container_definitions(config: dict[str, Any], requested: int) -> list[dict[
     return selected
 
 
+def _container_frame(root: Path, config: dict[str, Any], requested: int, level_id: str) -> tuple[pd.DataFrame, Path | None]:
+    """Use an immutable canonical container CSV when declared, otherwise config containers."""
+    paths = config["paths"]
+    raw_value = paths.get("raw_containers_csv")
+    if not raw_value:
+        rows = []
+        level_label = level_id.replace("_", " ").title()
+        for definition in _container_definitions(config, requested):
+            length = float(definition["length_mm"])
+            width = float(definition["width_mm"])
+            height = float(definition["height_mm"])
+            rows.append({
+                "container_id": str(definition["container_id"]),
+                "length_mm": length, "width_mm": width, "height_mm": height,
+                "max_weight_kg": float(definition["max_weight_kg"]),
+                "availability": int(definition.get("availability", 1)),
+                "cost": float(definition["cost"]),
+                "volume_m3": length * width * height / 1_000_000_000,
+                "data_status": f"synthetic_{level_id}",
+                "unit_note": "mm, kg; cost is a synthetic comparison score",
+                "design_note": definition.get("design_note", f"Synthetic heterogeneous container defined by {level_label} configuration"),
+            })
+        return pd.DataFrame(rows), None
+    source_path = _path(root, raw_value)
+    if not source_path.exists():
+        raise FileNotFoundError(f"Missing raw container file: {source_path}")
+    frame = pd.read_csv(source_path, encoding="utf-8-sig")
+    required = {"container_id", "length_mm", "width_mm", "height_mm", "max_weight_kg", "cost"}
+    missing = sorted(required - set(frame.columns))
+    if missing:
+        raise ValueError(f"Raw container file {source_path} is missing required columns: {', '.join(missing)}")
+    if frame["container_id"].astype(str).duplicated().any():
+        raise ValueError(f"Raw container file {source_path} contains duplicate container_id values")
+    if requested > len(frame):
+        raise ValueError(f"Requested {requested} containers but raw container data contains only {len(frame)} rows")
+    selected = frame.head(requested).copy()
+    for column in ("length_mm", "width_mm", "height_mm", "max_weight_kg", "cost"):
+        selected[column] = pd.to_numeric(selected[column], errors="raise")
+        if (selected[column] <= 0).any():
+            raise ValueError(f"Raw container file {source_path} has non-positive {column}")
+    if "availability" not in selected:
+        selected["availability"] = 1
+    selected["availability"] = pd.to_numeric(selected["availability"], errors="raise").astype(int)
+    if (selected["availability"] <= 0).any():
+        raise ValueError(f"Raw container file {source_path} has non-positive availability")
+    selected["volume_m3"] = selected["length_mm"] * selected["width_mm"] * selected["height_mm"] / 1_000_000_000
+    selected["data_status"] = selected.get("data_status", f"raw_{level_id}")
+    selected["unit_note"] = selected.get("unit_note", "mm, kg; source-declared container data")
+    selected["design_note"] = selected.get("design_note", "Raw container source selected by configured order")
+    return selected, source_path
+
+
 def prepare_instance(
     root: Path,
     config: dict[str, Any],
@@ -244,25 +296,7 @@ def prepare_instance(
     items["level1_note"] = f"{selection_notes[strategy]}; advanced fields classified by {level_label} contract"
     items["source_url"] = SOURCE_URL
 
-    rows = []
-    for definition in _container_definitions(config, requested_containers):
-        length = float(definition["length_mm"])
-        width = float(definition["width_mm"])
-        height = float(definition["height_mm"])
-        rows.append({
-            "container_id": str(definition["container_id"]),
-            "length_mm": length, "width_mm": width, "height_mm": height,
-            "max_weight_kg": float(definition["max_weight_kg"]),
-            "availability": int(definition.get("availability", 1)),
-            "cost": float(definition["cost"]),
-            "volume_m3": length * width * height / 1_000_000_000,
-            "data_status": f"synthetic_{level_id}",
-            "unit_note": "mm, kg; cost is a synthetic comparison score",
-            "design_note": definition.get(
-                "design_note", f"Synthetic heterogeneous container defined by {level_label} configuration"
-            ),
-        })
-    containers = pd.DataFrame(rows)
+    containers, raw_containers_path = _container_frame(root, config, requested_containers, level_id)
     actual_containers = len(containers)
     selection_token = strategy if selection_seed is None else f"{strategy}_seed{selection_seed}"
     run_id = instance_id(actual_items, actual_containers, level_id)
@@ -297,6 +331,7 @@ def prepare_instance(
         },
         "items_note": items["level1_note"].iloc[0],
         "raw_items_checksum": sha256_file(raw_path),
+        "raw_containers_checksum": None if raw_containers_path is None else sha256_file(raw_containers_path),
         "item_selection_strategy": strategy,
         "item_selection_seed": selection_seed,
         "selected_item_ids": items["id_item"].astype(str).tolist(),

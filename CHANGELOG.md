@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+- Enforced the Level 8 delivery pipeline deadline across construction and
+  repair. Extreme-Point Best Fit/FFD stop at the shared monotonic deadline;
+  construction timeout returns `TIME_LIMIT`, no comparable objective, and no
+  hidden repair phase.
+
+- Replaced Level 8 full priority-order reconstruction with bounded local
+  delivery repair. It uses blocker contributors, relocation, transfer, swap,
+  and support-closure moves under one real pipeline deadline; invalid results
+  continue to suppress comparable objectives.
+
+- Promoted Level 8 to a CLI-only config-driven experimental runtime with
+  delivery-aware Best Fit as primary and FFD as a first-fit comparator. Each
+  run now persists delivery priority/stop distributions with the independent
+  Level 1–8 validation bundle.
+
 - Added the final controlled Level 8 three-stop/two-container acceptance
   fixture. It proves deterministic delivery-aware Best Fit and FFD evidence
   against an intentionally LIFO-invalid baseline without opening arbitrary

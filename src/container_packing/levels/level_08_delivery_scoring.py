@@ -10,7 +10,7 @@ from ..algorithms.heuristics.extreme_point_core import ContainerState
 from ..algorithms.heuristics.first_fit_selection import FirstFitCandidate, FirstFitCandidateSelectionPolicy
 from ..geometry.orientation import OrientedDimensions
 from ..schemas import Item, Placement
-from .unloading import UnloadingSettings, assess_unloading_accessibility
+from .unloading import UnloadingSettings, prospective_direct_rehandle_delta
 
 
 @dataclass(frozen=True)
@@ -45,7 +45,7 @@ class DeliveryDoorPointProvider(CandidatePointProvider):
 
 @dataclass
 class DeliveryAwareCandidateScoringPolicy(CandidateScoringPolicy):
-    """Use direct rehandles plus a future-blocker tie-break without changing feasibility."""
+    """Use candidate-only LIFO deltas without changing feasibility."""
 
     items_by_id: dict[str, Item]
     settings: UnloadingSettings
@@ -58,11 +58,9 @@ class DeliveryAwareCandidateScoringPolicy(CandidateScoringPolicy):
     ) -> tuple[float, ...]:
         del container_rank
         self.candidates_scored += 1
-        placements = [*state.placements, candidate]
-        items = [self.items_by_id[value.item_id] for value in placements]
-        records = assess_unloading_accessibility(items, placements, self.settings)
-        direct_rehandles = sum(record.minimum_rehandle_count for record in records)
-        later_blockers = sum(len(record.later_priority_blocker_ids) for record in records)
+        direct_rehandles, later_blockers = prospective_direct_rehandle_delta(
+            self.items_by_id, state.placements, candidate, self.settings
+        )
         candidate_item = self.items_by_id[candidate.item_id]
         future_risk = self._future_blocker_risk(candidate_item, candidate, state)
         # Preserve container-count/cost priority. Delivery criteria only refine
@@ -89,7 +87,7 @@ class DeliveryAwareCandidateScoringPolicy(CandidateScoringPolicy):
         return {
             "candidate_scoring_policy": self.policy_id,
             "delivery_scored_candidates": self.candidates_scored,
-            "delivery_construction_mode": "prospective_direct_rehandle_then_future_blocker_tiebreak",
+            "delivery_construction_mode": "prospective_direct_rehandle_delta_then_future_blocker_tiebreak",
         }
 
 
@@ -106,12 +104,9 @@ class DeliveryAwareFirstFitCandidateSelection(FirstFitCandidateSelectionPolicy):
         self.candidates_scored += len(candidates)
 
         def rank(candidate: FirstFitCandidate) -> tuple[float, ...]:
-            placements = [*state.placements, candidate.placement]
-            records = assess_unloading_accessibility(
-                [self.items_by_id[value.item_id] for value in placements], placements, self.settings
+            direct_rehandles, later_blockers = prospective_direct_rehandle_delta(
+                self.items_by_id, state.placements, candidate.placement, self.settings
             )
-            direct_rehandles = sum(record.minimum_rehandle_count for record in records)
-            later_blockers = sum(len(record.later_priority_blocker_ids) for record in records)
             item = self.items_by_id[candidate.placement.item_id]
             return (
                 float(direct_rehandles),
@@ -135,6 +130,6 @@ class DeliveryAwareFirstFitCandidateSelection(FirstFitCandidateSelectionPolicy):
         return {
             "first_fit_candidate_selection_policy": self.policy_id,
             "delivery_scored_candidates": self.candidates_scored,
-            "delivery_construction_mode": "first_feasible_container_prospective_direct_rehandle_tiebreak",
+            "delivery_construction_mode": "first_feasible_container_prospective_direct_rehandle_delta_tiebreak",
             "delivery_container_selection_scope": "first_feasible_container_only",
         }

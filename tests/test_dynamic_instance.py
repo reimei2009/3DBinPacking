@@ -94,3 +94,23 @@ def test_stable_random_requires_an_explicit_selection_seed(root: Path):
     source = pd.read_csv(root / "data/raw/dataset_small_items_original.csv")
     with pytest.raises(ValueError, match="requires a non-negative selection seed"):
         select_item_rows(source, 10, strategy="stable_random")
+
+
+def test_raw_container_csv_is_selected_and_recorded(root: Path, tmp_path: Path):
+    raw_containers = tmp_path / "containers.csv"
+    raw_containers.write_text(
+        "container_id,length_mm,width_mm,height_mm,max_weight_kg,cost,availability\n"
+        "R1,100,80,60,1000,10,1\nR2,120,90,70,1200,20,1\n",
+        encoding="utf-8",
+    )
+    config = yaml.safe_load((root / "config/level_01/default.yaml").read_text(encoding="utf-8"))
+    config["paths"].update({
+        "raw_items_csv": str(root / "data/raw/dataset_small_items_original.csv"),
+        "raw_containers_csv": str(raw_containers),
+        "processed_dir": "processed", "manifest_json": "processed/manifest.json",
+    })
+    manifest = prepare_instance(tmp_path, config, item_count=2, container_count=2)
+    containers = pd.read_csv(tmp_path / manifest["containers_csv"])
+
+    assert list(containers["container_id"]) == ["R1", "R2"]
+    assert manifest["raw_containers_checksum"]

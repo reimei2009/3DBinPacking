@@ -25,6 +25,7 @@ from .level_08_delivery_scoring import (
 )
 from .level_08_fixture_output import write_level_08_composed_validation_run
 from .level_08_validation import validate_unloading_lifo
+from .level_08_pipeline import ALGORITHM_IDS as GENERIC_ALGORITHM_IDS, run_from_config as run_delivery_from_config
 
 
 VALIDATION_ALGORITHM_ID = "level_08_fixture_validation_bundle"
@@ -45,6 +46,14 @@ THREE_STOP_MULTI_CONTAINER_FIXTURE_ID = "level_08_delivery_three_stop_multi_cont
 
 def run(request: ExperimentRequest) -> RunResult:
     """Run one frozen Level 8 evidence or delivery-aware A/B fixture."""
+    if request.algorithm_id in GENERIC_ALGORITHM_IDS:
+        return run_delivery_from_config(
+            request.config_path, item_count=request.item_count, container_count=request.container_count,
+            level_id=request.level_id, algorithm_id=request.algorithm_id, environment=request.environment,
+            random_seed=request.random_seed, algorithm_parameters=request.algorithm_parameters,
+            config_overrides=request.config_overrides, item_selection_strategy=request.item_selection_strategy,
+            item_selection_seed=request.item_selection_seed,
+        )
     started = perf_counter()
     root = find_project_root(__file__)
     config = load_config(request.config_path)
@@ -117,6 +126,14 @@ def run(request: ExperimentRequest) -> RunResult:
 def prepare(request: ExperimentRequest) -> dict[str, Any]:
     root = find_project_root(__file__)
     config = load_config(request.config_path)
+    if request.algorithm_id in GENERIC_ALGORITHM_IDS:
+        from .level_08_pipeline import _guard
+        _guard(config)
+        return prepare_instance(
+            root, config, item_count=request.item_count, container_count=request.container_count,
+            level_id="level_08", item_selection_strategy=request.item_selection_strategy,
+            item_selection_seed=request.item_selection_seed,
+        )
     _guard_request(request, config)
     return prepare_instance(
         root, config, item_count=request.item_count,
@@ -133,6 +150,9 @@ def validate_run(run_dir: Path) -> ValidationResult:
     containers = load_containers(run_dir / "input_snapshot" / "containers.csv")
     placements = load_placements(run_dir / "solution" / "placements.csv")
     root = find_project_root(__file__)
+    if str(config.get("project", {}).get("algorithm_id")) in GENERIC_ALGORITHM_IDS:
+        from .level_08_pipeline import _validate_solution
+        return _validate_solution(items, containers, placements, config).result
     inherited = validate_level_07_fixture_bundle(items, containers, placements, config, relations=[])
     unloading = validate_unloading_lifo(items, placements, _unloading_rules(root, config))
     return ValidationResult(
