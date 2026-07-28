@@ -154,6 +154,7 @@ _ALGORITHMS = {
             vi="Chá»‰ táº¡o báº±ng chá»©ng validation cho fixture COG/cÃ¢n báº±ng Ä‘Ã£ Ä‘Ã³ng; khÃ´ng cháº¡y solver.",
             en="Produces frozen COG/balance fixture validation evidence only; it does not run a solver.",
         ),
+        web_visible=False,
     ),
     "extreme_point_best_fit_balance_fixture": AlgorithmDefinition(
         algorithm_id="extreme_point_best_fit_balance_fixture",
@@ -165,6 +166,7 @@ _ALGORITHMS = {
             vi="Best Fit fixture dùng COG dự kiến làm tie-break; cân bằng chỉ là ràng buộc validation cuối.",
             en="Fixture Best Fit uses prospective COG as a tie-break; balance remains a final validation constraint.",
         ),
+        web_visible=False,
     ),
     "extreme_point_best_fit_balance_baseline_fixture": AlgorithmDefinition(
         algorithm_id="extreme_point_best_fit_balance_baseline_fixture",
@@ -176,6 +178,7 @@ _ALGORITHMS = {
             vi="Comparator Best Fit không dùng COG score; final balance validator vẫn bắt buộc.",
             en="Best Fit comparator without COG scoring; final balance validation remains mandatory.",
         ),
+        web_visible=False,
     ),
     "extreme_point_ffd_balance_fixture": AlgorithmDefinition(
         algorithm_id="extreme_point_ffd_balance_fixture",
@@ -187,6 +190,7 @@ _ALGORITHMS = {
             vi="Giữ First Fit theo container; COG chỉ chọn extreme point trong container khả thi đầu tiên.",
             en="Preserves First Fit container choice; COG selects only an extreme point within the first feasible container.",
         ),
+        web_visible=False,
     ),
     "extreme_point_ffd_balance_baseline_fixture": AlgorithmDefinition(
         algorithm_id="extreme_point_ffd_balance_baseline_fixture",
@@ -197,6 +201,29 @@ _ALGORITHMS = {
         localized_description=LocalizedText(
             vi="Comparator First Fit không dùng COG; final balance validator vẫn bắt buộc.",
             en="Comparator First Fit without COG scoring; final balance validation remains mandatory.",
+        ),
+        web_visible=False,
+    ),
+    "extreme_point_best_fit_balance": AlgorithmDefinition(
+        algorithm_id="extreme_point_best_fit_balance",
+        family="experimental_constructive_heuristic",
+        description="Experimental generic compound-root Best Fit with prospective COG tie-breaking",
+        supported_levels=("level_07",), local_friendly=True,
+        display_name=LocalizedText(vi="Experimental — Balance-aware Best Fit", en="Experimental — Balance-aware Best Fit"),
+        localized_description=LocalizedText(
+            vi="Best Fit thực nghiệm cho input tùy ý; dùng điểm neo COG và kiểm định cân bằng cuối cùng.",
+            en="Experimental arbitrary-input Best Fit using COG anchors and final independent balance validation.",
+        ),
+    ),
+    "extreme_point_ffd_balance": AlgorithmDefinition(
+        algorithm_id="extreme_point_ffd_balance",
+        family="experimental_constructive_heuristic",
+        description="Experimental generic First Fit with prospective COG tie-breaking inside the first feasible container",
+        supported_levels=("level_07",), local_friendly=True,
+        display_name=LocalizedText(vi="Experimental — Balance-aware First Fit", en="Experimental — Balance-aware First Fit"),
+        localized_description=LocalizedText(
+            vi="FFD thực nghiệm cho input tùy ý; vẫn giữ First Fit theo container và dùng COG trong container đó.",
+            en="Experimental arbitrary-input FFD preserving First Fit container choice with in-container COG guidance.",
         ),
     ),
 }

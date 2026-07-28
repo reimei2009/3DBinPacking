@@ -123,7 +123,6 @@ def run_configured_level(
         "algorithm_id": algorithm_id, "environment": environment,
         "config_file": _display_path(root, config_file), "random_seed": seed,
         "algorithm_parameters": overrides, "config_overrides": dict(config_overrides or {}),
-        "algorithm_runtime_seconds": runtime,
         "algorithm_role": strategy.algorithm_roles.get(algorithm_id),
         "failure_interpretation": (
             "search_failure_not_mathematical_infeasibility_proof"
@@ -131,7 +130,11 @@ def run_configured_level(
         ),
         "time_limit_seconds": config.get("solver", {}).get("time_limit_seconds") if algorithm_id == "milp_big_m" else None,
         "solver_message": solve.message, "objective_value": solve.objective_value,
-        **outcome.metadata, "level": strategy.level_number,
+        **outcome.metadata,
+        # The orchestration timer covers every phase invoked by the strategy.
+        # Adapter-local timers remain phase diagnostics and must not overwrite it.
+        "algorithm_runtime_seconds": runtime,
+        "level": strategy.level_number,
         "items_data_status": "public benchmark sample",
         "cost_note": "Synthetic comparison score; not a real freight price.",
         "item_selection_strategy": manifest["item_selection_strategy"],
@@ -184,6 +187,10 @@ def run_configured_level(
     }
     if not bundle.result.valid:
         metadata["status"] = "INVALID_SOLUTION"
+        if outcome.metadata.get("hide_objective_when_invalid"):
+            metadata["candidate_objective_value"] = metadata.get("objective_value")
+            metadata["objective_value"] = None
+            metadata["objective_reported"] = False
         if write_outputs and run_dir is not None:
             write_run_outputs(run_dir, placements, containers, metadata, bundle.result, config, **output_arguments)
         return RunResult(solve, placements, bundle.result, metadata)

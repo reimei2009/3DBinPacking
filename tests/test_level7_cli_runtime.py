@@ -19,6 +19,8 @@ BALANCE_ALGORITHM = "extreme_point_best_fit_balance_fixture"
 BASELINE_ALGORITHM = "extreme_point_best_fit_balance_baseline_fixture"
 FFD_ALGORITHM = "extreme_point_ffd_balance_fixture"
 FFD_BASELINE_ALGORITHM = "extreme_point_ffd_balance_baseline_fixture"
+GENERIC_BEST_FIT = "extreme_point_best_fit_balance"
+GENERIC_FFD = "extreme_point_ffd_balance"
 
 
 def _runtime_config(root: Path, tmp_path: Path) -> Path:
@@ -89,10 +91,10 @@ def test_level7_rejects_non_fixture_overrides(
         run_experiment(_request(config_path, **overrides))
 
 
-def test_level7_is_exposed_to_cli_but_not_web(root: Path, tmp_path: Path, capsys) -> None:
+def test_level7_generic_algorithms_are_exposed_to_cli_and_web(root: Path, tmp_path: Path, capsys) -> None:
     config_path = _runtime_config(root, tmp_path)
     assert "level_07" in [value.level_id for value in list_levels()]
-    assert "level_07" not in [value.level_id for value in list_levels() if value.web_visible]
+    assert "level_07" in [value.level_id for value in list_levels() if value.web_visible]
 
     assert main([
         "run", "--level", "level_07", "--config", str(config_path),
@@ -102,6 +104,87 @@ def test_level7_is_exposed_to_cli_but_not_web(root: Path, tmp_path: Path, capsys
     assert "VALIDATION_ONLY" in output
     assert "COG validation: VALID" in output
     assert "Balanced containers: 1 balanced / 0 unbalanced" in output
+
+
+@pytest.mark.parametrize("algorithm_id", [GENERIC_BEST_FIT, GENERIC_FFD])
+def test_level7_generic_runtime_accepts_non_fixture_input(
+    root: Path, tmp_path: Path, algorithm_id: str
+) -> None:
+    config = deepcopy(load_config(root / "config/level_07/default.yaml"))
+    config["paths"]["processed_dir"] = str(tmp_path / f"processed_{algorithm_id}")
+    config["paths"]["manifest_json"] = str(tmp_path / f"processed_{algorithm_id}" / "latest_manifest.json")
+    config["paths"]["output_root"] = str(tmp_path / "outputs")
+    config["project"]["algorithm_id"] = algorithm_id
+    config_path = tmp_path / f"{algorithm_id}.yaml"
+    config_path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
+
+    request = ExperimentRequest(
+        "level_07", algorithm_id, config_path, 10, 3,
+        environment="local", item_selection_strategy="prefix",
+    )
+    first = run_experiment(request)
+    second = run_experiment(request)
+
+    assert first.solve.status == "FEASIBLE"
+    assert first.validation is not None and first.validation.valid
+    assert first.placements == second.placements
+    assert first.metadata["balance_validation_status"] == "VALID"
+    assert first.metadata["balance_pipeline"] == "level_06_compact_then_local_cog_repair_v2"
+    assert first.metadata["balance_repair_phase"] == "baseline_valid"
+    assert first.metadata["balance_repair_attempts"] == 0
+    assert 0 < first.metadata["balance_repair_time_limit_seconds"] <= 45
+    assert first.metadata["balance_pipeline_time_limit_seconds"] == 45
+    assert first.metadata["balance_outcome_class"] == "VALID_FIXED_CONTAINER"
+    assert first.metadata["balance_repair_fixed_subset_seconds"] == 10
+    assert 0 < first.metadata["balance_repair_lns_seconds"] <= 30
+    assert 0 < first.metadata["balance_repair_extra_container_seconds"] <= 5
+    assert (
+        first.metadata["balance_repair_fixed_subset_seconds"]
+        + first.metadata["balance_repair_lns_seconds"]
+        + first.metadata["balance_repair_extra_container_seconds"]
+        <= first.metadata["balance_repair_time_limit_seconds"] + 1e-9
+    )
+    assert first.metadata["algorithm_runtime_seconds"] >= first.metadata["balance_pipeline_runtime_seconds"]
+    assert first.metadata["balance_baseline_runtime_seconds"] <= first.metadata["balance_pipeline_runtime_seconds"]
+    run_dir = Path(first.metadata["run_dir"])
+    assert (run_dir / "solution" / "center_of_mass.csv").is_file()
+    assert (run_dir / "validation" / "balance_validation.json").is_file()
+    assert get_level("level_07").validate_run(run_dir).valid
+
+
+def test_level7_generic_local_repair_fixes_unbalanced_baseline(
+    root: Path, tmp_path: Path,
+) -> None:
+    config = deepcopy(load_config(
+        root / "config/level_07/experiments/balance_aware_best_fit_fixture.yaml"
+    ))
+    config["project"]["algorithm_id"] = GENERIC_BEST_FIT
+    config["paths"]["processed_dir"] = str(tmp_path / "processed_repair")
+    config["paths"]["manifest_json"] = str(
+        tmp_path / "processed_repair" / "latest_manifest.json"
+    )
+    config["paths"]["output_root"] = str(tmp_path / "outputs")
+    config["algorithms"][GENERIC_BEST_FIT] = deepcopy(
+        load_config(root / "config/level_07/default.yaml")["algorithms"][
+            GENERIC_BEST_FIT
+        ]
+    )
+    config_path = tmp_path / "repair.yaml"
+    config_path.write_text(
+        yaml.safe_dump(config, sort_keys=False), encoding="utf-8"
+    )
+
+    result = run_experiment(ExperimentRequest(
+        "level_07", GENERIC_BEST_FIT, config_path, 3, 1,
+        environment="local", item_selection_strategy="prefix",
+    ))
+
+    assert result.solve.status == "FEASIBLE"
+    assert result.validation is not None and result.validation.valid
+    assert result.metadata["balance_repair_phase"] == "repair_valid_local"
+    assert result.metadata["balance_repair_final_container_count"] == 1
+    assert result.metadata["balance_repair_candidates_evaluated"] > 0
+    assert result.metadata["balance_repair_accepted_moves"]
 
 
 def test_level7_balance_aware_best_fit_selects_balanced_fixture(root: Path, tmp_path: Path) -> None:

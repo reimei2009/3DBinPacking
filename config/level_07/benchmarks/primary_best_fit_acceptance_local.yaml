@@ -1,0 +1,45 @@
+suite_id: level_07_best_fit_primary_acceptance_v1
+level_id: level_07
+description: >
+  Level 7 practical-primary acceptance. Every scenario must be independently
+  valid and both repeats must be deterministic.
+config: config/level_07/default.yaml
+environment: local
+algorithms:
+  - extreme_point_best_fit_balance
+seeds: [42]
+repeats: 2
+scenarios:
+  - scenario_id: smoke_prefix_i20_c5
+    item_count: 20
+    container_count: 5
+    item_selection: prefix
+    tags: [smoke, primary]
+  - scenario_id: practical_prefix_i100_c10
+    item_count: 100
+    container_count: 10
+    item_selection: prefix
+    tags: [practical, primary]
+  - scenario_id: practical_prefix_i300_c25
+    item_count: 300
+    container_count: 25
+    item_selection: prefix
+    tags: [scale, primary]
+  - scenario_id: random_101_i300_c25
+    item_count: 300
+    container_count: 25
+    item_selection: stable_random
+    selection_seed: 101
+    tags: [scale, stable_random, primary]
+  - scenario_id: random_202_i300_c25
+    item_count: 300
+    container_count: 25
+    item_selection: stable_random
+    selection_seed: 202
+    tags: [scale, stable_random, primary]
+  - scenario_id: random_303_i300_c25
+    item_count: 300
+    container_count: 25
+    item_selection: stable_random
+    selection_seed: 303
+    tags: [scale, stable_random, primary]

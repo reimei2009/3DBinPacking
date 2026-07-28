@@ -252,6 +252,26 @@ def terminal_preview(result: RunResult, *, placement_limit: int = 20) -> str:
             f"Balanced containers: {metadata.get('balanced_container_count', 0)} balanced / "
             f"{metadata.get('unbalanced_container_count', 0)} unbalanced",
         ])
+    if metadata.get("balance_pipeline_runtime_seconds") is not None:
+        lines.append(
+            "Balance phases: baseline "
+            f"{float(metadata.get('balance_baseline_runtime_seconds', 0.0)):.3f} s, "
+            "repair "
+            f"{float(metadata.get('balance_repair_runtime_seconds', 0.0)):.3f} s, "
+            f"{int(metadata.get('balance_repair_attempts', 0))} candidate(s), "
+            f"stop={metadata.get('balance_repair_termination_reason', 'unknown')}"
+        )
+    if metadata.get("balance_lns_runtime_seconds") is not None:
+        lines.append(
+            "Balance LNS: "
+            f"{float(metadata['balance_lns_runtime_seconds']):.3f} s, "
+            f"{int(metadata.get('balance_lns_candidates_evaluated', 0))} candidate(s), "
+            f"stop={metadata.get('balance_lns_termination_reason', 'unknown')}"
+        )
+    if metadata.get("balance_failure_reason"):
+        lines.append(f"Balance failure: {metadata['balance_failure_reason']}")
+    if metadata.get("balance_outcome_class"):
+        lines.append(f"Balance outcome: {metadata['balance_outcome_class']}")
     if result.placements:
         groups: dict[str, list] = defaultdict(list)
         for placement in result.placements:

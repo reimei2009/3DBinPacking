@@ -9,8 +9,9 @@ from scipy.optimize import OptimizeResult
 from ..contracts import AlgorithmOutcome
 from ..feasibility import FixedOrientationFeasibilityPolicy, PlacementFeasibilityPolicy
 from ..orientation import OrientationProvider, fixed_orientation_provider
-from .extreme_point_core import constructive_search, item_sort_key, pack_order_first_fit
+from .extreme_point_core import constructive_search, pack_order_first_fit, resolved_item_order
 from .first_fit_selection import FirstFitCandidateSelectionPolicy
+from .candidate_points import CandidatePointProvider
 from ...schemas import Container, Item, SolveResult
 
 
@@ -19,6 +20,7 @@ def solve(
     *, policy: PlacementFeasibilityPolicy | None = None,
     orientation_provider: OrientationProvider | None = None,
     candidate_selection_policy: FirstFitCandidateSelectionPolicy | None = None,
+    candidate_point_provider: CandidatePointProvider | None = None,
 ) -> AlgorithmOutcome:
     """Pack all items with an explicit orientation provider; not globally optimal."""
     settings = settings or {}
@@ -28,12 +30,13 @@ def solve(
         raise ValueError("subset_enumeration_limit must be positive")
     selected_policy = policy or FixedOrientationFeasibilityPolicy()
     selected_orientation_provider = orientation_provider or fixed_orientation_provider()
-    ordered_items = sorted(items, key=item_sort_key)
+    ordered_items = resolved_item_order(items, settings)
     def pack_order(items, containers, tolerance, stats, policy):
         return pack_order_first_fit(
             items, containers, tolerance, stats, policy,
             orientation_provider=selected_orientation_provider,
             candidate_selection_policy=candidate_selection_policy,
+            candidate_point_provider=candidate_point_provider,
         )
     search = constructive_search(
         ordered_items, containers, tolerance, subset_limit, pack_order, selected_policy,
@@ -76,6 +79,7 @@ def solve(
             **selected_orientation_provider.metadata(),
             **selected_policy.metadata(),
             **({} if candidate_selection_policy is None else candidate_selection_policy.metadata()),
+            **({} if candidate_point_provider is None else candidate_point_provider.metadata()),
         },
     )
 

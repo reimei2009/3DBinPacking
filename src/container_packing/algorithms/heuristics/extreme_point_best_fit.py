@@ -16,9 +16,11 @@ from .extreme_point_core import (
     constructive_search,
     item_sort_key,
     place_candidate,
+    resolved_item_order,
     selected_policy_allows,
 )
 from .candidate_scoring import CandidateScoringPolicy
+from .candidate_points import CandidatePointProvider
 from ...schemas import Container, Item, Placement, SolveResult
 
 
@@ -64,6 +66,7 @@ def pack_order_best_fit(
     items: list[Item], containers: tuple[Container, ...], tolerance: float, stats: SearchStats,
     policy: PlacementFeasibilityPolicy, *, orientation_provider: OrientationProvider | None = None,
     candidate_scoring_policy: CandidateScoringPolicy | None = None,
+    candidate_point_provider: CandidatePointProvider | None = None,
 ) -> list[Placement] | None:
     """Place each item at the best feasible container/extreme-point candidate."""
     selected_provider = orientation_provider or fixed_orientation_provider()
@@ -71,20 +74,31 @@ def pack_order_best_fit(
     for item in items:
         selected: tuple[tuple[float, ...], ContainerState, Placement] | None = None
         for container_rank, state in enumerate(states):
-            for point in sorted(state.extreme_points, key=lambda value: (value[2], value[1], value[0])):
+            if candidate_point_provider is None:
+                candidates_iter = (
+                    (point, dimensions)
+                    for point in sorted(state.extreme_points, key=lambda value: (value[2], value[1], value[0]))
+                    for dimensions in selected_provider.candidates(item)
+                )
+            else:
+                candidates_iter = (
+                    (point, dimensions)
+                    for dimensions in selected_provider.candidates(item)
+                    for point in candidate_point_provider.points(state, item, dimensions)
+                )
+            for point, dimensions in candidates_iter:
                 stats.extreme_points_evaluated += 1
-                for dimensions in selected_provider.candidates(item):
-                    stats.orientation_candidates_evaluated += 1
-                    placement = candidate_placement(state, item, point, dimensions)
-                    if not selected_policy_allows(state, placement, tolerance, policy):
-                        continue
-                    base_score = best_fit_candidate_score(state, placement, container_rank)
-                    candidate = (
-                        base_score if candidate_scoring_policy is None else
-                        candidate_scoring_policy.score(state, placement, container_rank, base_score)
-                    )
-                    if selected is None or candidate < selected[0]:
-                        selected = candidate, state, placement
+                stats.orientation_candidates_evaluated += 1
+                placement = candidate_placement(state, item, point, dimensions)
+                if not selected_policy_allows(state, placement, tolerance, policy):
+                    continue
+                base_score = best_fit_candidate_score(state, placement, container_rank)
+                candidate = (
+                    base_score if candidate_scoring_policy is None else
+                    candidate_scoring_policy.score(state, placement, container_rank, base_score)
+                )
+                if selected is None or candidate < selected[0]:
+                    selected = candidate, state, placement
         if selected is None:
             return None
         place_candidate(selected[1], selected[2], tolerance)
@@ -96,6 +110,7 @@ def solve(
     *, policy: PlacementFeasibilityPolicy | None = None,
     orientation_provider: OrientationProvider | None = None,
     candidate_scoring_policy: CandidateScoringPolicy | None = None,
+    candidate_point_provider: CandidatePointProvider | None = None,
 ) -> AlgorithmOutcome:
     """Pack all items with deterministic Best Fit; FEASIBLE is not proof of optimality."""
     settings = settings or {}
@@ -105,12 +120,13 @@ def solve(
         raise ValueError("subset_enumeration_limit must be positive")
     selected_policy = policy or FixedOrientationFeasibilityPolicy()
     selected_orientation_provider = orientation_provider or fixed_orientation_provider()
-    ordered_items = sorted(items, key=item_sort_key)
+    ordered_items = resolved_item_order(items, settings)
     def pack_order(items, containers, tolerance, stats, policy):
         return pack_order_best_fit(
             items, containers, tolerance, stats, policy,
             orientation_provider=selected_orientation_provider,
             candidate_scoring_policy=candidate_scoring_policy,
+            candidate_point_provider=candidate_point_provider,
         )
     search = constructive_search(
         ordered_items, containers, tolerance, subset_limit, pack_order, selected_policy,
@@ -157,6 +173,7 @@ def solve(
             **selected_orientation_provider.metadata(),
             **selected_policy.metadata(),
             **({} if candidate_scoring_policy is None else candidate_scoring_policy.metadata()),
+            **({} if candidate_point_provider is None else candidate_point_provider.metadata()),
         },
     )
 

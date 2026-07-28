@@ -10,10 +10,11 @@ from ..schemas import ValidationResult
 from .level_03_preprocessing import validate_instance
 from .level_06_pipeline import _guard as guard_level_06
 from .level_07_best_fit_adapter import (
+    solve_balance_aware_best_fit,
     solve_balance_aware_best_fit_fixture,
     solve_balance_baseline_best_fit_fixture,
 )
-from .level_07_ffd_adapter import solve_balance_aware_ffd_fixture, solve_balance_baseline_ffd_fixture
+from .level_07_ffd_adapter import solve_balance_aware_ffd, solve_balance_aware_ffd_fixture, solve_balance_baseline_ffd_fixture
 from .level_07_fixture_bundle import balance_rules, validate_level_07_fixture_bundle
 from .load_balance import ContainerBalanceSettings
 from .pipeline import LevelRuntimeStrategy, run_configured_level
@@ -23,7 +24,12 @@ ALGORITHM_ID = "extreme_point_best_fit_balance_fixture"
 BASELINE_ALGORITHM_ID = "extreme_point_best_fit_balance_baseline_fixture"
 FFD_ALGORITHM_ID = "extreme_point_ffd_balance_fixture"
 FFD_BASELINE_ALGORITHM_ID = "extreme_point_ffd_balance_baseline_fixture"
-ALGORITHM_IDS = (ALGORITHM_ID, BASELINE_ALGORITHM_ID, FFD_ALGORITHM_ID, FFD_BASELINE_ALGORITHM_ID)
+GENERIC_ALGORITHM_ID = "extreme_point_best_fit_balance"
+GENERIC_FFD_ALGORITHM_ID = "extreme_point_ffd_balance"
+ALGORITHM_IDS = (
+    ALGORITHM_ID, BASELINE_ALGORITHM_ID, FFD_ALGORITHM_ID, FFD_BASELINE_ALGORITHM_ID,
+    GENERIC_ALGORITHM_ID, GENERIC_FFD_ALGORITHM_ID,
+)
 
 
 def _guard(config: dict[str, Any]) -> None:
@@ -37,13 +43,17 @@ def _guard(config: dict[str, Any]) -> None:
     if config.get("project", {}).get("level_id") != "level_07":
         raise ValueError("Level 7 balance runtime requires project.level_id='level_07'")
     if config.get("project", {}).get("algorithm_id") not in ALGORITHM_IDS:
-        raise ValueError("Level 7 balance runtime exposes only fixed Best Fit or FFD A/B fixture algorithms")
+        raise ValueError("Level 7 balance runtime exposes only registered balance-aware algorithms")
     if not bool(config.get("model", {}).get("enforce_balance", False)):
         raise ValueError("Level 7 balance runtime requires model.enforce_balance=true")
     ContainerBalanceSettings.from_config(balance_rules(config))
 
 
 def _execute(algorithm_id: str, items, containers, settings):
+    if algorithm_id == GENERIC_ALGORITHM_ID:
+        return solve_balance_aware_best_fit(items, containers, settings).outcome
+    if algorithm_id == GENERIC_FFD_ALGORITHM_ID:
+        return solve_balance_aware_ffd(items, containers, settings).outcome
     if algorithm_id == ALGORITHM_ID:
         return solve_balance_aware_best_fit_fixture(items, containers, settings).outcome
     if algorithm_id == BASELINE_ALGORITHM_ID:
@@ -52,7 +62,7 @@ def _execute(algorithm_id: str, items, containers, settings):
         return solve_balance_aware_ffd_fixture(items, containers, settings).outcome
     if algorithm_id == FFD_BASELINE_ALGORITHM_ID:
         return solve_balance_baseline_ffd_fixture(items, containers, settings).outcome
-    raise ValueError("Level 7 balance runtime exposes only the fixed Best Fit and FFD A/B fixture algorithms")
+    raise ValueError("Level 7 balance runtime exposes only registered balance-aware algorithms")
 
 
 STRATEGY = LevelRuntimeStrategy(
@@ -62,7 +72,7 @@ STRATEGY = LevelRuntimeStrategy(
         items, containers, expected_items=expected
     ),
     validate_solution=lambda items, containers, placements, config: validate_level_07_fixture_bundle(
-        items, containers, placements, config, []
+        items, containers, placements, config, None
     ),
     guard_config=_guard,
     active_constraints=(
@@ -78,7 +88,7 @@ STRATEGY = LevelRuntimeStrategy(
     ),
     metadata_defaults={
         "experimental_runtime": True,
-        "runtime_promotion_status": "experimental_balance_fixture_not_default",
+        "runtime_promotion_status": "experimental_dynamic_balance_runtime_not_default",
         "balance_final_validation_required": True,
     },
     algorithm_roles={
@@ -86,6 +96,8 @@ STRATEGY = LevelRuntimeStrategy(
         BASELINE_ALGORITHM_ID: "experimental_balance_baseline_comparator",
         FFD_ALGORITHM_ID: "experimental_balance_aware_first_fit",
         FFD_BASELINE_ALGORITHM_ID: "experimental_balance_first_fit_baseline_comparator",
+        GENERIC_ALGORITHM_ID: "experimental_balance_aware_practical_candidate",
+        GENERIC_FFD_ALGORITHM_ID: "experimental_balance_aware_fast_comparator",
     },
 )
 

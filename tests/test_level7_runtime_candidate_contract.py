@@ -10,7 +10,7 @@ from container_packing.levels.level_07_candidate_contract import load_runtime_ca
 from container_packing.levels.registry import get_level, list_levels
 
 
-def test_level7_runtime_candidate_is_frozen_and_registered_cli_only(root: Path) -> None:
+def test_level7_runtime_candidate_fixture_is_preserved_while_level7_is_web_visible(root: Path) -> None:
     config = load_config(root / "config/level_07/runtime_candidate.yaml")
 
     contract = load_runtime_candidate_contract(config)
@@ -23,7 +23,8 @@ def test_level7_runtime_candidate_is_frozen_and_registered_cli_only(root: Path) 
     assert [value.level_id for value in list_levels()] == [
         "level_01", "level_02", "level_03", "level_04", "level_05", "level_06", "level_07",
     ]
-    assert get_level("level_07").web_visible is False
+    assert get_level("level_07").web_visible is True
+    assert get_level("level_07").default_config == Path("config/level_07/default.yaml")
 
 
 @pytest.mark.parametrize(

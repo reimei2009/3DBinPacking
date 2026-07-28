@@ -1,0 +1,6 @@
+extends: ../default.yaml
+project:
+  algorithm_id: extreme_point_ffd_balance
+algorithms:
+  extreme_point_ffd_balance:
+    balance_repair_max_extra_containers: 0

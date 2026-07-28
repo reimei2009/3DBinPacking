@@ -1,4 +1,4 @@
-"""Fixture-only composition of Level 6 evidence with Level 7 balance evidence."""
+"""Independent composition of Level 6 evidence with Level 7 balance evidence."""
 
 from __future__ import annotations
 
@@ -21,13 +21,13 @@ from .pipeline import ValidationBundle
 
 
 def balance_rules(config: dict[str, Any]) -> dict[str, Any]:
-    """Resolve the inactive Level 7 contract without registering a runtime."""
+    """Resolve the explicit Level 7 balance profile."""
     value = config.get("balance", {})
     if "contract_version" in value:
         return value
     rules_file = value.get("rules_file")
     if not rules_file:
-        raise ValueError("Level 7 fixture bundle requires balance.rules_file")
+        raise ValueError("Level 7 balance validation requires balance.rules_file")
     root = find_project_root(__file__)
     path = Path(str(rules_file))
     loaded = load_config(path if path.is_absolute() else root / path)
@@ -40,7 +40,7 @@ def validate_level_07_fixture_bundle(
     containers: list[Container],
     placements: list[Placement],
     config: dict[str, Any],
-    relations: list[NestingRelation],
+    relations: list[NestingRelation] | None,
 ) -> ValidationBundle:
     """Add independent compound-root COG evidence after Level 6 validation.
 
@@ -57,8 +57,16 @@ def validate_level_07_fixture_bundle(
         nesting = nesting_rules(config)
         settings = NestingSettings.from_config(nesting)
         attributes = {item.item_id: attributes_for_item(item) for item in items}
+        resolved_relations = relations
+        if resolved_relations is None:
+            resolved_relations = [
+                NestingRelation(
+                    str(row["host_item_id"]), str(row["child_item_id"]), str(row["container_id"])
+                )
+                for row in inherited.solution_tables["nesting_relations.csv"]
+            ]
         projection = project_nesting_compounds(
-            placements, attributes, relations, clearance_mm=settings.clearance_mm
+            placements, attributes, resolved_relations, clearance_mm=settings.clearance_mm
         )
         item_by_id = {item.item_id: item for item in items}
         compound_items = [
@@ -98,6 +106,7 @@ def _with_unavailable_balance(
         extra_report_lines=[*inherited.extra_report_lines, "- Level 7 balance: not evaluated because inherited Level 6 validation failed."],
         metadata={
             **inherited.metadata,
+            "level_07_balance_validation": True,
             "level_07_fixture_validation_only": True,
             "center_of_mass_model": "mass_weighted_item_geometric_center_v1",
             "balance_validation_status": "NOT_EVALUATED",
@@ -150,6 +159,7 @@ def _merge_bundle(
         ],
         metadata={
             **inherited.metadata,
+            "level_07_balance_validation": True,
             "level_07_fixture_validation_only": True,
             "center_of_mass_model": "mass_weighted_item_geometric_center_v1",
             "balance_profile": rules["balance_profile"]["mode"],

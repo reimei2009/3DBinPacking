@@ -87,6 +87,7 @@ class AlgorithmDefinition:
     gpu_recommended: bool = False
     display_name: LocalizedText | None = None
     localized_description: LocalizedText | None = None
+    web_visible: bool = True
 
     def name_for(self, language: str) -> str:
         return self.algorithm_id if self.display_name is None else self.display_name.resolve(language)

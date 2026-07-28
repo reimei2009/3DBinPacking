@@ -9,13 +9,25 @@ from ..schemas import Container, Item
 from .level_06_compound_adapter import Level06CompoundAdapter, Level06CompoundResult
 from .level_07_ffd_selection import BalanceAwareFirstFitCandidateSelection
 from .level_07_fixture_bundle import balance_rules, validate_level_07_fixture_bundle
+from .level_07_two_stage import solve_two_stage_balance
 
 
-def _solve_balance_aware_ffd(
+def _solve_balance_aware_ffd_fixture(
     items: list[Item], containers: list[Container], settings: dict[str, Any], **kwargs: Any
 ):
+    """Preserve the frozen A/B fixture candidate set for regression evidence."""
     selector = BalanceAwareFirstFitCandidateSelection(balance_rules(settings))
     return solve_ffd(items, containers, settings, candidate_selection_policy=selector, **kwargs)
+
+
+def solve_balance_aware_ffd(
+    items: list[Item], containers: list[Container], config: dict[str, Any]
+) -> Level06CompoundResult:
+    """Generic balance-aware First Fit over explicit-or-empty compound roots."""
+    return solve_two_stage_balance(
+        items, containers, config, algorithm_id="extreme_point_ffd_balance",
+        baseline_solver=solve_ffd,
+    )
 
 
 def solve_balance_aware_ffd_fixture(
@@ -24,7 +36,7 @@ def solve_balance_aware_ffd_fixture(
     return Level06CompoundAdapter(
         "extreme_point_ffd_balance_fixture",
         "level_07_balance_aware_ffd_compound_v1",
-        _solve_balance_aware_ffd,
+        _solve_balance_aware_ffd_fixture,
         validate_level_07_fixture_bundle,
     ).solve(items, containers, config)
 

@@ -11,6 +11,7 @@ from ...geometry.orientation import OrientedDimensions
 from ...schemas import Container, Item, Placement
 from .constructive_common import candidate_subsets, container_orders, item_sort_key
 from .first_fit_selection import FirstFitCandidate, FirstFitCandidateSelectionPolicy
+from .candidate_points import CandidatePointProvider
 
 Point = tuple[float, float, float]
 PackOrder = Callable[
@@ -128,6 +129,7 @@ def pack_order_first_fit(
     items: list[Item], containers: tuple[Container, ...], tolerance: float, stats: SearchStats,
     policy: PlacementFeasibilityPolicy, *, orientation_provider: OrientationProvider | None = None,
     candidate_selection_policy: FirstFitCandidateSelectionPolicy | None = None,
+    candidate_point_provider: CandidatePointProvider | None = None,
 ) -> list[Placement] | None:
     """Place the first feasible extreme-point/orientation candidate in order."""
     selected_provider = orientation_provider or fixed_orientation_provider()
@@ -137,15 +139,26 @@ def pack_order_first_fit(
             selected: tuple[ContainerState, Placement] | None = None
             for state in states:
                 candidates: list[FirstFitCandidate] = []
-                for point in sorted(state.extreme_points, key=lambda value: (value[2], value[1], value[0])):
+                if candidate_point_provider is None:
+                    candidates_iter = (
+                        (point, orientation_rank, dimensions)
+                        for point in _candidate_points(state, item, selected_provider.candidates(item)[0], None)
+                        for orientation_rank, dimensions in enumerate(selected_provider.candidates(item))
+                    )
+                else:
+                    candidates_iter = (
+                        (point, orientation_rank, dimensions)
+                        for orientation_rank, dimensions in enumerate(selected_provider.candidates(item))
+                        for point in _candidate_points(state, item, dimensions, candidate_point_provider)
+                    )
+                for point, orientation_rank, dimensions in candidates_iter:
                     stats.extreme_points_evaluated += 1
-                    for orientation_rank, dimensions in enumerate(selected_provider.candidates(item)):
-                        stats.orientation_candidates_evaluated += 1
-                        candidate = candidate_placement(state, item, point, dimensions)
-                        if selected_policy_allows(state, candidate, tolerance, policy):
-                            candidates.append(FirstFitCandidate(
-                                candidate, (float(point[2]), float(point[1]), float(point[0]), orientation_rank)
-                            ))
+                    stats.orientation_candidates_evaluated += 1
+                    candidate = candidate_placement(state, item, point, dimensions)
+                    if selected_policy_allows(state, candidate, tolerance, policy):
+                        candidates.append(FirstFitCandidate(
+                            candidate, (float(point[2]), float(point[1]), float(point[0]), orientation_rank)
+                        ))
                 if candidates:
                     selected = state, candidate_selection_policy.select(state, tuple(candidates))
                     break
@@ -155,15 +168,24 @@ def pack_order_first_fit(
             continue
         selected: tuple[ContainerState, Placement] | None = None
         for state in states:
-            for point in sorted(state.extreme_points, key=lambda value: (value[2], value[1], value[0])):
+            if candidate_point_provider is None:
+                candidates_iter = (
+                    (point, dimensions)
+                    for point in _candidate_points(state, item, selected_provider.candidates(item)[0], None)
+                    for dimensions in selected_provider.candidates(item)
+                )
+            else:
+                candidates_iter = (
+                    (point, dimensions)
+                    for dimensions in selected_provider.candidates(item)
+                    for point in _candidate_points(state, item, dimensions, candidate_point_provider)
+                )
+            for point, dimensions in candidates_iter:
                 stats.extreme_points_evaluated += 1
-                for dimensions in selected_provider.candidates(item):
-                    stats.orientation_candidates_evaluated += 1
-                    candidate = candidate_placement(state, item, point, dimensions)
-                    if selected_policy_allows(state, candidate, tolerance, policy):
-                        selected = state, candidate
-                        break
-                if selected is not None:
+                stats.orientation_candidates_evaluated += 1
+                candidate = candidate_placement(state, item, point, dimensions)
+                if selected_policy_allows(state, candidate, tolerance, policy):
+                    selected = state, candidate
                     break
             if selected is not None:
                 break
@@ -171,6 +193,31 @@ def pack_order_first_fit(
             return None
         place_candidate(selected[0], selected[1], tolerance)
     return [placement for state in states for placement in state.placements]
+
+
+def _candidate_points(
+    state: ContainerState,
+    item: Item,
+    dimensions: OrientedDimensions,
+    provider: CandidatePointProvider | None,
+) -> tuple[Point, ...]:
+    """Return canonical extreme points or a deterministic provider extension."""
+    if provider is None:
+        return tuple(sorted(state.extreme_points, key=lambda value: (value[2], value[1], value[0])))
+    return provider.points(state, item, dimensions)
+
+
+def resolved_item_order(items: list[Item], settings: dict) -> list[Item]:
+    """Use an explicit deterministic repair order when supplied by local search."""
+    requested = settings.get("item_order_override")
+    if requested is None:
+        return sorted(items, key=item_sort_key)
+    if not isinstance(requested, list) or set(requested) != {item.item_id for item in items}:
+        raise ValueError("item_order_override must contain every item ID exactly once")
+    if len(requested) != len(items):
+        raise ValueError("item_order_override contains duplicate item IDs")
+    by_id = {item.item_id: item for item in items}
+    return [by_id[str(item_id)] for item_id in requested]
 
 
 def selected_policy_allows(

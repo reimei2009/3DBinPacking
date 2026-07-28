@@ -391,6 +391,27 @@ def test_level5_portfolio_suite_declares_common_profiles_and_seed_sweep(root: Pa
     assert suite.scenarios[1].item_selection_seed == 101
 
 
+def test_level7_acceptance_suites_separate_primary_and_comparator(root: Path):
+    primary = load_benchmark_suite(
+        root / "config/level_07/benchmarks/primary_best_fit_acceptance_local.yaml"
+    )
+    comparator = load_benchmark_suite(
+        root / "config/level_07/benchmarks/ffd_comparator_local.yaml"
+    )
+
+    assert primary.algorithms == ("extreme_point_best_fit_balance",)
+    assert primary.repeats == 2
+    assert comparator.algorithms == ("extreme_point_ffd_balance",)
+    assert comparator.repeats == 1
+    assert [value.scenario_id for value in primary.scenarios] == [
+        value.scenario_id for value in comparator.scenarios
+    ]
+    assert len(primary.scenarios) == 6
+    assert [value.item_selection_seed for value in primary.scenarios[-3:]] == [
+        101, 202, 303,
+    ]
+
+
 def test_level4_portfolio_algorithms_share_one_frozen_input(root: Path, tmp_path: Path):
     config = load_config(root / "config/level_04/default.yaml")
     config["paths"].update({

@@ -1,5 +1,5 @@
-# Level 7 data contract. The profile is consumed only by the controlled
-# CLI-only acceptance fixture; it is not a practical solver profile or UI option.
+# Level 7 experimental data contract. The profile is a final independent
+# validation rule and a construction tie-break; it is not vehicle certification.
 contract_version: 1
 level_id: level_07
 status: data_contract_only

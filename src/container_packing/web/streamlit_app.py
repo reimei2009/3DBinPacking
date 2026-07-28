@@ -650,7 +650,10 @@ def main() -> None:
     level = get_level(level_id)
     base_config_path = root / level.default_config
     base_config = load_config(base_config_path)
-    algorithm_ids = [value.algorithm_id for value in list_algorithms(level_id=level_id)]
+    algorithm_ids = [
+        value.algorithm_id for value in list_algorithms(level_id=level_id)
+        if value.web_visible
+    ]
     configured_algorithm = str(base_config.get("project", {}).get("algorithm_id", algorithm_ids[0]))
     if configured_algorithm not in algorithm_ids:
         raise ValueError(f"Configured algorithm {configured_algorithm!r} is not compatible with {level_id}")

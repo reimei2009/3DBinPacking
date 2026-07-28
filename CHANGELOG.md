@@ -2,6 +2,45 @@
 
 ## Unreleased
 
+- Preserved the best inherited-feasible placement between Level 7 local repair,
+  adaptive LNS and controlled rescue instead of restarting each phase from the
+  compact baseline. Phase-by-phase COG violations are now explicit metadata.
+- Split Level 7 scale acceptance into a deterministic two-repeat Best Fit
+  primary suite and a one-repeat FFD comparator suite, with an artifact-only
+  baseline report builder and explicit promotion gates.
+- Added artifact-only Level 7 scale-failure diagnosis with per-axis excess,
+  mass-shift direction, contributor evidence, and repair-operator
+  classification.
+- Changed Level 7 LNS neighborhood selection to prioritize compound support
+  closures by directional mass-moment contribution on the violated COG axis.
+- Added adaptive Level 7 LNS neighborhoods, duplicate-candidate suppression,
+  a 45-second total pipeline budget, controlled one-container rescue and a
+  bounded consolidation pass with explicit outcome classes.
+
+- Promoted Level 7 to an experimental dynamic balance runtime in Streamlit and
+  CLI. Balance-aware Best Fit and First Fit now accept configured item/container
+  counts and selection profiles, while frozen A/B fixture algorithms remain
+  CLI-only regression evidence. The primary objective is unchanged; COG is a
+  construction tie-break and final independent validation.
+
+- Reworked dynamic Level 7 construction into a two-stage pipeline: compact
+  Level 6-style baseline first, then bounded fixed-container balance repair.
+  Invalid candidates now suppress the comparable objective value.
+
+- Replaced Level 7's repeated full-solution rebuild repair with a deadline-aware
+  local COG engine. It caches per-container mass/moments, targets high-impact
+  compound roots, preserves support closures, evaluates relocation/swap/partial
+  repack candidates, and only then permits one extra container.
+
+- Added the Level 7 hybrid balance-repair stage: after the compact baseline and
+  a short local phase, deterministic LNS destroys and re-packs only a bounded
+  neighborhood in the most unbalanced containers and one donor. The default
+  time budget is now 8 seconds local, 17 seconds LNS, then 5 seconds for the
+  optional extra-container fallback.
+
+- Added Level 7 manual scale-acceptance protocol, isolated acceptance assessor,
+  and explicit strict versus one-extra-container execution profiles.
+
 - Added CLI-only Level 7 First-Fit balance A/B fixtures. The COG-aware variant
   retains the first feasible container and applies prospective COG ranking only
   to candidates inside that container; canonical FFD remains unchanged for

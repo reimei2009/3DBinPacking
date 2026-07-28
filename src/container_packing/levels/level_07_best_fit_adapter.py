@@ -9,15 +9,24 @@ from ..schemas import Container, Item
 from .level_06_compound_adapter import Level06CompoundAdapter, Level06CompoundResult
 from .level_07_balance_scoring import BalanceAwareCandidateScoringPolicy
 from .level_07_fixture_bundle import balance_rules, validate_level_07_fixture_bundle
+from .level_07_two_stage import solve_two_stage_balance
 
 
-def _solve_balance_aware_best_fit(
+def _solve_balance_aware_best_fit_fixture(
     items: list[Item], containers: list[Container], settings: dict[str, Any], **kwargs: Any
 ):
+    """Preserve the frozen A/B fixture candidate set for regression evidence."""
     scoring = BalanceAwareCandidateScoringPolicy(balance_rules(settings))
-    return solve_best_fit(
-        items, containers, settings,
-        candidate_scoring_policy=scoring, **kwargs,
+    return solve_best_fit(items, containers, settings, candidate_scoring_policy=scoring, **kwargs)
+
+
+def solve_balance_aware_best_fit(
+    items: list[Item], containers: list[Container], config: dict[str, Any]
+) -> Level06CompoundResult:
+    """Generic balance-aware Best Fit over explicit-or-empty compound roots."""
+    return solve_two_stage_balance(
+        items, containers, config, algorithm_id="extreme_point_best_fit_balance",
+        baseline_solver=solve_best_fit,
     )
 
 
@@ -27,7 +36,7 @@ def solve_balance_aware_best_fit_fixture(
     return Level06CompoundAdapter(
         "extreme_point_best_fit_balance_fixture",
         "level_07_balance_aware_best_fit_compound_v1",
-        _solve_balance_aware_best_fit,
+        _solve_balance_aware_best_fit_fixture,
         validate_level_07_fixture_bundle,
     ).solve(items, containers, config)
 

@@ -783,9 +783,11 @@ _LEVELS["level_06"] = replace(
 
 _LEVELS["level_07"] = LevelDefinition(
     level_id="level_07",
-    description="CLI-only center-of-mass balance acceptance fixtures, including controlled Best Fit and First Fit A/B comparators",
-    default_config=Path("config/level_07/experimental.yaml"),
+    description="Experimental center-of-mass balance runtime with controlled fixtures and arbitrary-input constructive solvers",
+    default_config=Path("config/level_07/default.yaml"),
     supported_algorithms=(
+        "extreme_point_best_fit_balance",
+        "extreme_point_ffd_balance",
         "level_07_fixture_validation_bundle",
         "extreme_point_best_fit_balance_fixture",
         "extreme_point_best_fit_balance_baseline_fixture",
@@ -795,8 +797,10 @@ _LEVELS["level_07"] = LevelDefinition(
     run=level_07.run,
     prepare=level_07.prepare,
     validate_run=level_07.validate_run,
-    web_visible=False,
+    web_visible=True,
     algorithm_configs={
+        "extreme_point_best_fit_balance": Path("config/level_07/default.yaml"),
+        "extreme_point_ffd_balance": Path("config/level_07/experiments/fast.yaml"),
         "level_07_fixture_validation_bundle": Path("config/level_07/experimental.yaml"),
         "extreme_point_best_fit_balance_fixture": Path("config/level_07/experiments/balance_aware_best_fit_fixture.yaml"),
         "extreme_point_best_fit_balance_baseline_fixture": Path("config/level_07/experiments/balance_baseline_best_fit_fixture.yaml"),
@@ -807,11 +811,11 @@ _LEVELS["level_07"] = LevelDefinition(
         _LEVELS["level_06"].contract,
         title=LocalizedText(
             vi="Level 7 â€” Trá»ng tÃ¢m vÃ  cÃ¢n báº±ng (fixture CLI)",
-            en="Level 7 — Center of mass and balance (CLI fixture)",
+            en="Level 7 — Center of mass and balance (experimental)",
         ),
         problem=LocalizedText(
             vi="XÃ¡c minh fixture compound-root Ä‘Ã£ Ä‘Ã³ng theo trá»ng tÃ¢m khÃ‘i lÆ°á»£ng; khÃ´ng tá»‘i Æ°u hÃ³a packing.",
-            en="Validate frozen compound-root balance fixtures and compare controlled Best Fit construction against its COG-aware variant.",
+            en="Pack compound roots with per-container center-of-mass balance and independently validate every inherited constraint.",
         ),
         notation=_LEVELS["level_06"].contract.notation + (
             MathematicalExpression(
@@ -868,6 +872,43 @@ _LEVELS["level_07"] = LevelDefinition(
         solution_claim=LocalizedText(
             vi="Báº±ng chá»©ng fixture Ä‘Æ°á»£c validation Ä‘á»™c láº­p cho Level 6 vÃ  ngÆ°á»¡ng cÃ¢n báº±ng Level 7.",
             en="Independently validated fixture evidence for Level 6 and Level 7 balance bands.",
+        ),
+    ),
+)
+
+# The original acceptance-fixture contract remains documented above for its
+# regression algorithms.  The registered experimental runtime inherits the
+# Level 6 objective and adds balance as final validation plus a construction
+# tie-break for its web-visible algorithms.
+_level_07_definition = _LEVELS["level_07"]
+_LEVELS["level_07"] = replace(
+    _level_07_definition,
+    contract=replace(
+        _level_07_definition.contract,
+        title=LocalizedText(
+            vi="Level 7 — Trọng tâm và cân bằng tải (thực nghiệm)",
+            en="Level 7 — Center of mass and balance (experimental)",
+        ),
+        problem=LocalizedText(
+            vi="Xếp compound root với cân bằng trọng tâm theo từng container, rồi kiểm định độc lập toàn bộ ràng buộc kế thừa.",
+            en="Pack compound roots with per-container center-of-mass balance and independently validate every inherited constraint.",
+        ),
+        objective=_LEVELS["level_06"].contract.objective,
+        assumptions=_level_07_definition.contract.assumptions[:-1] + (
+            LocalizedText(
+                vi="Cân bằng là kiểm định cứng cuối cùng và tie-break mềm khi dựng nghiệm; COG tạm thời lệch không tự loại placement.",
+                en="Balance is a hard final validation and a soft construction tie-break; temporary COG deviation does not itself prune a placement.",
+            ),
+        ),
+        limitations=_level_07_definition.contract.limitations[:-1] + (
+            LocalizedText(
+                vi="Best Fit và FFD mới ở mức thực nghiệm; chưa có tải trục, tải vùng sàn, khoảng trống cửa, mô-men hay chứng nhận vận tải.",
+                en="Best Fit and FFD remain experimental; axle loads, floor zones, door clearance, moments, and transport certification are inactive.",
+            ),
+        ),
+        solution_claim=LocalizedText(
+            vi="Nghiệm hình học, nesting, support, stackability, chịu tải và cân bằng trọng tâm đều được kiểm định độc lập.",
+            en="Geometry, nesting, support, stackability, load-bearing, and center-of-mass balance are independently validated.",
         ),
     ),
 )
