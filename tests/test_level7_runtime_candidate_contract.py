@@ -21,7 +21,7 @@ def test_level7_runtime_candidate_fixture_is_preserved_while_level7_is_web_visib
     assert contract.deterministic_repeats == 2
     assert contract.output_run_path == "outputs/level_07/runs/<run_id>"
     assert [value.level_id for value in list_levels()] == [
-        "level_01", "level_02", "level_03", "level_04", "level_05", "level_06", "level_07",
+        "level_01", "level_02", "level_03", "level_04", "level_05", "level_06", "level_07", "level_08",
     ]
     assert get_level("level_07").web_visible is True
     assert get_level("level_07").default_config == Path("config/level_07/default.yaml")

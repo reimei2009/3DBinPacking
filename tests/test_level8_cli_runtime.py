@@ -16,6 +16,8 @@ from container_packing.levels.registry import get_level, list_levels
 ALGORITHM = "level_08_fixture_validation_bundle"
 BASELINE = "extreme_point_best_fit_delivery_baseline_fixture"
 AWARE = "extreme_point_best_fit_delivery_aware_fixture"
+FFD_NEGATIVE_CONTROL = "extreme_point_ffd_delivery_negative_control_fixture"
+FFD_AWARE = "extreme_point_ffd_delivery_aware_fixture"
 
 
 def _runtime_config(root: Path, tmp_path: Path) -> Path:
@@ -46,6 +48,40 @@ def _delivery_config(root: Path, tmp_path: Path, algorithm: str) -> Path:
     config["paths"]["manifest_json"] = str(tmp_path / algorithm / "processed" / "latest_manifest.json")
     config["paths"]["output_root"] = str(tmp_path / algorithm / "outputs")
     path = tmp_path / f"{algorithm}.yaml"
+    path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
+    return path
+
+
+def _multi_container_delivery_config(root: Path, tmp_path: Path, algorithm: str) -> Path:
+    name = (
+        "delivery_multi_stop_multi_container_aware_fixture.yaml"
+        if algorithm == AWARE else "delivery_multi_stop_multi_container_baseline_fixture.yaml"
+    )
+    config = deepcopy(load_config(root / "config/level_08/experiments" / name))
+    config["paths"]["processed_dir"] = str(tmp_path / algorithm / "processed")
+    config["paths"]["manifest_json"] = str(tmp_path / algorithm / "processed" / "latest_manifest.json")
+    config["paths"]["output_root"] = str(tmp_path / algorithm / "outputs")
+    path = tmp_path / f"multi_{algorithm}.yaml"
+    path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
+    return path
+
+
+def _ffd_negative_control_config(root: Path, tmp_path: Path) -> Path:
+    config = deepcopy(load_config(root / "config/level_08/experiments/ffd_multi_container_negative_control_fixture.yaml"))
+    config["paths"]["processed_dir"] = str(tmp_path / "processed")
+    config["paths"]["manifest_json"] = str(tmp_path / "processed" / "latest_manifest.json")
+    config["paths"]["output_root"] = str(tmp_path / "outputs")
+    path = tmp_path / "ffd_negative_control.yaml"
+    path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
+    return path
+
+
+def _ffd_aware_config(root: Path, tmp_path: Path) -> Path:
+    config = deepcopy(load_config(root / "config/level_08/experiments/ffd_delivery_aware_fixture.yaml"))
+    config["paths"]["processed_dir"] = str(tmp_path / "processed")
+    config["paths"]["manifest_json"] = str(tmp_path / "processed" / "latest_manifest.json")
+    config["paths"]["output_root"] = str(tmp_path / "outputs")
+    path = tmp_path / "ffd_aware.yaml"
     path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
     return path
 
@@ -128,3 +164,62 @@ def test_level8_delivery_aware_best_fit_beats_lifo_invalid_baseline(root: Path, 
     assert aware.metadata["candidate_scoring_policy"] == "level_08_prospective_direct_rehandle_tiebreak_v1"
     assert aware.metadata["total_direct_rehandles"] == 0
     assert baseline.metadata["input_fingerprint"] == aware.metadata["input_fingerprint"]
+
+
+def test_level8_multi_stop_multi_container_fixture_is_valid_and_deterministic(root: Path, tmp_path: Path) -> None:
+    baseline = run_experiment(_request(
+        _multi_container_delivery_config(root, tmp_path, BASELINE), algorithm_id=BASELINE,
+        item_count=4, container_count=2,
+    ))
+    config_path = _multi_container_delivery_config(root, tmp_path, AWARE)
+    first = run_experiment(_request(config_path, algorithm_id=AWARE, item_count=4, container_count=2))
+    second = run_experiment(_request(config_path, algorithm_id=AWARE, item_count=4, container_count=2))
+
+    assert baseline.solve.status == "INVALID_SOLUTION"
+    assert first.solve.status == "FEASIBLE"
+    assert first.validation is not None and first.validation.valid
+    assert first.metadata["container_count"] == 2
+    assert first.metadata["total_direct_rehandles"] == 0
+    assert first.metadata["input_fingerprint"] == baseline.metadata["input_fingerprint"]
+    assert first.metadata["input_fingerprint"] == second.metadata["input_fingerprint"]
+    assert [(value.item_id, value.container_id, value.x_mm) for value in first.placements] == [
+        (value.item_id, value.container_id, value.x_mm) for value in second.placements
+    ]
+    run_dir = Path(first.metadata["run_dir"])
+    assert len((run_dir / "solution" / "center_of_mass.csv").read_text(encoding="utf-8").splitlines()) == 3
+    accessibility = (run_dir / "solution" / "unloading_accessibility.csv").read_text(encoding="utf-8")
+    assert "STOP-A" in accessibility and "STOP-B" in accessibility
+    assert get_level("level_08").validate_run(run_dir).valid
+
+
+def test_level8_ffd_negative_control_keeps_first_feasible_container(root: Path, tmp_path: Path) -> None:
+    result = run_experiment(_request(
+        _ffd_negative_control_config(root, tmp_path), algorithm_id=FFD_NEGATIVE_CONTROL,
+        item_count=2, container_count=2,
+    ))
+
+    assert result.solve.status == "INVALID_SOLUTION"
+    assert result.validation is not None and not result.validation.valid
+    assert result.metadata["objective_value"] is None
+    assert result.metadata["container_selection_strategy"] == "minimum_count_then_cost_subset_search"
+    assert result.metadata["candidate_container_ids"] == ["C1"]
+    assert {value.item_id: (value.container_id, value.x_mm) for value in result.placements} == {
+        "LATE-001": ("C1", 0.0), "EARLY-001": ("C1", 150.0),
+    }
+    assert result.metadata["lifo_noncompliant_item_count"] == 1
+
+
+def test_level8_delivery_aware_ffd_changes_only_point_inside_first_container(root: Path, tmp_path: Path) -> None:
+    result = run_experiment(_request(
+        _ffd_aware_config(root, tmp_path), algorithm_id=FFD_AWARE,
+        item_count=2, container_count=2,
+    ))
+
+    assert result.solve.status == "FEASIBLE"
+    assert result.validation is not None and result.validation.valid
+    assert result.metadata["candidate_container_ids"] == ["C1"]
+    assert result.metadata["delivery_container_selection_scope"] == "first_feasible_container_only"
+    assert result.metadata["total_direct_rehandles"] == 0
+    assert {value.item_id: (value.container_id, value.x_mm) for value in result.placements} == {
+        "LATE-001": ("C1", 100.0), "EARLY-001": ("C1", 0.0),
+    }

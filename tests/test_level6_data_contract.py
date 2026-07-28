@@ -125,7 +125,7 @@ def test_level6_config_is_data_contract_only_and_raw_public_data_is_unchanged(ro
     assert rules["missing_metadata_behavior"] == "nesting_disabled_undeclared"
     assert NestingSettings.from_config(rules).clearance_mm == 0.0
     assert [definition.level_id for definition in list_levels()] == [
-        "level_01", "level_02", "level_03", "level_04", "level_05", "level_06", "level_07",
+        "level_01", "level_02", "level_03", "level_04", "level_05", "level_06", "level_07", "level_08",
     ]
     assert "nesting_group_id" not in columns
     assert "nesting_height" in columns

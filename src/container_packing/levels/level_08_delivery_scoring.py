@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from ..algorithms.heuristics.candidate_points import CandidatePointProvider
 from ..algorithms.heuristics.candidate_scoring import CandidateScoringPolicy
 from ..algorithms.heuristics.extreme_point_core import ContainerState
+from ..algorithms.heuristics.first_fit_selection import FirstFitCandidate, FirstFitCandidateSelectionPolicy
 from ..geometry.orientation import OrientedDimensions
 from ..schemas import Item, Placement
 from .unloading import UnloadingSettings, assess_unloading_accessibility
@@ -81,4 +82,51 @@ class DeliveryAwareCandidateScoringPolicy(CandidateScoringPolicy):
             "candidate_scoring_policy": self.policy_id,
             "delivery_scored_candidates": self.candidates_scored,
             "delivery_construction_mode": "prospective_direct_rehandle_then_future_blocker_tiebreak",
+        }
+
+
+@dataclass
+class DeliveryAwareFirstFitCandidateSelection(FirstFitCandidateSelectionPolicy):
+    """Rank positions only inside FFD's first container that has a candidate."""
+
+    items_by_id: dict[str, Item]
+    settings: UnloadingSettings
+    policy_id: str = "level_08_first_feasible_container_delivery_lifo_tiebreak_v1"
+    candidates_scored: int = 0
+
+    def select(self, state: ContainerState, candidates: tuple[FirstFitCandidate, ...]) -> Placement:
+        self.candidates_scored += len(candidates)
+
+        def rank(candidate: FirstFitCandidate) -> tuple[float, ...]:
+            placements = [*state.placements, candidate.placement]
+            records = assess_unloading_accessibility(
+                [self.items_by_id[value.item_id] for value in placements], placements, self.settings
+            )
+            direct_rehandles = sum(record.minimum_rehandle_count for record in records)
+            later_blockers = sum(len(record.later_priority_blocker_ids) for record in records)
+            item = self.items_by_id[candidate.placement.item_id]
+            return (
+                float(direct_rehandles),
+                float(later_blockers),
+                self._future_blocker_risk(item, candidate.placement, state),
+                *candidate.original_rank,
+            )
+
+        return min(candidates, key=rank).placement
+
+    def _future_blocker_risk(self, item: Item, candidate: Placement, state: ContainerState) -> float:
+        priority = int(str(item.source["delivery_priority"]))
+        minimum = min(int(str(value.source["delivery_priority"])) for value in self.items_by_id.values())
+        if priority <= minimum or self.settings.door_face != "x_min":
+            return 0.0
+        available = max(1.0, state.container.length_mm - candidate.length_mm)
+        proximity = 1.0 - candidate.x_mm / available
+        return float(priority - minimum) * max(0.0, proximity)
+
+    def metadata(self) -> dict[str, object]:
+        return {
+            "first_fit_candidate_selection_policy": self.policy_id,
+            "delivery_scored_candidates": self.candidates_scored,
+            "delivery_construction_mode": "first_feasible_container_prospective_direct_rehandle_tiebreak",
+            "delivery_container_selection_scope": "first_feasible_container_only",
         }

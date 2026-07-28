@@ -11,6 +11,7 @@ from scipy.optimize import OptimizeResult
 
 from ..data_loader import load_config, load_containers, load_items, load_placements
 from ..algorithms.heuristics.extreme_point_best_fit import solve as solve_best_fit
+from ..algorithms.heuristics.extreme_point_ffd import solve as solve_ffd
 from ..experiments.contracts import ExperimentRequest
 from ..instance_data import prepare_instance
 from ..runtime.project import find_project_root
@@ -18,7 +19,10 @@ from ..runtime.run_context import make_run_id
 from ..schemas import Placement, RunResult, SolveResult, ValidationResult
 from .level_07_fixture_bundle import validate_level_07_fixture_bundle
 from .level_06_compound_adapter import Level06CompoundAdapter
-from .level_08_delivery_scoring import DeliveryAwareCandidateScoringPolicy, DeliveryDoorPointProvider
+from .level_08_delivery_scoring import (
+    DeliveryAwareCandidateScoringPolicy, DeliveryAwareFirstFitCandidateSelection,
+    DeliveryDoorPointProvider,
+)
 from .level_08_fixture_output import write_level_08_composed_validation_run
 from .level_08_validation import validate_unloading_lifo
 
@@ -26,9 +30,16 @@ from .level_08_validation import validate_unloading_lifo
 VALIDATION_ALGORITHM_ID = "level_08_fixture_validation_bundle"
 BASELINE_ALGORITHM_ID = "extreme_point_best_fit_delivery_baseline_fixture"
 AWARE_ALGORITHM_ID = "extreme_point_best_fit_delivery_aware_fixture"
-ALGORITHM_IDS = (VALIDATION_ALGORITHM_ID, BASELINE_ALGORITHM_ID, AWARE_ALGORITHM_ID)
+FFD_NEGATIVE_CONTROL_ALGORITHM_ID = "extreme_point_ffd_delivery_negative_control_fixture"
+FFD_AWARE_ALGORITHM_ID = "extreme_point_ffd_delivery_aware_fixture"
+ALGORITHM_IDS = (
+    VALIDATION_ALGORITHM_ID, BASELINE_ALGORITHM_ID, AWARE_ALGORITHM_ID,
+    FFD_NEGATIVE_CONTROL_ALGORITHM_ID, FFD_AWARE_ALGORITHM_ID,
+)
 FIXTURE_ID = "level_08_lifo_valid_runtime_fixture_v1"
 DELIVERY_FIXTURE_ID = "level_08_delivery_best_fit_ab_v1"
+MULTI_CONTAINER_FIXTURE_ID = "level_08_delivery_multi_stop_multi_container_v1"
+FFD_NEGATIVE_CONTROL_FIXTURE_ID = "level_08_ffd_multi_container_negative_control_v1"
 
 
 def run(request: ExperimentRequest) -> RunResult:
@@ -52,7 +63,7 @@ def run(request: ExperimentRequest) -> RunResult:
         role = "cli_only_composed_validation_fixture"
         metadata_extra: dict[str, Any] = {"candidate_scoring_policy": "not_applicable_validation_only"}
     else:
-        adapter_result = _solve_delivery_best_fit(request.algorithm_id, items, containers, config)
+        adapter_result = _solve_delivery_constructor(request.algorithm_id, items, containers, config)
         placements = list(adapter_result.placements)
         if adapter_result.validation is None:
             inherited = validate_level_07_fixture_bundle(items, containers, placements, config, relations=[])
@@ -62,7 +73,12 @@ def run(request: ExperimentRequest) -> RunResult:
         objective_value = adapter_result.outcome.solve.objective_value if inherited.result.valid else None
         solver = adapter_result.outcome.backend
         solver_message = adapter_result.outcome.solve.message
-        role = "cli_only_delivery_aware_best_fit_fixture" if request.algorithm_id == AWARE_ALGORITHM_ID else "cli_only_delivery_baseline_best_fit_fixture"
+        role = (
+            "cli_only_delivery_aware_best_fit_fixture" if request.algorithm_id == AWARE_ALGORITHM_ID else
+            "cli_only_ffd_delivery_aware_fixture" if request.algorithm_id == FFD_AWARE_ALGORITHM_ID else
+            "cli_only_ffd_negative_control_fixture" if request.algorithm_id == FFD_NEGATIVE_CONTROL_ALGORITHM_ID else
+            "cli_only_delivery_baseline_best_fit_fixture"
+        )
         metadata_extra = dict(adapter_result.outcome.metadata)
     unloading = validate_unloading_lifo(
         items, placements, _unloading_rules(root, config),
@@ -145,10 +161,16 @@ def _guard_request(request: ExperimentRequest, config: dict[str, Any]) -> None:
             raise ValueError(
                 f"Level 8 fixture runtime requires {field}={expected_value!r}; got {actual[field]!r}"
             )
-    expected_fixture_id = FIXTURE_ID if request.algorithm_id == VALIDATION_ALGORITHM_ID else DELIVERY_FIXTURE_ID
+    expected_fixture_ids = {
+        VALIDATION_ALGORITHM_ID: {FIXTURE_ID},
+        BASELINE_ALGORITHM_ID: {DELIVERY_FIXTURE_ID, MULTI_CONTAINER_FIXTURE_ID},
+        AWARE_ALGORITHM_ID: {DELIVERY_FIXTURE_ID, MULTI_CONTAINER_FIXTURE_ID},
+        FFD_NEGATIVE_CONTROL_ALGORITHM_ID: {FFD_NEGATIVE_CONTROL_FIXTURE_ID},
+        FFD_AWARE_ALGORITHM_ID: {FFD_NEGATIVE_CONTROL_FIXTURE_ID},
+    }
     if request.algorithm_id not in ALGORITHM_IDS:
         raise ValueError(f"Unsupported Level 8 fixture algorithm: {request.algorithm_id}")
-    if fixture.get("fixture_id") != expected_fixture_id:
+    if fixture.get("fixture_id") not in expected_fixture_ids[request.algorithm_id]:
         raise ValueError("Level 8 fixture configuration does not match the frozen acceptance fixture")
     if request.item_selection_strategy not in (None, "prefix") or request.item_selection_seed is not None:
         raise ValueError("Level 8 fixture runtime requires prefix selection with no selection seed")
@@ -158,7 +180,7 @@ def _guard_request(request: ExperimentRequest, config: dict[str, Any]) -> None:
         raise ValueError("Level 8 fixture runtime does not accept runtime overrides")
 
 
-def _solve_delivery_best_fit(algorithm_id: str, items, containers, config: dict[str, Any]):
+def _solve_delivery_constructor(algorithm_id: str, items, containers, config: dict[str, Any]):
     """Use the Level 6 compound adapter so all inherited hard constraints stay active."""
     if algorithm_id == AWARE_ALGORITHM_ID:
         rules = _unloading_rules(find_project_root(__file__), config)
@@ -172,13 +194,30 @@ def _solve_delivery_best_fit(algorithm_id: str, items, containers, config: dict[
                 compounds, available, settings_dict,
                 candidate_scoring_policy=scorer, candidate_point_provider=provider, **kwargs,
             )
-    else:
+    elif algorithm_id == BASELINE_ALGORITHM_ID:
         def solver(compounds, available, settings_dict, **kwargs):
             return solve_best_fit(compounds, available, settings_dict, **kwargs)
+    elif algorithm_id == FFD_AWARE_ALGORITHM_ID:
+        rules = _unloading_rules(find_project_root(__file__), config)
+        from .unloading import UnloadingSettings
+        settings = UnloadingSettings.from_config(rules)
+        selector = DeliveryAwareFirstFitCandidateSelection(
+            {item.item_id: item for item in items}, settings
+        )
+        provider = DeliveryDoorPointProvider(settings)
+
+        def solver(compounds, available, settings_dict, **kwargs):
+            return solve_ffd(
+                compounds, available, settings_dict,
+                candidate_selection_policy=selector, candidate_point_provider=provider, **kwargs,
+            )
+    else:
+        def solver(compounds, available, settings_dict, **kwargs):
+            return solve_ffd(compounds, available, settings_dict, **kwargs)
 
     adapter = Level06CompoundAdapter(
         algorithm_id=algorithm_id,
-        adapter_id="level_08_delivery_best_fit_ab_v1",
+        adapter_id=f"level_08_{config['fixture']['fixture_id']}",
         solver=solver,
         validator=validate_level_07_fixture_bundle,
     )

@@ -257,6 +257,28 @@ _ALGORITHMS = {
         display_name=LocalizedText(vi="Level 8 Best Fit delivery-aware (fixture)", en="Level 8 Best Fit delivery-aware (fixture)"),
         localized_description=LocalizedText(vi="Best Fit với tie-break rehandle/LIFO trên fixture A/B.", en="Best Fit with a rehandle/LIFO tie-break on the A/B fixture."),
     ),
+    "extreme_point_ffd_delivery_negative_control_fixture": AlgorithmDefinition(
+        algorithm_id="extreme_point_ffd_delivery_negative_control_fixture",
+        family="constructive_heuristic",
+        description="CLI-only canonical FFD negative control for Level 8 delivery/LIFO container selection",
+        supported_levels=("level_08",), local_friendly=True, web_visible=False,
+        display_name=LocalizedText(vi="Level 8 FFD negative-control (fixture)", en="Level 8 FFD negative-control (fixture)"),
+        localized_description=LocalizedText(
+            vi="Xác minh FFD giữ container khả thi đầu tiên dù container sau tránh vi phạm LIFO.",
+            en="Verifies FFD keeps the first feasible container even when a later one avoids a LIFO violation.",
+        ),
+    ),
+    "extreme_point_ffd_delivery_aware_fixture": AlgorithmDefinition(
+        algorithm_id="extreme_point_ffd_delivery_aware_fixture",
+        family="constructive_heuristic",
+        description="CLI-only Level 8 FFD with delivery-aware intra-container candidate selection",
+        supported_levels=("level_08",), local_friendly=True, web_visible=False,
+        display_name=LocalizedText(vi="Level 8 FFD delivery-aware (fixture)", en="Level 8 FFD delivery-aware (fixture)"),
+        localized_description=LocalizedText(
+            vi="Giữ First Fit theo container, chỉ đổi tie-break điểm đặt trong container đầu tiên khả thi.",
+            en="Keeps First Fit container semantics and changes only the point tie-break inside its first feasible container.",
+        ),
+    ),
 }
 
 

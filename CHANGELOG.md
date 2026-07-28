@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- Added a CLI-only Level 8 delivery-aware FFD fixture. It retains first-fit
+  container selection and ranks only feasible candidate positions inside that
+  first container by prospective direct rehandles/LIFO blockers.
+
+- Added a Level 8 CLI-only multi-container FFD negative control. It records
+  canonical first-feasible-container behavior when a later container would
+  avoid a LIFO violation, before any delivery-aware FFD policy is introduced.
+
+- Added a deterministic Level 8 two-stop/two-container Best Fit fixture. It
+  verifies isolated per-container COG/LIFO evidence and delivery-aware A/B
+  behavior before any arbitrary-instance or FFD expansion.
+
 - Added CLI-only Level 8 Best Fit delivery/LIFO A/B fixtures. The aware
   candidate tie-break reduces prospective direct rehandles only after the
   existing container-count/cost priorities and inherited hard constraints;

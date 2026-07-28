@@ -70,6 +70,25 @@ is expected to be `INVALID_SOLUTION`; the aware variant must be `FEASIBLE` and
   --non-interactive --preview-limit 0
 ```
 
+`delivery_multi_stop_multi_container_*_fixture.yaml` extends this evidence to
+four items across two payload-forced containers and two stops (`STOP-A`, then
+`STOP-B`). It proves that each container receives independent COG and LIFO
+evidence. The baseline remains expected-invalid; the aware variant must be
+deterministic and `VALID`. This is still a frozen fixture, not arbitrary input
+support.
+
+Before enabling delivery-aware FFD, the CLI-only
+`extreme_point_ffd_delivery_negative_control_fixture` proves its fixed
+container semantics: `C1` can hold both items but creates a LIFO violation;
+`C2` can hold the early item, yet canonical FFD retains the first geometrically
+feasible container and correctly reports `INVALID_SOLUTION`. This is expected
+evidence, not a solver failure to hide with fallback.
+
+`extreme_point_ffd_delivery_aware_fixture` then uses the same two-container
+fixture. It preserves `C1` as the first feasible container, but evaluates its
+feasible extreme points (including the declared far-door anchor) and selects a
+LIFO-valid placement. Thus it is not global Best Fit or a hidden fallback.
+
 ## Data and provenance
 
 Legacy 3DBPPsi rows do not have delivery metadata. They are preserved as

@@ -115,5 +115,5 @@ def test_level7_contract_is_registered_as_a_cli_only_validation_fixture(root: Pa
         "validation_document": "balance_validation.json",
     }
     assert [value.level_id for value in list_levels()] == [
-        "level_01", "level_02", "level_03", "level_04", "level_05", "level_06", "level_07",
+        "level_01", "level_02", "level_03", "level_04", "level_05", "level_06", "level_07", "level_08",
     ]
