@@ -1,0 +1,7 @@
+id_item,length,width,height,weight,nesting_height,stackability_code,forced_orientation,max_stackability,delivery_priority,delivery_stop_id,delivery_data_source
+C1_TOP,50,80,60,10,0,A,XYZ,3,1,STOP-A,synthetic_level_08_sequential_multi_v1
+C1_BASE,50,80,60,10,0,A,XYZ,3,2,STOP-B,synthetic_level_08_sequential_multi_v1
+C1_LATE,50,80,60,10,0,A,XYZ,3,3,STOP-C,synthetic_level_08_sequential_multi_v1
+C2_TOP,50,80,60,10,0,A,XYZ,3,1,STOP-A,synthetic_level_08_sequential_multi_v1
+C2_BASE,50,80,60,10,0,A,XYZ,3,2,STOP-B,synthetic_level_08_sequential_multi_v1
+C2_LATE,50,80,60,10,0,A,XYZ,3,3,STOP-C,synthetic_level_08_sequential_multi_v1

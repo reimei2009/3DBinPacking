@@ -114,6 +114,30 @@ def _sequential_replay_config(root: Path, tmp_path: Path) -> Path:
     return path
 
 
+def _sequential_multi_container_config(root: Path, tmp_path: Path) -> Path:
+    config = deepcopy(load_config(
+        root / "config/level_08/experiments/sequential_replay_multi_container_fixture.yaml"
+    ))
+    config["paths"]["processed_dir"] = str(tmp_path / "processed")
+    config["paths"]["manifest_json"] = str(tmp_path / "processed" / "latest_manifest.json")
+    config["paths"]["output_root"] = str(tmp_path / "outputs")
+    path = tmp_path / "sequential_multi.yaml"
+    path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
+    return path
+
+
+def _sequential_generic_config(root: Path, tmp_path: Path) -> Path:
+    config = deepcopy(load_config(
+        root / "config/level_08/experiments/sequential_delivery_20_local.yaml"
+    ))
+    config["paths"]["processed_dir"] = str(tmp_path / "processed")
+    config["paths"]["manifest_json"] = str(tmp_path / "processed" / "latest_manifest.json")
+    config["paths"]["output_root"] = str(tmp_path / "outputs")
+    path = tmp_path / "sequential_generic.yaml"
+    path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
+    return path
+
+
 def test_level8_cli_fixture_composes_inherited_and_unloading_evidence(root: Path, tmp_path: Path) -> None:
     result = run_experiment(_request(_runtime_config(root, tmp_path)))
     run_dir = Path(result.metadata["run_dir"])
@@ -169,6 +193,69 @@ def test_level8_cli_sequential_replay_fixture_writes_and_independently_revalidat
     ):
         assert (first_dir / relative).read_bytes() == (second_dir / relative).read_bytes()
     (first_dir / "simulation" / "events.jsonl").write_text("{}\n", encoding="utf-8")
+    assert not get_level("level_08").validate_run(first_dir).valid
+
+
+def test_level8_multi_container_replay_opens_each_container_per_stop(
+    root: Path, tmp_path: Path
+) -> None:
+    result = run_experiment(_request(
+        _sequential_multi_container_config(root, tmp_path),
+        algorithm_id=SEQUENTIAL_REPLAY,
+        item_count=6,
+        container_count=2,
+    ))
+    run_dir = Path(result.metadata["run_dir"])
+    events = [
+        yaml.safe_load(line)
+        for line in (run_dir / "simulation/events.jsonl").read_text(encoding="utf-8").splitlines()
+    ]
+    opened = {
+        (value["delivery_stop_id"], value["container_id"])
+        for value in events if value["event_type"] == "door_opened"
+    }
+    closed = {
+        (value["delivery_stop_id"], value["container_id"])
+        for value in events if value["event_type"] == "door_closed"
+    }
+    assert result.validation is not None and result.validation.valid
+    assert opened == closed == {
+        (stop, container)
+        for stop in ("STOP-A", "STOP-B", "STOP-C")
+        for container in ("C1", "C2")
+    }
+    assert get_level("level_08").validate_run(run_dir).valid
+
+
+def test_level8_generic_best_fit_opt_in_replay_is_deterministic_and_tamper_evident(
+    root: Path, tmp_path: Path
+) -> None:
+    config_path = _sequential_generic_config(root, tmp_path)
+    request = _request(
+        config_path,
+        algorithm_id=GENERIC_BEST_FIT,
+        item_count=20,
+        container_count=5,
+    )
+    first = run_experiment(request)
+    second = run_experiment(request)
+    first_dir = Path(first.metadata["run_dir"])
+    second_dir = Path(second.metadata["run_dir"])
+    assert first.solve.status == "FEASIBLE"
+    assert first.validation is not None and first.validation.valid
+    assert first.metadata["sequential_simulation_status"] == "VALID"
+    for relative in (
+        "simulation/simulation_plan.json",
+        "simulation/events.jsonl",
+        "simulation/loading_sequence.csv",
+        "simulation/unloading_sequence.csv",
+        "simulation/stop_summary.csv",
+        "simulation/simulation_metrics.json",
+        "simulation/simulation_validation.json",
+    ):
+        assert (first_dir / relative).read_bytes() == (second_dir / relative).read_bytes()
+    assert get_level("level_08").validate_run(first_dir).valid
+    (first_dir / "simulation/simulation_plan.json").write_text("{}\n", encoding="utf-8")
     assert not get_level("level_08").validate_run(first_dir).valid
 
 

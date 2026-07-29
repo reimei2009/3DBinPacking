@@ -1,0 +1,28 @@
+extends: ../default.yaml
+project:
+  level_id: level_08
+  algorithm_id: extreme_point_best_fit_delivery
+  random_seed: 42
+instance:
+  item_count: 20
+  container_count: 5
+  item_selection_strategy: prefix
+  item_selection_seed: null
+paths:
+  raw_items_csv: data/raw/level_08/sequential_delivery_20_items.csv
+  items_source_mapping: config/common/data_sources/level_08_runtime_fixture.yaml
+  processed_dir: data/processed/level_08/sequential_delivery_20
+  manifest_json: data/processed/level_08/sequential_delivery_20/latest_manifest.json
+  output_root: outputs
+containers:
+  - {container_id: C1, length_mm: 200, width_mm: 80, height_mm: 120, max_weight_kg: 103, cost: 100, availability: 1}
+  - {container_id: C2, length_mm: 200, width_mm: 80, height_mm: 120, max_weight_kg: 103, cost: 100, availability: 1}
+  - {container_id: C3, length_mm: 200, width_mm: 80, height_mm: 120, max_weight_kg: 103, cost: 100, availability: 1}
+  - {container_id: C4, length_mm: 200, width_mm: 80, height_mm: 120, max_weight_kg: 103, cost: 100, availability: 1}
+  - {container_id: C5, length_mm: 200, width_mm: 80, height_mm: 120, max_weight_kg: 103, cost: 100, availability: 1}
+delivery_construction_mode: delivery_priority_primary
+delivery_pipeline_time_limit_seconds: 45
+sequential_simulation:
+  enabled: true
+  required_when_enabled: true
+  rules_file: config/level_08/sequential_simulation_rules.yaml

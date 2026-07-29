@@ -175,3 +175,68 @@ def test_deterministic_fixture_planner_writes_isolated_plan_sequences_and_events
     assert validate_sequential_fixture_artifacts(run_dir, plan, settings).valid
     with pytest.raises(FileExistsError, match="will not be overwritten"):
         write_sequential_fixture_artifacts(run_dir, plan, items, placements, settings)
+
+
+def test_deterministic_planner_rejects_dependency_cycle(root: Path) -> None:
+    unloading_config, _ = _settings(root)
+    simulation_config = load_config(root / "config/level_08/sequential_simulation_rules.yaml")
+    inherited_config = load_config(root / "config/level_08/default.yaml")
+    items, containers, placements, _ = _fixture(root)
+    relations = [
+        NestingRelation("EARLY_BASE", "LATE", "C1"),
+        NestingRelation("LATE", "EARLY_BASE", "C1"),
+    ]
+    with pytest.raises(ValueError, match="contains a cycle"):
+        build_deterministic_fixture_plan(
+            items,
+            containers,
+            placements,
+            unloading_config=unloading_config,
+            simulation_config=simulation_config,
+            inherited_config=inherited_config,
+            nesting_relations=relations,
+        )
+
+
+def test_deterministic_planner_rejects_remaining_state_cog_violation(root: Path) -> None:
+    unloading_config, _ = _settings(root)
+    simulation_config = load_config(root / "config/level_08/sequential_simulation_rules.yaml")
+    inherited_config = load_config(root / "config/level_08/default.yaml")
+    items, containers, placements, _ = _fixture(root)
+    imbalanced_remaining_state = [
+        value if value.item_id != "LATE" else Placement(
+            value.item_id, value.container_id, 140.0, value.y_mm, value.z_mm,
+            value.length_mm, value.width_mm, value.height_mm, value.weight_kg,
+        )
+        for value in placements
+    ]
+    with pytest.raises(ValueError, match="sequential validation is invalid"):
+        build_deterministic_fixture_plan(
+            items,
+            containers,
+            imbalanced_remaining_state,
+            unloading_config=unloading_config,
+            simulation_config=simulation_config,
+            inherited_config=inherited_config,
+        )
+
+
+def test_deterministic_planner_rejects_initial_static_lifo_violation(root: Path) -> None:
+    unloading_config, _ = _settings(root)
+    simulation_config = load_config(root / "config/level_08/sequential_simulation_rules.yaml")
+    inherited_config = load_config(root / "config/level_08/default.yaml")
+    items, containers, _, _ = _fixture(root)
+    blocked = [
+        Placement("EARLY_TOP", "C1", 100.0, 0.0, 60.0, 50.0, 80.0, 60.0, 10.0),
+        Placement("EARLY_BASE", "C1", 100.0, 0.0, 0.0, 50.0, 80.0, 60.0, 10.0),
+        Placement("LATE", "C1", 0.0, 0.0, 0.0, 50.0, 80.0, 60.0, 10.0),
+    ]
+    with pytest.raises(ValueError, match="initial static strict-LIFO"):
+        build_deterministic_fixture_plan(
+            items,
+            containers,
+            blocked,
+            unloading_config=unloading_config,
+            simulation_config=simulation_config,
+            inherited_config=inherited_config,
+        )

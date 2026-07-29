@@ -24,6 +24,12 @@ from .level_08_delivery_scoring import (
 )
 from .level_08_validation import compose_level_08_validation, validate_unloading_lifo
 from .level_08_delivery_repair import DeliveryRepairEngine
+from .level_08_sequential_runtime import (
+    compose_optional_sequential_validation,
+    sequential_prevalidation_metadata,
+    sequential_runtime_options,
+    write_optional_sequential_artifacts,
+)
 from .pipeline import LevelRuntimeStrategy, run_configured_level
 from .unloading import UnloadingSettings, delivery_attributes_for_item
 from .nesting_runtime import compound_to_external_item, compound_to_external_placement
@@ -59,6 +65,7 @@ def _guard(config: dict[str, Any]) -> None:
     if not bool(config.get("model", {}).get("enforce_balance", False)):
         raise ValueError("Level 8 runtime requires inherited Level 7 balance validation")
     UnloadingSettings.from_config(unloading_rules(config))
+    sequential_runtime_options(config)
 
 
 def _validate_delivery_instance(items, containers, expected: int) -> None:
@@ -345,7 +352,10 @@ def _validate_solution(items, containers, placements, config):
         items, placements, unloading_rules(config),
         tolerance_mm=float(config.get("validation", {}).get("coordinate_tolerance_mm", 1e-6)),
     )
-    return compose_level_08_validation(inherited, unloading, items)
+    static_bundle = compose_level_08_validation(inherited, unloading, items)
+    return compose_optional_sequential_validation(
+        static_bundle, list(items), list(containers), list(placements), config
+    )
 
 
 STRATEGY = LevelRuntimeStrategy(
@@ -375,6 +385,8 @@ STRATEGY = LevelRuntimeStrategy(
         BEST_FIT_ALGORITHM_ID: "experimental_delivery_aware_practical_candidate",
         FFD_ALGORITHM_ID: "experimental_delivery_aware_fast_comparator",
     },
+    post_write_hook=write_optional_sequential_artifacts,
+    prevalidation_metadata_hook=sequential_prevalidation_metadata,
 )
 
 

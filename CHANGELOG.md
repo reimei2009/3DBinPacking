@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Promoted deterministic Level 8 sequential replay to an opt-in post-processing
+  hard gate for valid Best Fit/FFD runs. Added per-stop/per-container door
+  events, a two-container/three-stop support-chain fixture, a deterministic
+  20-item acceptance profile, independent artifact rebuilding, and a read-only
+  Streamlit timeline.
+
 - Completed the sequential fixture evidence bundle with per-stop summaries,
   logical-duration metrics, and independent timeline/order validation.
 

@@ -50,6 +50,7 @@ MULTI_CONTAINER_FIXTURE_ID = "level_08_delivery_multi_stop_multi_container_v1"
 FFD_NEGATIVE_CONTROL_FIXTURE_ID = "level_08_ffd_multi_container_negative_control_v1"
 THREE_STOP_MULTI_CONTAINER_FIXTURE_ID = "level_08_delivery_three_stop_multi_container_v1"
 SEQUENTIAL_REPLAY_FIXTURE_ID = "level_08_sequential_replay_support_chain_v1"
+SEQUENTIAL_MULTI_CONTAINER_FIXTURE_ID = "level_08_sequential_replay_multi_container_three_stop_v1"
 
 
 def run(request: ExperimentRequest) -> RunResult:
@@ -181,7 +182,13 @@ def validate_run(run_dir: Path) -> ValidationResult:
         return ValidationResult(not issues, issues)
     if algorithm_id in GENERIC_ALGORITHM_IDS:
         from .level_08_pipeline import _validate_solution
-        return _validate_solution(items, containers, placements, config).result
+        from .level_08_sequential_runtime import validate_optional_sequential_artifacts
+        static_and_replay = _validate_solution(items, containers, placements, config).result
+        artifact = validate_optional_sequential_artifacts(
+            run_dir, items, containers, placements, config
+        )
+        issues = [*static_and_replay.issues, *artifact.issues]
+        return ValidationResult(not issues, issues)
     inherited = validate_level_07_fixture_bundle(items, containers, placements, config, relations=[])
     unloading = validate_unloading_lifo(items, placements, _unloading_rules(root, config))
     return ValidationResult(
@@ -217,7 +224,10 @@ def _guard_request(request: ExperimentRequest, config: dict[str, Any]) -> None:
         AWARE_ALGORITHM_ID: {DELIVERY_FIXTURE_ID, MULTI_CONTAINER_FIXTURE_ID, THREE_STOP_MULTI_CONTAINER_FIXTURE_ID},
         FFD_NEGATIVE_CONTROL_ALGORITHM_ID: {FFD_NEGATIVE_CONTROL_FIXTURE_ID},
         FFD_AWARE_ALGORITHM_ID: {FFD_NEGATIVE_CONTROL_FIXTURE_ID, THREE_STOP_MULTI_CONTAINER_FIXTURE_ID},
-        SEQUENTIAL_REPLAY_ALGORITHM_ID: {SEQUENTIAL_REPLAY_FIXTURE_ID},
+        SEQUENTIAL_REPLAY_ALGORITHM_ID: {
+            SEQUENTIAL_REPLAY_FIXTURE_ID,
+            SEQUENTIAL_MULTI_CONTAINER_FIXTURE_ID,
+        },
     }
     if request.algorithm_id not in ALGORITHM_IDS:
         raise ValueError(f"Unsupported Level 8 fixture algorithm: {request.algorithm_id}")
@@ -309,12 +319,11 @@ def _sequential_fixture_placements(root: Path, config: dict[str, Any], items, co
     """Load the versioned support-chain layout used only by sequential replay."""
     path = _resolve_path(root, config["fixture"]["layout_file"])
     layout = yaml.safe_load(path.read_text(encoding="utf-8-sig"))
-    if not isinstance(layout, dict) or layout.get("fixture_id") != SEQUENTIAL_REPLAY_FIXTURE_ID:
+    expected_fixture_id = str(config["fixture"]["fixture_id"])
+    if not isinstance(layout, dict) or layout.get("fixture_id") != expected_fixture_id:
         raise ValueError("Level 8 sequential replay layout has an unexpected fixture_id")
-    container = layout.get("container", {})
-    container_id = str(container.get("container_id", ""))
-    if container_id not in {value.container_id for value in containers}:
-        raise ValueError("Level 8 sequential replay layout references an unknown container")
+    container_ids = {value.container_id for value in containers}
+    default_container_id = str(layout.get("container", {}).get("container_id", ""))
     raw = layout.get("items")
     item_by_id = {item.item_id: item for item in items}
     if not isinstance(raw, list) or len(raw) != len(items):
@@ -326,6 +335,9 @@ def _sequential_fixture_placements(root: Path, config: dict[str, Any], items, co
         item_id = str(value.get("item_id", ""))
         if item_id not in item_by_id:
             raise ValueError("Level 8 sequential replay layout references an unknown item")
+        container_id = str(value.get("container_id", default_container_id))
+        if container_id not in container_ids:
+            raise ValueError("Level 8 sequential replay layout references an unknown container")
         item = item_by_id[item_id]
         placements.append(Placement(
             item_id, container_id, *_coordinates(value),

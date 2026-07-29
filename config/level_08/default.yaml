@@ -19,6 +19,10 @@ containers:
   - {container_id: C2, length_mm: 300, width_mm: 80, height_mm: 60, max_weight_kg: 30, cost: 100, availability: 1}
 unloading:
   rules_file: config/level_08/unloading_rules.yaml
+sequential_simulation:
+  enabled: false
+  required_when_enabled: true
+  rules_file: config/level_08/sequential_simulation_rules.yaml
 algorithms:
   extreme_point_best_fit_delivery:
     subset_enumeration_limit: 12

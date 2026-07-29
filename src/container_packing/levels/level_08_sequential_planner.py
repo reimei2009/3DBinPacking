@@ -70,6 +70,29 @@ def validate_deterministic_plan(plan: SimulationPlan) -> ValidationResult:
     expected_boundaries = (SimulationEventType.SIMULATION_STARTED, SimulationEventType.SIMULATION_COMPLETED)
     if not events or (events[0].event_type, events[-1].event_type) != expected_boundaries:
         issues.append(ValidationIssue("SEQUENTIAL_EVENT_BOUNDARY_INVALID", "Plan must start and end with simulation boundary events"))
+    opened: set[tuple[str, str]] = set()
+    closed: set[tuple[str, str]] = set()
+    for event in events:
+        if event.event_type in {SimulationEventType.DOOR_OPENED, SimulationEventType.DOOR_CLOSED}:
+            if not event.delivery_stop_id or not event.container_id:
+                issues.append(ValidationIssue(
+                    "SEQUENTIAL_DOOR_EVENT_SCOPE_INVALID",
+                    "Door events must identify both delivery stop and container",
+                ))
+                continue
+            key = (event.delivery_stop_id, event.container_id)
+            target = opened if event.event_type is SimulationEventType.DOOR_OPENED else closed
+            if key in target:
+                issues.append(ValidationIssue(
+                    "SEQUENTIAL_DOOR_EVENT_DUPLICATE",
+                    f"Duplicate {event.event_type.value} event for stop/container {key}",
+                ))
+            target.add(key)
+    if opened != closed:
+        issues.append(ValidationIssue(
+            "SEQUENTIAL_DOOR_EVENT_PAIR_INVALID",
+            "Every stop/container door-open event must have exactly one matching close event",
+        ))
     return ValidationResult(not issues, issues)
 
 
@@ -211,12 +234,19 @@ def _build_events(
     events: list[SimulationEvent] = []
     time_seconds = 0.0
 
-    def append(event_type: SimulationEventType, duration: float = 0.0, *, item_id: str | None = None, stop_id: str | None = None) -> None:
+    def append(
+        event_type: SimulationEventType,
+        duration: float = 0.0,
+        *,
+        item_id: str | None = None,
+        stop_id: str | None = None,
+        container_id: str | None = None,
+    ) -> None:
         nonlocal time_seconds
         event = SimulationEvent(
             f"evt-{len(events) + 1:04d}", len(events), time_seconds, duration, event_type,
             item_id=item_id,
-            container_id=placements[item_id].container_id if item_id is not None else None,
+            container_id=placements[item_id].container_id if item_id is not None else container_id,
             delivery_stop_id=stop_id,
         )
         events.append(event)
@@ -238,15 +268,29 @@ def _build_events(
         assert attribute.delivery_priority is not None and attribute.delivery_stop_id is not None
         by_stop.setdefault((attribute.delivery_priority, attribute.delivery_stop_id), []).append(item_id)
     for (_priority, stop_id), item_ids in sorted(by_stop.items()):
-        append(SimulationEventType.DOOR_OPENED, settings.timing.door_open_seconds, stop_id=stop_id)
+        by_container: dict[str, list[str]] = {}
         for item_id in item_ids:
+            by_container.setdefault(placements[item_id].container_id, []).append(item_id)
+        for container_id, container_items in sorted(by_container.items()):
             append(
-                SimulationEventType.ITEM_UNLOADED,
-                settings.timing.item_operation_seconds(placements[item_id].weight_kg, operation="unload"),
-                item_id=item_id, stop_id=stop_id,
+                SimulationEventType.DOOR_OPENED,
+                settings.timing.door_open_seconds,
+                stop_id=stop_id,
+                container_id=container_id,
             )
-            append(SimulationEventType.ITEM_DELIVERED, item_id=item_id, stop_id=stop_id)
+            for item_id in container_items:
+                append(
+                    SimulationEventType.ITEM_UNLOADED,
+                    settings.timing.item_operation_seconds(placements[item_id].weight_kg, operation="unload"),
+                    item_id=item_id, stop_id=stop_id,
+                )
+                append(SimulationEventType.ITEM_DELIVERED, item_id=item_id, stop_id=stop_id)
+            append(
+                SimulationEventType.DOOR_CLOSED,
+                settings.timing.door_close_seconds,
+                stop_id=stop_id,
+                container_id=container_id,
+            )
         append(SimulationEventType.STOP_COMPLETED, stop_id=stop_id)
-        append(SimulationEventType.DOOR_CLOSED, settings.timing.door_close_seconds, stop_id=stop_id)
     append(SimulationEventType.SIMULATION_COMPLETED)
     return tuple(events)

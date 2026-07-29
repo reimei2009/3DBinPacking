@@ -1,0 +1,36 @@
+extends: ../default.yaml
+project:
+  level_id: level_08
+  algorithm_id: level_08_sequential_replay_fixture
+  random_seed: 42
+instance:
+  item_count: 6
+  container_count: 2
+  item_selection_strategy: prefix
+  item_selection_seed: null
+paths:
+  raw_items_csv: data/raw/level_08/sequential_replay_multi_container_items.csv
+  items_source_mapping: config/common/data_sources/level_08_runtime_fixture.yaml
+  processed_dir: data/processed/level_08/sequential_replay_multi_container_fixture
+  manifest_json: data/processed/level_08/sequential_replay_multi_container_fixture/latest_manifest.json
+  output_root: outputs
+containers:
+  - {container_id: C1, length_mm: 200, width_mm: 80, height_mm: 120, max_weight_kg: 30, cost: 100, availability: 1}
+  - {container_id: C2, length_mm: 200, width_mm: 80, height_mm: 120, max_weight_kg: 30, cost: 100, availability: 1}
+fixture:
+  fixture_id: level_08_sequential_replay_multi_container_three_stop_v1
+  layout_file: config/level_08/fixtures/sequential_replay_multi_container_fixture.yaml
+  required_item_count: 6
+  required_container_count: 2
+  required_environment: local
+  required_item_selection_strategy: prefix
+  required_item_selection_seed: null
+unloading:
+  rules_file: config/level_08/unloading_rules.yaml
+sequential_simulation:
+  enabled: true
+  required_when_enabled: true
+  rules_file: config/level_08/sequential_simulation_rules.yaml
+runtime_candidate:
+  status: cli_only_sequential_replay_fixture
+  algorithm_id: level_08_sequential_replay_fixture

@@ -31,6 +31,14 @@ Executor = Callable[[str, list[Item], list[Container], dict[str, Any]], Algorith
 InstanceValidator = Callable[[list[Item], list[Container], int], None]
 SolutionValidator = Callable[[list[Item], list[Container], list[Placement], dict[str, Any]], ValidationBundle]
 ConfigGuard = Callable[[dict[str, Any]], None]
+PostWriteHook = Callable[
+    [Path, list[Item], list[Container], list[Placement], dict[str, Any], dict[str, Any], ValidationBundle],
+    None,
+]
+PrevalidationMetadataHook = Callable[
+    [dict[str, Any], SolveResult, list[Placement], list[Item]],
+    dict[str, Any],
+]
 
 
 @dataclass(frozen=True)
@@ -44,6 +52,8 @@ class LevelRuntimeStrategy:
     inactive_constraints: tuple[str, ...]
     metadata_defaults: dict[str, Any]
     algorithm_roles: dict[str, str] = field(default_factory=dict)
+    post_write_hook: PostWriteHook | None = None
+    prevalidation_metadata_hook: PrevalidationMetadataHook | None = None
 
 
 def run_configured_level(
@@ -121,6 +131,11 @@ def run_configured_level(
     outcome = strategy.execute(algorithm_id, items, containers, settings)
     runtime = perf_counter() - started
     solve, placements = outcome.solve, outcome.placements
+    prevalidation_metadata = (
+        strategy.prevalidation_metadata_hook(config, solve, placements, items)
+        if strategy.prevalidation_metadata_hook is not None
+        else {}
+    )
     run_id: str | None = None
     run_dir: Path | None = None
     if write_outputs:
@@ -151,6 +166,7 @@ def run_configured_level(
         "selected_item_ids_checksum": manifest["selected_item_ids_checksum"],
         "item_profile": manifest["item_profile"],
         "source_adapter": manifest.get("source_adapter"),
+        **prevalidation_metadata,
         "active_constraints": list(strategy.active_constraints),
         "inactive_constraints": list(strategy.inactive_constraints),
         **strategy.metadata_defaults,
@@ -210,9 +226,13 @@ def run_configured_level(
             )
         if write_outputs and run_dir is not None:
             write_run_outputs(run_dir, placements, containers, metadata, bundle.result, config, **output_arguments)
+            if strategy.post_write_hook is not None:
+                strategy.post_write_hook(run_dir, items, containers, placements, config, metadata, bundle)
         return RunResult(returned_solve, placements, bundle.result, metadata)
     if write_outputs and run_dir is not None:
         write_run_outputs(run_dir, placements, containers, metadata, bundle.result, config, **output_arguments)
+        if strategy.post_write_hook is not None:
+            strategy.post_write_hook(run_dir, items, containers, placements, config, metadata, bundle)
     return RunResult(solve, placements, bundle.result, metadata)
 
 

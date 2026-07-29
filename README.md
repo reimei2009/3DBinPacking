@@ -4,6 +4,10 @@ Level 8 provides an explicit delivery/LIFO data contract, a pure straight-path
 unloadability engine, and experimental delivery-aware Best Fit/FFD solvers.
 Its tracked three-stop demo is available in Streamlit; frozen validation
 fixtures remain CLI-only regression evidence.
+Sequential loading/unloading replay is optional and disabled by default. When
+enabled for a Level 8 run, it independently revalidates every remaining state,
+acts as a hard final gate, writes seven artifacts below `simulation/`, and can
+be inspected with the read-only Streamlit event slider.
 Synthetic semantic fixtures are tracked under `data/raw/level_08/`; generate
 large reproducible delivery inputs only when needed:
 

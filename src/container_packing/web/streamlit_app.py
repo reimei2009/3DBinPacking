@@ -291,6 +291,106 @@ def _render_run(run_dir: Path, language: str) -> None:
             st.dataframe(pd.read_csv(support_path), hide_index=True, width="stretch")
 
 
+    _render_sequential_replay(run_dir, scene, language)
+
+
+def _render_sequential_replay(
+    run_dir: Path, scene: dict[str, Any], language: str
+) -> None:
+    """Render persisted replay evidence without executing simulation logic."""
+    simulation_dir = run_dir / "simulation"
+    events_path = simulation_dir / "events.jsonl"
+    metrics_path = simulation_dir / "simulation_metrics.json"
+    if not events_path.is_file() or not metrics_path.is_file():
+        return
+    try:
+        events = [
+            json.loads(line)
+            for line in events_path.read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        ]
+        metrics = _read_json(metrics_path)
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        prefix = "Không thể đọc artifact mô phỏng: " if language == "vi" else "Cannot read replay artifacts: "
+        st.error(prefix + str(exc))
+        return
+    if not events:
+        return
+    st.markdown(
+        "### Mô phỏng bốc dỡ tuần tự"
+        if language == "vi"
+        else "### Sequential loading/unloading replay"
+    )
+    st.warning(
+        (
+            "Đây là replay offline xác định từ artifact đã kiểm định; chưa mô phỏng "
+            "thiết bị nâng, không gian staging, tuyến đường hoặc thời gian thực."
+        )
+        if language == "vi"
+        else (
+            "This is a deterministic offline replay of validated artifacts; it does "
+            "not model handling equipment, staging space, routing, or real time."
+        )
+    )
+    event_index = st.slider(
+        "Sự kiện" if language == "vi" else "Event",
+        min_value=0,
+        max_value=len(events) - 1,
+        value=0,
+        key=f"sequential-event-{run_dir.name}",
+    )
+    current = events[event_index]
+    visible: set[str] = set()
+    for event in events[: event_index + 1]:
+        item_id = event.get("item_id")
+        if not item_id:
+            continue
+        if event.get("event_type") == "item_loaded":
+            visible.add(str(item_id))
+        elif event.get("event_type") in {"item_unloaded", "item_delivered"}:
+            visible.discard(str(item_id))
+    all_item_ids = {
+        str(item["item_id"])
+        for container in scene["containers"]
+        for item in container["items"]
+    }
+    cards = st.columns(5)
+    card_values = (
+        ("Event", f"{event_index + 1}/{len(events)}"),
+        ("Type", current.get("event_type", "—")),
+        ("Stop", current.get("delivery_stop_id") or "—"),
+        ("Container", current.get("container_id") or "—"),
+        ("Logical time", f"{float(current.get('simulation_time_seconds', 0.0)):.2f} s"),
+    )
+    for card, (label, value) in zip(cards, card_values):
+        card.metric(label, value)
+    replay_figure = create_figure(
+        scene,
+        language=language,
+        item_opacity=DEFAULT_ITEM_OPACITY,
+        selected_item_id=current.get("item_id"),
+        dimmed_opacity=DEFAULT_DIMMED_OPACITY,
+        hidden_item_ids=all_item_ids - visible,
+    )
+    st.plotly_chart(
+        replay_figure,
+        width="stretch",
+        config={"displaylogo": False, "scrollZoom": True},
+        key=f"sequential-chart-{run_dir.name}",
+    )
+    st.caption(
+        (
+            f"Còn trong container: {len(visible)} kiện · "
+            f"Tổng thời gian logic: {float(metrics.get('logical_total_seconds', 0.0)):.2f} giây"
+        )
+        if language == "vi"
+        else (
+            f"Items in containers: {len(visible)} · "
+            f"Total logical time: {float(metrics.get('logical_total_seconds', 0.0)):.2f} seconds"
+        )
+    )
+
+
 def _parse_seed_text(value: str) -> tuple[int, ...]:
     tokens = value.replace(",", " ").split()
     if not tokens:
@@ -725,6 +825,28 @@ def main() -> None:
     default_parameters = config.get("solver", {}) if algorithm_id == "milp_big_m" else config.get("algorithms", {}).get(algorithm_id, {})
     algorithm_parameters = _algorithm_parameters(algorithm_id, default_parameters, language)
     config_overrides = _level_config_overrides(level_id, config, language)
+    if level_id == "level_08" and algorithm_id in {
+        "extreme_point_best_fit_delivery",
+        "extreme_point_ffd_delivery",
+    }:
+        replay_enabled = st.sidebar.checkbox(
+            "Bật replay bốc dỡ tuần tự" if language == "vi" else "Enable sequential replay",
+            value=bool(config.get("sequential_simulation", {}).get("enabled", False)),
+            key="level_08_sequential_replay",
+            help=(
+                "Replay là hard gate: trạng thái tháo dỡ vi phạm Level 1–8 sẽ làm nghiệm invalid."
+                if language == "vi"
+                else "Replay is a hard gate: any remaining state violating Levels 1–8 invalidates the run."
+            ),
+        )
+        config_overrides = {
+            **config_overrides,
+            "sequential_simulation": {
+                **dict(config.get("sequential_simulation", {})),
+                "enabled": replay_enabled,
+                "required_when_enabled": True,
+            },
+        }
     exact_reference_limit = _exact_reference_item_limit(algorithm_id, config)
     exact_reference_blocked = (
         exact_reference_limit is not None and item_count > exact_reference_limit

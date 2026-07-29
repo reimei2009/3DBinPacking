@@ -254,6 +254,8 @@ def test_streamlit_exposes_level8_delivery_solvers_and_runs_tracked_demo(root: P
     assert algorithm.value == "extreme_point_best_fit_delivery"
     item_count = next(value for value in page.number_input if value.key == "item_count")
     assert item_count.value == 6
+    replay = next(value for value in page.checkbox if value.key == "level_08_sequential_replay")
+    assert replay.value is False
     assert any("thực nghiệm" in value.value for value in page.warning)
 
     next(value for value in page.button if value.key == "run_experiment").click().run()

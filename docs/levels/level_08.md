@@ -132,7 +132,7 @@ aware Best Fit and FFD must both remain deterministic, use two containers,
 write independent evidence for each container, and finish `VALID`. It does not
 enable arbitrary input sizes or change the primary objective.
 
-## Sequential replay foundation (not active runtime)
+## Optional deterministic sequential replay
 
 `config/level_08/sequential_simulation_rules.yaml` freezes the future offline
 replay vocabulary: deterministic logical timing, strict LIFO with no implicit
@@ -146,12 +146,9 @@ remaining placements. Explicit nesting relations are filtered to surviving
 members; stack parents and load-transfer edges are recomputed, never copied
 from a preceding state.
 
-This is a pure fixture-level validator. It does not create events, infer
-routes, or claim dynamic physical stability.
-
-The fixture now also has an offline deterministic planner and isolated writer.
-It accepts only an initially strict-LIFO-valid packing, derives a topological
-loading/unloading order, replays the full Level 1--7 callback, then writes:
+The offline deterministic planner accepts only an initially strict-LIFO-valid
+packing, derives topological loading/unloading orders, replays the full Level
+1--7 callback after every removal, then writes:
 
 - `simulation/simulation_plan.json`;
 - `simulation/loading_sequence.csv`;
@@ -164,14 +161,31 @@ It also writes `simulation/stop_summary.csv`,
 sequence/timeline and loading/unloading/delivery order; `validate` compares all
 seven artifacts against a newly rebuilt plan.
 
-Logical event times are derived solely from the versioned timing profile. This
-is not SimPy, wall-clock telemetry, route optimization, or a generic runtime.
+Logical event times are derived solely from the versioned timing profile. Each
+stop opens and closes every involved container independently. Unloading is
+ordered by ascending priority, container ID and dependency graph. Loading
+prefers descending priority while reversing support/nesting dependencies so a
+supporter or host is always loaded before its dependent.
 
 `level_08_sequential_replay_fixture` is a CLI-only frozen fixture runtime. It
-accepts exactly three items, one container, local execution, and prefix
-selection. It writes the four sequential artifacts above, while `validate`
-reloads the input snapshot, independently rebuilds the plan, and rejects any
-missing or altered plan/sequence/event artifact. Streamlit does not expose it.
+has one-container and two-container/three-stop acceptance profiles.
+
+Generic Level 8 Best Fit/FFD runs may opt in with:
+
+```yaml
+sequential_simulation:
+  enabled: true
+  required_when_enabled: true
+  rules_file: config/level_08/sequential_simulation_rules.yaml
+```
+
+Replay starts only after packing and static Level 1--8 validation pass. When
+required, any invalid sequential state makes the run `INVALID_SOLUTION` and
+hides its objective. Time-limit or invalid packing runs record a skip reason
+and never fabricate a plan. `validate` reloads the input snapshot, rebuilds
+the graph/order/timeline/metrics, and rejects missing or altered artifacts.
+Streamlit only reads persisted events and changes item visibility/highlighting;
+it contains no planner or validator logic.
 
 ## Data and provenance
 
@@ -187,7 +201,7 @@ are the source of truth.
 
 ## Inactive
 
-- generic sequential event execution and route optimization at runtime;
+- SimPy or wall-clock event execution and route optimization;
 - delivery-aware metaheuristic solvers beyond bounded local repair;
 - exact removal-sequence optimization;
 - loading order, handling equipment, time, staging space, and door geometry;
