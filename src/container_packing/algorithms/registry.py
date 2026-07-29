@@ -241,6 +241,20 @@ _ALGORITHMS = {
         ),
         web_visible=False,
     ),
+    "level_08_sequential_replay_fixture": AlgorithmDefinition(
+        algorithm_id="level_08_sequential_replay_fixture",
+        family="fixture_validation",
+        description="CLI-only deterministic Level 8 sequential replay fixture; not a packing solver",
+        supported_levels=("level_08",), local_friendly=True, web_visible=False,
+        display_name=LocalizedText(
+            vi="Level 8 — Fixture replay tuần tự xác định",
+            en="Level 8 — Deterministic sequential replay fixture",
+        ),
+        localized_description=LocalizedText(
+            vi="Tạo plan/sự kiện logical-time từ fixture LIFO hợp lệ và revalidate Level 1–7 sau từng lần tháo; không chạy solver.",
+            en="Builds a logical-time plan from a valid LIFO fixture and revalidates Level 1–7 after each removal; no solver runs.",
+        ),
+    ),
     "extreme_point_best_fit_delivery_baseline_fixture": AlgorithmDefinition(
         algorithm_id="extreme_point_best_fit_delivery_baseline_fixture",
         family="constructive_heuristic",
@@ -282,16 +296,16 @@ _ALGORITHMS = {
     "extreme_point_best_fit_delivery": AlgorithmDefinition(
         algorithm_id="extreme_point_best_fit_delivery",
         family="constructive_heuristic",
-        description="CLI-only config-driven Level 8 delivery-aware Extreme-Point Best Fit",
-        supported_levels=("level_08",), local_friendly=True, web_visible=False,
+        description="Experimental config-driven Level 8 delivery-aware Extreme-Point Best Fit",
+        supported_levels=("level_08",), local_friendly=True, web_visible=True,
         display_name=LocalizedText(vi="Level 8 Best Fit giao hàng", en="Level 8 delivery-aware Best Fit"),
         localized_description=LocalizedText(vi="Best Fit thực nghiệm với priority/LIFO tĩnh và validation Level 1–8.", en="Experimental Best Fit with static priority/LIFO and Level 1–8 validation."),
     ),
     "extreme_point_ffd_delivery": AlgorithmDefinition(
         algorithm_id="extreme_point_ffd_delivery",
         family="constructive_heuristic",
-        description="CLI-only config-driven Level 8 delivery-aware Extreme-Point FFD comparator",
-        supported_levels=("level_08",), local_friendly=True, web_visible=False,
+        description="Experimental config-driven Level 8 delivery-aware Extreme-Point FFD comparator",
+        supported_levels=("level_08",), local_friendly=True, web_visible=True,
         display_name=LocalizedText(vi="Level 8 FFD giao hàng", en="Level 8 delivery-aware FFD"),
         localized_description=LocalizedText(vi="FFD giữ container first-fit và chỉ rank điểm đặt theo LIFO.", en="FFD retains first-fit containers and ranks positions by LIFO evidence only."),
     ),

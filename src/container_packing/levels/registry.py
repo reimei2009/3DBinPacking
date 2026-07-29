@@ -916,7 +916,7 @@ _LEVELS["level_07"] = replace(
 _level_08_base = _LEVELS["level_07"].contract
 _LEVELS["level_08"] = LevelDefinition(
     level_id="level_08",
-    description="CLI-only static delivery/LIFO validation fixture over inherited Level 1–7 evidence",
+    description="Experimental delivery-aware packing with static LIFO validation over inherited Level 1–7 evidence",
     default_config=Path("config/level_08/default.yaml"),
     supported_algorithms=(
         "level_08_fixture_validation_bundle",
@@ -924,38 +924,35 @@ _LEVELS["level_08"] = LevelDefinition(
         "extreme_point_best_fit_delivery_aware_fixture",
         "extreme_point_ffd_delivery_negative_control_fixture",
         "extreme_point_ffd_delivery_aware_fixture",
+        "level_08_sequential_replay_fixture",
         "extreme_point_best_fit_delivery",
         "extreme_point_ffd_delivery",
     ),
     run=level_08.run,
     prepare=level_08.prepare,
     validate_run=level_08.validate_run,
-    web_visible=False,
+    web_visible=True,
     algorithm_configs={
         "level_08_fixture_validation_bundle": Path("config/level_08/runtime_candidate.yaml"),
         "extreme_point_best_fit_delivery_baseline_fixture": Path("config/level_08/experiments/delivery_best_fit_baseline_fixture.yaml"),
         "extreme_point_best_fit_delivery_aware_fixture": Path("config/level_08/experiments/delivery_best_fit_aware_fixture.yaml"),
         "extreme_point_ffd_delivery_negative_control_fixture": Path("config/level_08/experiments/ffd_multi_container_negative_control_fixture.yaml"),
         "extreme_point_ffd_delivery_aware_fixture": Path("config/level_08/experiments/ffd_delivery_aware_fixture.yaml"),
+        "level_08_sequential_replay_fixture": Path("config/level_08/experiments/sequential_replay_fixture.yaml"),
         "extreme_point_best_fit_delivery": Path("config/level_08/default.yaml"),
         "extreme_point_ffd_delivery": Path("config/level_08/experiments/ffd_delivery_local.yaml"),
     },
     contract=replace(
         _level_08_base,
         title=LocalizedText(
-            vi="Level 8 — Thứ tự giao và tháo dỡ LIFO (fixture CLI)",
-            en="Level 8 — Delivery order and LIFO unloading (CLI fixture)",
+            vi="Level 8 — Thứ tự giao và tháo dỡ LIFO (thực nghiệm)",
+            en="Level 8 — Delivery order and LIFO unloading (experimental)",
         ),
         problem=LocalizedText(
-            vi="Kiểm định độc lập khả năng tháo thẳng qua cửa với ưu tiên giao hàng, sau toàn bộ ràng buộc Level 1–7.",
-            en="Independently validate straight-path unloadability with delivery priorities after every Level 1–7 constraint.",
+            vi="Xếp kiện theo ưu tiên giao hàng và kiểm định độc lập khả năng tháo thẳng qua cửa, sau toàn bộ ràng buộc Level 1–7.",
+            en="Pack items with delivery priorities and independently validate straight-path unloadability after every Level 1–7 constraint.",
         ),
-        objective=MathematicalExpression(
-            "validation_only", LocalizedText(vi="Không có hàm mục tiêu solver", en="No solver objective"),
-            r"\text{validation only}",
-            LocalizedText(vi="Runtime chỉ tạo bằng chứng fixture, không tìm nghiệm packing.", en="The runtime produces fixture evidence only and does not search for a packing solution."),
-            "src/container_packing/levels/level_08.py::run",
-        ),
+        objective=_level_08_base.objective,
         active_constraints=_level_08_base.active_constraints + (
             ConstraintDefinition(
                 "static_lifo_unloadability",
@@ -966,7 +963,6 @@ _LEVELS["level_08"] = LevelDefinition(
             ),
         ),
         inactive_constraints=_level_08_base.inactive_constraints + (
-            LocalizedText(vi="solver nhận biết thứ tự giao", en="delivery-aware packing solver"),
             LocalizedText(vi="chuỗi tháo dỡ chính xác", en="exact removal sequence"),
             LocalizedText(vi="thiết bị và vùng chứa tạm", en="handling equipment and staging"),
         ),
@@ -974,11 +970,11 @@ _LEVELS["level_08"] = LevelDefinition(
             LocalizedText(vi="Cửa ở x_min và tháo theo đường thẳng -x; priority nhỏ được giao trước.", en="The door is at x_min with straight -x removal; lower priority is delivered earlier."),
         ),
         limitations=_level_08_base.limitations + (
-            LocalizedText(vi="CLI fixture chỉ là validation; chưa có solver hoặc mô phỏng thao tác thực tế.", en="The CLI fixture is validation-only; no solver or physical handling simulation is active."),
+            LocalizedText(vi="Best Fit và FFD là solver thực nghiệm; mô hình chỉ kiểm tra tháo thẳng tĩnh, chưa có chuỗi thao tác hoặc mô phỏng dỡ hàng vật lý.", en="Best Fit and FFD are experimental solvers; the model checks static straight-path unloading only, without an exact operation sequence or physical handling simulation."),
         ),
         solution_claim=LocalizedText(
-            vi="Bằng chứng fixture được kiểm định độc lập từ Level 1 đến Level 8.",
-            en="Fixture evidence is independently validated from Level 1 through Level 8.",
+            vi="Nghiệm được kiểm định độc lập về hình học, tải trọng, support, stackability, chịu tải, cân bằng trọng tâm và LIFO tĩnh từ Level 1 đến Level 8.",
+            en="The solution is independently validated for geometry, payload, support, stackability, load-bearing, center-of-mass balance, and static LIFO from Level 1 through Level 8.",
         ),
     ),
 )

@@ -1,0 +1,15 @@
+fixture_id: level_08_sequential_replay_support_chain_v1
+container:
+  container_id: C1
+  length_mm: 200
+  width_mm: 80
+  height_mm: 120
+items:
+  - {item_id: EARLY_TOP, delivery_priority: 1, delivery_stop_id: STOP-A, x_mm: 50, y_mm: 0, z_mm: 60}
+  - {item_id: EARLY_BASE, delivery_priority: 1, delivery_stop_id: STOP-A, x_mm: 50, y_mm: 0, z_mm: 0}
+  - {item_id: LATE, delivery_priority: 2, delivery_stop_id: STOP-B, x_mm: 100, y_mm: 0, z_mm: 0}
+expected_removal_order: [EARLY_TOP, EARLY_BASE, LATE]
+expected_dependency:
+  predecessor_item_id: EARLY_TOP
+  successor_item_id: EARLY_BASE
+  reason: external_support_before_supporter_removal

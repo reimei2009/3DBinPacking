@@ -238,3 +238,26 @@ def test_streamlit_exposes_dynamic_level7_balance_algorithms(root: Path):
     next(value for value in page.number_input if value.key == "container_count").set_value(3).run()
     run_button = next(value for value in page.button if value.key == "run_experiment")
     assert not run_button.disabled
+
+
+def test_streamlit_exposes_level8_delivery_solvers_and_runs_tracked_demo(root: Path):
+    app = root / "src/container_packing/web/streamlit_app.py"
+    page = AppTest.from_file(str(app), default_timeout=60).run()
+
+    next(value for value in page.selectbox if value.key == "level_id").set_value("level_08").run()
+    algorithm = next(value for value in page.selectbox if value.key == "algorithm_id")
+    assert not page.exception
+    assert algorithm.options == [
+        "Level 8 Best Fit giao hàng",
+        "Level 8 FFD giao hàng",
+    ]
+    assert algorithm.value == "extreme_point_best_fit_delivery"
+    item_count = next(value for value in page.number_input if value.key == "item_count")
+    assert item_count.value == 6
+    assert any("thực nghiệm" in value.value for value in page.warning)
+
+    next(value for value in page.button if value.key == "run_experiment").click().run()
+    assert not page.exception
+    metrics = {value.label: value.value for value in page.metric}
+    assert metrics["Trạng thái"] == "FEASIBLE"
+    assert metrics["Kiểm định"] == "VALID"

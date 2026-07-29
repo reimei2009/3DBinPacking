@@ -24,6 +24,12 @@ from .level_08_delivery_scoring import (
     DeliveryDoorPointProvider,
 )
 from .level_08_fixture_output import write_level_08_composed_validation_run
+from .level_08_sequential_output import (
+    validate_sequential_fixture_artifacts,
+    write_sequential_fixture_artifacts,
+)
+from .level_08_sequential_planner import build_deterministic_fixture_plan
+from .level_08_simulation_contract import SequentialSimulationSettings
 from .level_08_validation import validate_unloading_lifo
 from .level_08_pipeline import ALGORITHM_IDS as GENERIC_ALGORITHM_IDS, run_from_config as run_delivery_from_config
 
@@ -33,15 +39,17 @@ BASELINE_ALGORITHM_ID = "extreme_point_best_fit_delivery_baseline_fixture"
 AWARE_ALGORITHM_ID = "extreme_point_best_fit_delivery_aware_fixture"
 FFD_NEGATIVE_CONTROL_ALGORITHM_ID = "extreme_point_ffd_delivery_negative_control_fixture"
 FFD_AWARE_ALGORITHM_ID = "extreme_point_ffd_delivery_aware_fixture"
+SEQUENTIAL_REPLAY_ALGORITHM_ID = "level_08_sequential_replay_fixture"
 ALGORITHM_IDS = (
     VALIDATION_ALGORITHM_ID, BASELINE_ALGORITHM_ID, AWARE_ALGORITHM_ID,
-    FFD_NEGATIVE_CONTROL_ALGORITHM_ID, FFD_AWARE_ALGORITHM_ID,
+    FFD_NEGATIVE_CONTROL_ALGORITHM_ID, FFD_AWARE_ALGORITHM_ID, SEQUENTIAL_REPLAY_ALGORITHM_ID,
 )
 FIXTURE_ID = "level_08_lifo_valid_runtime_fixture_v1"
 DELIVERY_FIXTURE_ID = "level_08_delivery_best_fit_ab_v1"
 MULTI_CONTAINER_FIXTURE_ID = "level_08_delivery_multi_stop_multi_container_v1"
 FFD_NEGATIVE_CONTROL_FIXTURE_ID = "level_08_ffd_multi_container_negative_control_v1"
 THREE_STOP_MULTI_CONTAINER_FIXTURE_ID = "level_08_delivery_three_stop_multi_container_v1"
+SEQUENTIAL_REPLAY_FIXTURE_ID = "level_08_sequential_replay_support_chain_v1"
 
 
 def run(request: ExperimentRequest) -> RunResult:
@@ -63,6 +71,10 @@ def run(request: ExperimentRequest) -> RunResult:
     containers_path = _resolve_path(root, manifest["containers_csv"])
     items = load_items(items_path)
     containers = load_containers(containers_path)
+    if request.algorithm_id == SEQUENTIAL_REPLAY_ALGORITHM_ID:
+        return _run_sequential_replay_fixture(
+            root, config, manifest, items, containers, items_path, containers_path, request, started,
+        )
     if request.algorithm_id == VALIDATION_ALGORITHM_ID:
         placements = _fixture_placements(root, config, items, containers)
         inherited = validate_level_07_fixture_bundle(items, containers, placements, config, relations=[])
@@ -150,7 +162,24 @@ def validate_run(run_dir: Path) -> ValidationResult:
     containers = load_containers(run_dir / "input_snapshot" / "containers.csv")
     placements = load_placements(run_dir / "solution" / "placements.csv")
     root = find_project_root(__file__)
-    if str(config.get("project", {}).get("algorithm_id")) in GENERIC_ALGORITHM_IDS:
+    algorithm_id = str(config.get("project", {}).get("algorithm_id"))
+    if algorithm_id == SEQUENTIAL_REPLAY_ALGORITHM_ID:
+        rules = _unloading_rules(root, config)
+        simulation_rules = _simulation_rules(root, config)
+        plan = build_deterministic_fixture_plan(
+            items, containers, placements,
+            unloading_config=rules,
+            simulation_config=simulation_rules,
+            inherited_config=config,
+        )
+        inherited = validate_level_07_fixture_bundle(items, containers, placements, config, relations=[])
+        unloading = validate_unloading_lifo(items, placements, rules)
+        artifact = validate_sequential_fixture_artifacts(
+            run_dir, plan, SequentialSimulationSettings.from_config(simulation_rules),
+        )
+        issues = [*inherited.result.issues, *unloading.result.issues, *plan.validation.result.issues, *artifact.issues]
+        return ValidationResult(not issues, issues)
+    if algorithm_id in GENERIC_ALGORITHM_IDS:
         from .level_08_pipeline import _validate_solution
         return _validate_solution(items, containers, placements, config).result
     inherited = validate_level_07_fixture_bundle(items, containers, placements, config, relations=[])
@@ -188,6 +217,7 @@ def _guard_request(request: ExperimentRequest, config: dict[str, Any]) -> None:
         AWARE_ALGORITHM_ID: {DELIVERY_FIXTURE_ID, MULTI_CONTAINER_FIXTURE_ID, THREE_STOP_MULTI_CONTAINER_FIXTURE_ID},
         FFD_NEGATIVE_CONTROL_ALGORITHM_ID: {FFD_NEGATIVE_CONTROL_FIXTURE_ID},
         FFD_AWARE_ALGORITHM_ID: {FFD_NEGATIVE_CONTROL_FIXTURE_ID, THREE_STOP_MULTI_CONTAINER_FIXTURE_ID},
+        SEQUENTIAL_REPLAY_ALGORITHM_ID: {SEQUENTIAL_REPLAY_FIXTURE_ID},
     }
     if request.algorithm_id not in ALGORITHM_IDS:
         raise ValueError(f"Unsupported Level 8 fixture algorithm: {request.algorithm_id}")
@@ -275,12 +305,103 @@ def _fixture_placements(root: Path, config: dict[str, Any], items, containers) -
     return placements
 
 
+def _sequential_fixture_placements(root: Path, config: dict[str, Any], items, containers) -> list[Placement]:
+    """Load the versioned support-chain layout used only by sequential replay."""
+    path = _resolve_path(root, config["fixture"]["layout_file"])
+    layout = yaml.safe_load(path.read_text(encoding="utf-8-sig"))
+    if not isinstance(layout, dict) or layout.get("fixture_id") != SEQUENTIAL_REPLAY_FIXTURE_ID:
+        raise ValueError("Level 8 sequential replay layout has an unexpected fixture_id")
+    container = layout.get("container", {})
+    container_id = str(container.get("container_id", ""))
+    if container_id not in {value.container_id for value in containers}:
+        raise ValueError("Level 8 sequential replay layout references an unknown container")
+    raw = layout.get("items")
+    item_by_id = {item.item_id: item for item in items}
+    if not isinstance(raw, list) or len(raw) != len(items):
+        raise ValueError("Level 8 sequential replay layout must place every selected item exactly once")
+    placements: list[Placement] = []
+    for value in raw:
+        if not isinstance(value, dict):
+            raise ValueError("Level 8 sequential replay placement must be a mapping")
+        item_id = str(value.get("item_id", ""))
+        if item_id not in item_by_id:
+            raise ValueError("Level 8 sequential replay layout references an unknown item")
+        item = item_by_id[item_id]
+        placements.append(Placement(
+            item_id, container_id, *_coordinates(value),
+            item.length_mm, item.width_mm, item.height_mm, item.weight_kg, "XYZ",
+        ))
+    if {value.item_id for value in placements} != set(item_by_id):
+        raise ValueError("Level 8 sequential replay layout must contain every selected item exactly once")
+    return placements
+
+
 def _unloading_rules(root: Path, config: dict[str, Any]) -> dict[str, Any]:
     value = config.get("unloading", {})
     path = value.get("rules_file") if isinstance(value, dict) else None
     if not path:
         raise ValueError("Level 8 runtime requires unloading.rules_file")
     return load_config(_resolve_path(root, path))
+
+
+def _simulation_rules(root: Path, config: dict[str, Any]) -> dict[str, Any]:
+    value = config.get("sequential_simulation", {})
+    path = value.get("rules_file") if isinstance(value, dict) else None
+    if not path:
+        raise ValueError("Level 8 sequential replay requires sequential_simulation.rules_file")
+    return load_config(_resolve_path(root, path))
+
+
+def _run_sequential_replay_fixture(
+    root: Path, config: dict[str, Any], manifest: dict[str, Any], items, containers,
+    items_path: Path, containers_path: Path, request: ExperimentRequest, started: float,
+) -> RunResult:
+    """Persist a replayable, validation-only sequential fixture run."""
+    placements = _sequential_fixture_placements(root, config, items, containers)
+    rules = _unloading_rules(root, config)
+    simulation_rules = _simulation_rules(root, config)
+    plan = build_deterministic_fixture_plan(
+        items, containers, placements,
+        unloading_config=rules, simulation_config=simulation_rules, inherited_config=config,
+    )
+    inherited = validate_level_07_fixture_bundle(items, containers, placements, config, relations=[])
+    unloading = validate_unloading_lifo(
+        items, placements, rules,
+        tolerance_mm=float(config.get("validation", {}).get("coordinate_tolerance_mm", 1e-6)),
+    )
+    issues = [*inherited.result.issues, *unloading.result.issues, *plan.validation.result.issues]
+    combined = ValidationResult(not issues, issues)
+    seed = int(config["project"]["random_seed"])
+    run_id = make_run_id("level_08", request.algorithm_id, len(items), len(containers), seed)
+    run_dir = _resolve_path(root, config["paths"].get("output_root", "outputs")) / "level_08" / "runs" / run_id
+    metadata = write_level_08_composed_validation_run(
+        run_dir, items, containers, placements, inherited, unloading, config,
+        items_path=items_path, containers_path=containers_path, project_root=root,
+        run_id=run_id, instance_id=manifest["instance_id"], random_seed=seed,
+        runtime_seconds=perf_counter() - started,
+        algorithm_id=SEQUENTIAL_REPLAY_ALGORITHM_ID,
+        algorithm_role="cli_only_deterministic_sequential_replay_fixture",
+        solver="not_applicable_validation_only",
+        solver_message="Level 8 deterministic sequential replay fixture; no packing solver or route optimizer was invoked.",
+        status="VALIDATION_ONLY" if combined.valid else "INVALID_SOLUTION",
+        objective_value=None,
+        metadata_extra={
+            "level_08_runtime_status": "cli_only_sequential_replay_fixture",
+            "sequential_replay_model": "offline_deterministic_dependency_replay_v1",
+            "sequential_validation_status": "VALID" if plan.validation.result.valid else "INVALID",
+            "sequential_event_count": len(plan.events),
+            "sequential_loading_item_count": len(plan.loading_order),
+            "sequential_unloading_item_count": len(plan.unloading_order),
+        },
+    )
+    write_sequential_fixture_artifacts(
+        run_dir, plan, items, placements, SequentialSimulationSettings.from_config(simulation_rules),
+    )
+    metadata["run_dir"] = _portable_path(root, run_dir)
+    return RunResult(
+        SolveResult("VALIDATION_ONLY" if combined.valid else "INVALID_SOLUTION", metadata["solver_message"], None, None, OptimizeResult()),
+        placements, combined, metadata,
+    )
 
 
 def _coordinates(value: dict[str, Any]) -> tuple[float, float, float]:

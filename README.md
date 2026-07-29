@@ -1,8 +1,9 @@
 # 3D Container Packing
 
 Level 8 provides an explicit delivery/LIFO data contract, a pure straight-path
-unloadability engine, and one frozen CLI-only validation fixture. It is not a
-packing solver and remains hidden from the web UI.
+unloadability engine, and experimental delivery-aware Best Fit/FFD solvers.
+Its tracked three-stop demo is available in Streamlit; frozen validation
+fixtures remain CLI-only regression evidence.
 Synthetic semantic fixtures are tracked under `data/raw/level_08/`; generate
 large reproducible delivery inputs only when needed:
 

@@ -1,8 +1,9 @@
 # Level 8 — Delivery order, LIFO, and multiple stops
 
-Status: **CLI-only experimental runtime**. Level 8 remains hidden from
-Streamlit. Frozen fixtures remain regression evidence; config-driven Best Fit
-and FFD accept declared delivery metadata but are not yet production solvers.
+Status: **experimental runtime**. Streamlit exposes only the config-driven
+delivery-aware Best Fit and FFD solvers against a tracked three-stop demo.
+Frozen fixtures remain CLI-only regression evidence; neither solver is a
+production transport-planning system.
 
 The fixture semantic baseline is recorded in
 `docs/reports/manual/level_08_fixture_baseline.md`.
@@ -95,8 +96,9 @@ LIFO-valid placement. Thus it is not global Best Fit or a hidden fallback.
 For config-driven local experiments, use `extreme_point_best_fit_delivery`
 (primary) or `extreme_point_ffd_delivery` (fast comparator). Both require every
 selected row to declare priority, stop, and provenance. Missing or ambiguous
-delivery metadata fails before solver execution. Level 8 remains CLI-only until
-the 20–300 item acceptance protocol passes.
+delivery metadata fails before solver execution. The web demo intentionally
+uses only the tracked six-item fixture; run the 20–300 item protocol through
+the CLI synthetic profiles.
 
 When constructive placement is valid through Level 7 but fails strict LIFO,
 the runtime performs bounded local delivery repair on compound roots. It ranks
@@ -130,6 +132,47 @@ aware Best Fit and FFD must both remain deterministic, use two containers,
 write independent evidence for each container, and finish `VALID`. It does not
 enable arbitrary input sizes or change the primary objective.
 
+## Sequential replay foundation (not active runtime)
+
+`config/level_08/sequential_simulation_rules.yaml` freezes the future offline
+replay vocabulary: deterministic logical timing, strict LIFO with no implicit
+rehandling, and artifacts under `simulation/` in the isolated run directory.
+`level_08_sequential_validation.py` builds removal precedence from static door
+blockers, external support, and explicit nesting relations. It rechecks the
+remaining geometry and static LIFO state after each declared removal.
+`level_08_sequential_state_validation.py` now provides the fixture-level
+callback that rebuilds the complete independent Level 1--7 bundle from the
+remaining placements. Explicit nesting relations are filtered to surviving
+members; stack parents and load-transfer edges are recomputed, never copied
+from a preceding state.
+
+This is a pure fixture-level validator. It does not create events, infer
+routes, or claim dynamic physical stability.
+
+The fixture now also has an offline deterministic planner and isolated writer.
+It accepts only an initially strict-LIFO-valid packing, derives a topological
+loading/unloading order, replays the full Level 1--7 callback, then writes:
+
+- `simulation/simulation_plan.json`;
+- `simulation/loading_sequence.csv`;
+- `simulation/unloading_sequence.csv`;
+- `simulation/events.jsonl`.
+
+It also writes `simulation/stop_summary.csv`,
+`simulation/simulation_metrics.json`, and
+`simulation/simulation_validation.json`. The latter independently checks event
+sequence/timeline and loading/unloading/delivery order; `validate` compares all
+seven artifacts against a newly rebuilt plan.
+
+Logical event times are derived solely from the versioned timing profile. This
+is not SimPy, wall-clock telemetry, route optimization, or a generic runtime.
+
+`level_08_sequential_replay_fixture` is a CLI-only frozen fixture runtime. It
+accepts exactly three items, one container, local execution, and prefix
+selection. It writes the four sequential artifacts above, while `validate`
+reloads the input snapshot, independently rebuilds the plan, and rejects any
+missing or altered plan/sequence/event artifact. Streamlit does not expose it.
+
 ## Data and provenance
 
 Legacy 3DBPPsi rows do not have delivery metadata. They are preserved as
@@ -144,6 +187,7 @@ are the source of truth.
 
 ## Inactive
 
+- generic sequential event execution and route optimization at runtime;
 - delivery-aware metaheuristic solvers beyond bounded local repair;
 - exact removal-sequence optimization;
 - loading order, handling equipment, time, staging space, and door geometry;

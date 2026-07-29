@@ -1,7 +1,10 @@
 # Running Level 8
 
-Level 8 is CLI-only. Best Fit is the experimental primary solver;
-FFD is the first-fit comparator. Both require declared delivery metadata.
+Level 8 is available in Streamlit as an experimental six-item, three-stop
+demo. Best Fit is the experimental primary solver; FFD is the first-fit
+comparator. Both require declared delivery metadata. Larger profiles remain
+CLI-only because their generated data is intentionally not bundled with the
+web demo.
 
 Generate the manual acceptance input once:
 

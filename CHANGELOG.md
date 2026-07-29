@@ -2,6 +2,34 @@
 
 ## Unreleased
 
+- Completed the sequential fixture evidence bundle with per-stop summaries,
+  logical-duration metrics, and independent timeline/order validation.
+
+- Registered the CLI-only Level 8 sequential replay fixture. Its `validate`
+  path rebuilds the plan from the input snapshot and detects altered simulation
+  artifacts; Streamlit remains limited to delivery-aware packing solvers.
+
+- Added a deterministic Level 8 fixture planner and isolated sequential writer.
+  It emits a validated logical-time plan, loading/unloading CSVs, and JSONL
+  events without activating a generic simulator or route optimizer.
+
+- Added the Level 8 fixture callback that independently recomputes the full
+  Level 1--7 bundle after every accepted removal. Surviving nesting relations
+  are filtered; support, stackability, load transfer, and COG are rebuilt.
+
+- Added a pure Level 8 sequential removal dependency graph and fixture
+  validator. It records door/support/nesting precedence and rechecks remaining
+  geometry and static LIFO state after each removal; no event runtime is active.
+
+- Added the Level 8 sequential-logistics replay data contract: deterministic
+  event vocabulary, strict-LIFO/no-rehandling policy, logical timing formula,
+  and isolated future `simulation/` artifacts. No simulator or solver behavior
+  is activated by this checkpoint.
+
+- Exposed Level 8's experimental delivery-aware Best Fit and FFD solvers in
+  Streamlit using the tracked three-stop demo. Frozen fixture and expected-
+  invalid algorithms remain CLI-only.
+
 - Enforced the Level 8 delivery pipeline deadline across construction and
   repair. Extreme-Point Best Fit/FFD stop at the shared monotonic deadline;
   construction timeout returns `TIME_LIMIT`, no comparable objective, and no

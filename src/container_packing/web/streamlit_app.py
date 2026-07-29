@@ -669,6 +669,17 @@ def main() -> None:
     )
     algorithm = get_algorithm(algorithm_id)
     st.sidebar.caption(f"{algorithm_family(algorithm.family, language)}: {algorithm.description_for(language)}")
+    if level_id == "level_08":
+        st.sidebar.warning(
+            "Level 8 đang ở mức thực nghiệm: LIFO dùng mô hình đường tháo thẳng tĩnh; chưa mô phỏng thiết bị, vùng chứa tạm hoặc chuỗi dỡ vật lý chính xác."
+            if language == "vi" else
+            "Level 8 is experimental: LIFO uses a static straight-path model; handling equipment, staging, and an exact physical unloading sequence are inactive."
+        )
+        st.sidebar.caption(
+            "Demo web dùng dataset ba điểm giao đã được version hóa (tối đa 6 kiện). Chạy quy mô lớn bằng CLI với synthetic profile."
+            if language == "vi" else
+            "The web demo uses the versioned three-stop dataset (up to 6 items). Use the CLI synthetic profiles for larger runs."
+        )
 
     selected_config = level.config_for_algorithm(algorithm_id)
     config_path = root / selected_config
@@ -676,14 +687,31 @@ def main() -> None:
 
     limits = get_instance_limits(config_path, root=root)
     instance_defaults = config["instance"]
+    if st.session_state.get("_instance_level_id") != level_id:
+        st.session_state["item_count"] = int(instance_defaults["item_count"])
+        st.session_state["container_count"] = int(instance_defaults["container_count"])
+        st.session_state["_instance_level_id"] = level_id
+    level8_demo = level_id == "level_08"
     item_count = int(st.sidebar.number_input(
         t("items", language), min_value=1, max_value=limits.available_items,
         value=int(instance_defaults["item_count"]), step=1, key="item_count",
+        disabled=level8_demo,
+        help=(
+            "Demo Streamlit Level 8 dùng fixture 6 kiện/2 container đã được version hóa; dùng CLI synthetic profile để thử quy mô lớn."
+            if language == "vi" and level8_demo else
+            "The Level 8 Streamlit demo uses the versioned 6-item/2-container fixture; use CLI synthetic profiles for larger runs."
+            if level8_demo else None
+        ),
     ))
     container_count = int(st.sidebar.number_input(
         t("containers", language), min_value=1,
         value=int(instance_defaults["container_count"]), step=1, key="container_count",
+        disabled=level8_demo,
         help=(
+            "Demo Streamlit Level 8 dùng fixture 6 kiện/2 container đã được version hóa; dùng CLI synthetic profile để thử quy mô lớn."
+            if language == "vi" and level8_demo else
+            "The Level 8 Streamlit demo uses the versioned 6-item/2-container fixture; use CLI synthetic profiles for larger runs."
+            if level8_demo else
             f"Có {limits.configured_containers} container được cấu hình trực tiếp; số lớn hơn sẽ được mở rộng xác định cho Level 1."
             if language == "vi" else
             f"{limits.configured_containers} are explicitly configured; larger counts are deterministically extended Level 1 containers."

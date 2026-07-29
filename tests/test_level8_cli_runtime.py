@@ -20,6 +20,7 @@ FFD_NEGATIVE_CONTROL = "extreme_point_ffd_delivery_negative_control_fixture"
 FFD_AWARE = "extreme_point_ffd_delivery_aware_fixture"
 GENERIC_BEST_FIT = "extreme_point_best_fit_delivery"
 GENERIC_FFD = "extreme_point_ffd_delivery"
+SEQUENTIAL_REPLAY = "level_08_sequential_replay_fixture"
 
 
 def _runtime_config(root: Path, tmp_path: Path) -> Path:
@@ -103,6 +104,16 @@ def _three_stop_config(root: Path, tmp_path: Path, algorithm: str) -> Path:
     return path
 
 
+def _sequential_replay_config(root: Path, tmp_path: Path) -> Path:
+    config = deepcopy(load_config(root / "config/level_08/experiments/sequential_replay_fixture.yaml"))
+    config["paths"]["processed_dir"] = str(tmp_path / "processed")
+    config["paths"]["manifest_json"] = str(tmp_path / "processed" / "latest_manifest.json")
+    config["paths"]["output_root"] = str(tmp_path / "outputs")
+    path = tmp_path / "sequential_replay.yaml"
+    path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
+    return path
+
+
 def test_level8_cli_fixture_composes_inherited_and_unloading_evidence(root: Path, tmp_path: Path) -> None:
     result = run_experiment(_request(_runtime_config(root, tmp_path)))
     run_dir = Path(result.metadata["run_dir"])
@@ -132,7 +143,52 @@ def test_level8_cli_fixture_is_deterministic_and_hidden_from_streamlit(root: Pat
     ):
         assert (first_dir / relative).read_bytes() == (second_dir / relative).read_bytes()
     assert "level_08" in [value.level_id for value in list_levels()]
-    assert "level_08" not in [value.level_id for value in list_levels() if value.web_visible]
+    assert "level_08" in [value.level_id for value in list_levels() if value.web_visible]
+
+
+def test_level8_cli_sequential_replay_fixture_writes_and_independently_revalidates_artifacts(root: Path, tmp_path: Path) -> None:
+    config_path = _sequential_replay_config(root, tmp_path)
+    first = run_experiment(_request(
+        config_path, algorithm_id=SEQUENTIAL_REPLAY, item_count=3, container_count=1,
+    ))
+    second = run_experiment(_request(
+        config_path, algorithm_id=SEQUENTIAL_REPLAY, item_count=3, container_count=1,
+    ))
+    first_dir = Path(first.metadata["run_dir"])
+    second_dir = Path(second.metadata["run_dir"])
+
+    assert first.solve.status == "VALIDATION_ONLY"
+    assert first.validation is not None and first.validation.valid
+    assert first.metadata["sequential_validation_status"] == "VALID"
+    assert get_level("level_08").validate_run(first_dir).valid
+    for relative in (
+        "simulation/simulation_plan.json", "simulation/loading_sequence.csv",
+        "simulation/unloading_sequence.csv", "simulation/events.jsonl",
+        "simulation/stop_summary.csv", "simulation/simulation_metrics.json",
+        "simulation/simulation_validation.json",
+    ):
+        assert (first_dir / relative).read_bytes() == (second_dir / relative).read_bytes()
+    (first_dir / "simulation" / "events.jsonl").write_text("{}\n", encoding="utf-8")
+    assert not get_level("level_08").validate_run(first_dir).valid
+
+
+@pytest.mark.parametrize(
+    ("overrides", "message"),
+    [
+        ({"item_count": 4}, "item_count=3"),
+        ({"container_count": 2}, "container_count=1"),
+        ({"environment": "kaggle"}, "environment='local'"),
+    ],
+)
+def test_level8_sequential_replay_rejects_non_fixture_inputs(
+    root: Path, tmp_path: Path, overrides: dict, message: str
+) -> None:
+    request_overrides = {
+        "algorithm_id": SEQUENTIAL_REPLAY, "item_count": 3, "container_count": 1,
+        **overrides,
+    }
+    with pytest.raises(ValueError, match=message):
+        run_experiment(_request(_sequential_replay_config(root, tmp_path), **request_overrides))
 
 
 @pytest.mark.parametrize(

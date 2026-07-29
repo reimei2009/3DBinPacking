@@ -1,0 +1,42 @@
+# Level 8 sequential-logistics simulation contract.  This is deliberately a
+# data/output contract only: it does not activate a simulator or change the
+# packing, balance, or static LIFO solvers.
+contract_version: 1
+level_id: level_08
+status: data_contract_only
+
+simulation_policy:
+  execution_mode: offline_deterministic_replay
+  route_source: declared_delivery_priority
+  priority_direction: ascending_is_earlier_delivery
+  unloading_policy: strict_lifo_no_rehandling
+  allow_rehandling: false
+  state_model: item_pending_load_in_container_delivered_v1
+
+timing_model:
+  model_id: deterministic_item_mass_linear_v1
+  loading_base_seconds: 10.0
+  unloading_base_seconds: 10.0
+  seconds_per_kg: 0.1
+  door_open_seconds: 5.0
+  door_close_seconds: 5.0
+  travel_seconds_between_declared_stops: 0.0
+
+output:
+  directory: simulation
+  plan_document: simulation_plan.json
+  event_log: events.jsonl
+  loading_sequence_table: loading_sequence.csv
+  unloading_sequence_table: unloading_sequence.csv
+  stop_summary_table: stop_summary.csv
+  metrics_document: simulation_metrics.json
+  validation_document: simulation_validation.json
+
+inactive_constraints:
+  - simulation_runtime
+  - route_optimization
+  - geographic_travel_time
+  - handling_equipment_kinematics
+  - temporary_staging_space
+  - planned_rehandling_execution
+  - dynamic_load_and_vibration
