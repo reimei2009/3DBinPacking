@@ -57,6 +57,7 @@ def write_sequential_fixture_artifacts(
             for issue in validation.issues
         ],
     }, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    _register_manifest_artifacts(run_dir, paths.values())
     return paths
 
 
@@ -156,3 +157,15 @@ def _validate_stop_summary_artifact(path: Path, expected_rows: list[dict[str, ob
             "SEQUENTIAL_STOP_SUMMARY_ARTIFACT_MISMATCH",
             "stop_summary.csv differs from the independently rebuilt plan",
         ))
+
+
+def _register_manifest_artifacts(run_dir: Path, paths: Iterable[Path]) -> None:
+    """Record replay artifacts without changing any prior-level output paths."""
+    manifest_path = run_dir / "manifest.json"
+    if not manifest_path.is_file():
+        return
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    artifact_paths = [path.relative_to(run_dir).as_posix() for path in paths]
+    derived = manifest.setdefault("artifacts", {}).setdefault("derived", [])
+    manifest["artifacts"]["derived"] = [*dict.fromkeys([*derived, *artifact_paths])]
+    manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")

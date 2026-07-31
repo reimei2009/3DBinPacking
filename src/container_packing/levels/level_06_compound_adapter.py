@@ -83,6 +83,10 @@ class Level06CompoundAdapter:
             policy=policy,
             orientation_provider=fixed_orientation_provider(),
         )
+        # The solver may compose an additional level-specific policy around
+        # this external Level 6 policy. Preserve its canonical metadata rather
+        # than overwriting it with the inner policy after solving.
+        inherited_policy_metadata = policy.metadata()
         outcome.metadata.update({
             "fixture_adapter": self.adapter_id,
             "compound_constructor": self.algorithm_id,
@@ -94,8 +98,9 @@ class Level06CompoundAdapter:
             "compound_candidate_count": len(compound_items),
             "compound_geometry_model": "compound_root_effective_envelope_geometry_v1",
             **_compound_item_ordering_metadata(ordering),
-            **policy.metadata(),
         })
+        for key, value in inherited_policy_metadata.items():
+            outcome.metadata.setdefault(key, value)
         if outcome.solve.status != "FEASIBLE":
             outcome.metadata["algorithm_runtime_seconds"] = perf_counter() - started_at
             return Level06CompoundResult(

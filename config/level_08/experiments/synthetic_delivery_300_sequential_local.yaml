@@ -1,0 +1,7 @@
+extends: synthetic_delivery_300_local.yaml
+sequential_simulation:
+  enabled: true
+  required_when_enabled: true
+  rules_file: config/level_08/sequential_simulation_rules.yaml
+  time_limit_seconds: 45
+sequential_balance_construction_enabled: true

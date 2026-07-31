@@ -11,6 +11,43 @@ from container_packing.benchmarks.suites import BenchmarkScenario, load_benchmar
 from container_packing.data_loader import load_config
 
 
+def test_level8_sequential_scale_suites_sample_from_source_1000(
+    root: Path,
+) -> None:
+    source_config = (
+        "config/level_08/experiments/"
+        "synthetic_delivery_1000_sequential_local.yaml"
+    )
+    suite_100 = load_benchmark_suite(
+        root / "config/level_08/benchmarks/sequential_replay_100_manual.yaml"
+    )
+    suite_300 = load_benchmark_suite(
+        root / "config/level_08/benchmarks/sequential_replay_300_manual.yaml"
+    )
+    config = load_config(root / source_config)
+
+    assert suite_100.config_path == Path(source_config)
+    assert suite_300.config_path == Path(source_config)
+    assert config["paths"]["raw_items_csv"].endswith(
+        "level_08_scale_1000_c80_items.csv"
+    )
+    assert config["sequential_simulation"]["enabled"] is True
+    assert config["sequential_balance_construction_enabled"] is True
+    assert [(value.item_count, value.container_count) for value in suite_100.scenarios] == [
+        (100, 10),
+        (100, 10),
+    ]
+    assert [
+        (value.item_selection_strategy, value.item_selection_seed)
+        for value in suite_300.scenarios
+    ] == [
+        ("prefix", None),
+        ("stable_random", 101),
+        ("stable_random", 202),
+        ("stable_random", 303),
+    ]
+
+
 def test_benchmark_creates_isolated_aggregate_and_source_runs(root: Path, tmp_path: Path):
     config = load_config(root / "config/level_01/default.yaml")
     config["paths"]["raw_items_csv"] = str(root / "data/raw/dataset_small_items_original.csv")

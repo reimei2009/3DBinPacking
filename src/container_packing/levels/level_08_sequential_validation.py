@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass
+from time import monotonic
 from typing import Any, Callable, Iterable
 
 from ..geometry.support import evaluate_support
@@ -68,6 +69,8 @@ class SequentialUnloadingValidation:
     result: ValidationResult
     dependencies: tuple[UnloadingDependency, ...]
     steps: tuple[SequentialUnloadingStep, ...]
+    termination_reason: str = "completed"
+    checked_state_count: int = 0
 
     def payload(self) -> dict[str, Any]:
         return {
@@ -75,6 +78,8 @@ class SequentialUnloadingValidation:
             "model": "dependency_graph_static_state_replay_v1",
             "dependencies": [value.to_dict() for value in self.dependencies],
             "steps": [value.to_dict() for value in self.steps],
+            "termination_reason": self.termination_reason,
+            "checked_state_count": self.checked_state_count,
             "violations": [
                 {"code": issue.code, "message": issue.message, "item_ids": list(issue.item_ids), "container_id": issue.container_id}
                 for issue in self.result.issues
@@ -142,18 +147,24 @@ def validate_sequential_unloading(
     nesting_relations: Iterable[NestingRelation] = (),
     orientation_profile: str = "fixed",
     state_validator: StateValidator | None = None,
+    state_validation_mode: str = "full_state_v1",
+    deadline_monotonic: float | None = None,
+    clock: Callable[[], float] = monotonic,
 ) -> SequentialUnloadingValidation:
     """Validate an offline removal sequence with post-removal state checks.
 
-    Built-in validation rechecks geometry/payload and strict static LIFO after
-    every accepted removal. A later composition injects a complete Level 1--7
-    validator through ``state_validator`` without coupling this pure core to a
-    solver or a run directory.
+    ``full_state_v1`` rechecks every remaining container after every removal.
+    ``incremental_container_local_v1`` rebuilds only the changed container;
+    unchanged containers retain their prior independent certificate because all
+    active constraints are container-local and removal is monotonic for bounds,
+    overlap, payload, and supported load.
     """
     item_list = list(items)
     container_list = list(containers)
     placement_list = list(placements)
     settings = UnloadingSettings.from_config(unloading_config)
+    if state_validation_mode not in {"full_state_v1", "incremental_container_local_v1"}:
+        raise ValueError(f"Unknown sequential state_validation_mode: {state_validation_mode}")
     item_by_id = {item.item_id: item for item in item_list}
     placement_by_id = {placement.item_id: placement for placement in placement_list}
     issues: list[ValidationIssue] = []
@@ -162,7 +173,7 @@ def validate_sequential_unloading(
     if set(item_by_id) != set(placement_by_id):
         issues.append(ValidationIssue("SEQUENTIAL_ITEM_PLACEMENT_MISMATCH", "Sequential input items and placements must match"))
     if issues:
-        return SequentialUnloadingValidation(ValidationResult(False, issues), (), ())
+        return SequentialUnloadingValidation(ValidationResult(False, issues), (), (), "input_invalid", 0)
 
     dependencies = build_unloading_dependency_graph(item_list, placement_list, settings, nesting_relations=nesting_relations)
     predecessors: dict[str, list[UnloadingDependency]] = defaultdict(list)
@@ -172,7 +183,15 @@ def validate_sequential_unloading(
     remaining_ids = set(item_by_id)
     removed_ids: set[str] = set()
     steps: list[SequentialUnloadingStep] = []
+    termination_reason = "completed"
     for sequence, item_id in enumerate(removal_order):
+        if deadline_monotonic is not None and clock() >= deadline_monotonic:
+            issues.append(ValidationIssue(
+                "SEQUENTIAL_REPLAY_TIME_LIMIT",
+                "Sequential replay exceeded its configured deadline before completing all removals",
+            ))
+            termination_reason = "replay_time_limit"
+            break
         step_issues: list[ValidationIssue] = []
         if item_id not in item_by_id:
             step_issues.append(ValidationIssue("SEQUENTIAL_UNKNOWN_ITEM", f"Removal sequence references unknown item {item_id}", (item_id,)))
@@ -185,8 +204,19 @@ def validate_sequential_unloading(
                     f"Item {item_id} cannot be removed before {edge.predecessor_item_id} ({edge.reason})",
                     (edge.predecessor_item_id, item_id), edge.container_id,
                 ))
-            current_items = [item_by_id[value] for value in sorted(remaining_ids)]
-            current_placements = [placement_by_id[value] for value in sorted(remaining_ids)]
+            if state_validation_mode == "incremental_container_local_v1":
+                target_container_id = placement_by_id[item_id].container_id
+                current_items = [
+                    item_by_id[value] for value in sorted(remaining_ids)
+                    if placement_by_id[value].container_id == target_container_id
+                ]
+                current_placements = [
+                    placement_by_id[value] for value in sorted(remaining_ids)
+                    if placement_by_id[value].container_id == target_container_id
+                ]
+            else:
+                current_items = [item_by_id[value] for value in sorted(remaining_ids)]
+                current_placements = [placement_by_id[value] for value in sorted(remaining_ids)]
             current_lifo = validate_unloading_lifo(current_items, current_placements, unloading_config)
             target_record = next((value for value in current_lifo.records if value.item_id == item_id), None)
             if target_record is not None and target_record.later_priority_blocker_ids:
@@ -201,22 +231,57 @@ def validate_sequential_unloading(
             removed_ids.add(item_id)
             remaining_items = [item_by_id[value] for value in sorted(remaining_ids)]
             remaining_placements = [placement_by_id[value] for value in sorted(remaining_ids)]
-            geometry = validate_geometry_solution(remaining_items, container_list, remaining_placements, orientation_profile=orientation_profile)
-            step_issues.extend(geometry.issues)
-            if remaining_items:
-                step_issues.extend(validate_unloading_lifo(remaining_items, remaining_placements, unloading_config).result.issues)
+            if state_validation_mode == "full_state_v1":
+                geometry = validate_geometry_solution(
+                    remaining_items, container_list, remaining_placements,
+                    orientation_profile=orientation_profile,
+                )
+                step_issues.extend(geometry.issues)
+                if remaining_items:
+                    step_issues.extend(
+                        validate_unloading_lifo(
+                            remaining_items, remaining_placements, unloading_config
+                        ).result.issues
+                    )
+            else:
+                affected_container_id = placement_by_id[item_id].container_id
+                affected_items = [
+                    item for item in remaining_items
+                    if placement_by_id[item.item_id].container_id == affected_container_id
+                ]
+                affected_placements = [
+                    placement for placement in remaining_placements
+                    if placement.container_id == affected_container_id
+                ]
+                if affected_items:
+                    step_issues.extend(
+                        validate_unloading_lifo(
+                            affected_items, affected_placements, unloading_config
+                        ).result.issues
+                    )
             if state_validator is not None:
                 step_issues.extend(state_validator(remaining_items, remaining_placements).issues)
+            if deadline_monotonic is not None and clock() >= deadline_monotonic:
+                step_issues.append(ValidationIssue(
+                    "SEQUENTIAL_REPLAY_TIME_LIMIT",
+                    "Sequential replay exceeded its configured deadline during state validation",
+                ))
+                termination_reason = "replay_time_limit"
             accepted = not step_issues
         steps.append(SequentialUnloadingStep(
             sequence, item_id, accepted, len(remaining_ids),
             tuple(sorted(edge.predecessor_item_id for edge in predecessors.get(item_id, ())),), tuple(step_issues),
         ))
         issues.extend(step_issues)
+        if termination_reason == "replay_time_limit":
+            break
 
     missing = sorted(remaining_ids)
     if missing:
         issues.append(ValidationIssue(
             "SEQUENTIAL_ITEMS_NOT_REMOVED", "Removal sequence did not remove all items: " + ", ".join(missing), tuple(missing),
         ))
-    return SequentialUnloadingValidation(ValidationResult(not issues, issues), dependencies, tuple(steps))
+    return SequentialUnloadingValidation(
+        ValidationResult(not issues, issues), dependencies, tuple(steps),
+        termination_reason, len(steps),
+    )

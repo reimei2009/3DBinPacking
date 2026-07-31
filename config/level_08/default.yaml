@@ -23,6 +23,7 @@ sequential_simulation:
   enabled: false
   required_when_enabled: true
   rules_file: config/level_08/sequential_simulation_rules.yaml
+  time_limit_seconds: 45
 algorithms:
   extreme_point_best_fit_delivery:
     subset_enumeration_limit: 12
@@ -30,6 +31,8 @@ algorithms:
     subset_enumeration_limit: 12
 delivery_construction_mode: compact_then_delivery_priority
 delivery_construction_compare_max_items: 100
+sequential_balance_construction_enabled: false
+delivery_subset_enumeration_threshold: 4
 delivery_pipeline_time_limit_seconds: 45
 delivery_repair_time_limit_seconds: 45
 delivery_repair_fixed_subset_seconds: 35

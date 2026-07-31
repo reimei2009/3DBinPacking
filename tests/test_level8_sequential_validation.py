@@ -7,6 +7,7 @@ import pytest
 
 from container_packing.data_loader import load_config
 from container_packing.levels.level_08_sequential_validation import (
+    UnloadingDependency,
     build_unloading_dependency_graph,
     validate_sequential_unloading,
 )
@@ -14,7 +15,12 @@ from container_packing.levels.level_08_sequential_state_validation import (
     build_level_07_remaining_state_validator,
     filter_remaining_nesting_relations,
 )
-from container_packing.levels.level_08_sequential_planner import build_deterministic_fixture_plan
+from container_packing.levels.level_08_sequential_planner import (
+    SequentialReplayTimeLimitError,
+    SequentialReplayValidationError,
+    _balance_aware_unloading_order,
+    build_deterministic_fixture_plan,
+)
 from container_packing.levels.level_08_sequential_output import (
     validate_sequential_fixture_artifacts,
     write_sequential_fixture_artifacts,
@@ -22,6 +28,7 @@ from container_packing.levels.level_08_sequential_output import (
 from container_packing.levels.level_08_simulation_contract import SequentialSimulationSettings
 from container_packing.levels.nesting_engine import NestingRelation
 from container_packing.levels.unloading import UnloadingSettings
+from container_packing.levels.unloading import delivery_attributes_for_item
 from container_packing.schemas import Container, Item, Placement, ValidationResult
 
 
@@ -177,6 +184,47 @@ def test_deterministic_fixture_planner_writes_isolated_plan_sequences_and_events
         write_sequential_fixture_artifacts(run_dir, plan, items, placements, settings)
 
 
+def test_incremental_replay_matches_legacy_full_state_validator(root: Path) -> None:
+    unloading_config, _ = _settings(root)
+    simulation_config = load_config(root / "config/level_08/sequential_simulation_rules.yaml")
+    inherited_config = load_config(root / "config/level_08/default.yaml")
+    items, containers, placements, _ = _fixture(root)
+    full = build_deterministic_fixture_plan(
+        items, containers, placements,
+        unloading_config=unloading_config, simulation_config=simulation_config,
+        inherited_config=inherited_config, state_validation_mode="full_state_v1",
+    )
+    incremental = build_deterministic_fixture_plan(
+        items, containers, placements,
+        unloading_config=unloading_config, simulation_config=simulation_config,
+        inherited_config=inherited_config, state_validation_mode="incremental_container_local_v1",
+    )
+
+    assert incremental.validation.payload() == full.validation.payload()
+    assert incremental.unloading_order == full.unloading_order
+    assert incremental.replay_diagnostics["sequential_container_validations"] > 0
+
+
+def test_replay_deadline_uses_fake_clock_without_sleep(root: Path) -> None:
+    unloading_config, _ = _settings(root)
+    simulation_config = load_config(root / "config/level_08/sequential_simulation_rules.yaml")
+    inherited_config = load_config(root / "config/level_08/default.yaml")
+    items, containers, placements, _ = _fixture(root)
+    tick = [0.0]
+
+    def clock() -> float:
+        tick[0] += 0.1
+        return tick[0]
+
+    with pytest.raises(SequentialReplayTimeLimitError) as error:
+        build_deterministic_fixture_plan(
+            items, containers, placements,
+            unloading_config=unloading_config, simulation_config=simulation_config,
+            inherited_config=inherited_config, replay_time_limit_seconds=0.15, clock=clock,
+        )
+    assert error.value.diagnostics["sequential_replay_termination_reason"] == "deadline_during_dependency_graph"
+
+
 def test_deterministic_planner_rejects_dependency_cycle(root: Path) -> None:
     unloading_config, _ = _settings(root)
     simulation_config = load_config(root / "config/level_08/sequential_simulation_rules.yaml")
@@ -210,7 +258,7 @@ def test_deterministic_planner_rejects_remaining_state_cog_violation(root: Path)
         )
         for value in placements
     ]
-    with pytest.raises(ValueError, match="sequential validation is invalid"):
+    with pytest.raises(SequentialReplayValidationError) as error:
         build_deterministic_fixture_plan(
             items,
             containers,
@@ -219,6 +267,8 @@ def test_deterministic_planner_rejects_remaining_state_cog_violation(root: Path)
             simulation_config=simulation_config,
             inherited_config=inherited_config,
         )
+    assert error.value.diagnostics["sequential_replay_first_issue_code"]
+    assert error.value.diagnostics["sequential_replay_first_failed_item_id"]
 
 
 def test_deterministic_planner_rejects_initial_static_lifo_violation(root: Path) -> None:
@@ -240,3 +290,106 @@ def test_deterministic_planner_rejects_initial_static_lifo_violation(root: Path)
             simulation_config=simulation_config,
             inherited_config=inherited_config,
         )
+
+
+def _balance_order_item(item_id: str, weight_kg: float, priority: int = 1) -> Item:
+    return Item(
+        item_id,
+        100.0,
+        100.0,
+        100.0,
+        weight_kg,
+        source={
+            "delivery_priority": str(priority),
+            "delivery_stop_id": f"STOP-{priority}",
+            "delivery_data_source": "balance_order_test_v1",
+        },
+    )
+
+
+def test_balance_aware_unloading_order_selects_safe_same_stop_removal(
+    root: Path,
+) -> None:
+    container = Container("C1", 1000.0, 1000.0, 1000.0, 1000.0, 1.0, 1)
+    items = [
+        _balance_order_item("A_RIGHT", 55.0),
+        _balance_order_item("B_LEFT", 70.0),
+        _balance_order_item("C_CENTER", 100.0),
+    ]
+    placements = [
+        Placement("A_RIGHT", "C1", 850.0, 450.0, 0.0, 100.0, 100.0, 100.0, 55.0),
+        Placement("B_LEFT", "C1", 50.0, 450.0, 0.0, 100.0, 100.0, 100.0, 70.0),
+        Placement("C_CENTER", "C1", 450.0, 450.0, 0.0, 100.0, 100.0, 100.0, 100.0),
+    ]
+    attributes = {
+        item.item_id: delivery_attributes_for_item(item) for item in items
+    }
+    order, diagnostics = _balance_aware_unloading_order(
+        tuple(attributes),
+        (
+            # C_CENTER represents a dependent that must remain until both
+            # side items have been removed.
+            UnloadingDependency("A_RIGHT", "C_CENTER", "C1", "test_dependency"),
+            UnloadingDependency("B_LEFT", "C_CENTER", "C1", "test_dependency"),
+        ),
+        attributes=attributes,
+        items=items,
+        containers=[container],
+        placements=placements,
+        nesting_relations=(),
+        balance_config=load_config(root / "config/level_07/balance_rules.yaml"),
+        deadline=1.0,
+        clock=lambda: 0.0,
+    )
+
+    # Alphabetic order would remove A_RIGHT and leave x/L=0.335, outside
+    # the unchanged 0.15 band. Removing B_LEFT leaves x/L=0.642 and is safe.
+    assert order == ("B_LEFT", "A_RIGHT", "C_CENTER")
+    assert diagnostics["sequential_unloading_order_mode"] == (
+        "delivery_priority_dependency_balance_aware_backtracking_v2"
+    )
+    assert diagnostics["sequential_balance_order_hard_cog_gate"] is True
+
+
+def test_balance_aware_unloading_order_reports_no_safe_removal(
+    root: Path,
+) -> None:
+    container = Container("C1", 1000.0, 1000.0, 1000.0, 1000.0, 1.0, 1)
+    items = [
+        _balance_order_item("LEFT", 10.0),
+        _balance_order_item("RIGHT", 10.0),
+    ]
+    placements = [
+        Placement("LEFT", "C1", 50.0, 450.0, 0.0, 100.0, 100.0, 100.0, 10.0),
+        Placement("RIGHT", "C1", 850.0, 450.0, 0.0, 100.0, 100.0, 100.0, 10.0),
+    ]
+    attributes = {
+        item.item_id: delivery_attributes_for_item(item) for item in items
+    }
+
+    with pytest.raises(SequentialReplayValidationError) as error:
+        _balance_aware_unloading_order(
+            tuple(attributes),
+            (),
+            attributes=attributes,
+            items=items,
+            containers=[container],
+            placements=placements,
+            nesting_relations=(),
+            balance_config=load_config(root / "config/level_07/balance_rules.yaml"),
+            deadline=1.0,
+            clock=lambda: 0.0,
+        )
+
+    diagnostics = error.value.diagnostics
+    assert diagnostics["sequential_replay_first_issue_code"] == (
+        "NO_BALANCE_SAFE_REMOVAL"
+    )
+    assert diagnostics["sequential_replay_termination_reason"] == (
+        "no_balance_safe_removal"
+    )
+    assert diagnostics["sequential_balance_order_priority"] == 1
+    assert diagnostics["sequential_balance_order_ready_item_ids"] == [
+        "LEFT",
+        "RIGHT",
+    ]

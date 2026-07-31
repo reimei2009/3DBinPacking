@@ -8,6 +8,10 @@ import pandas as pd
 from container_packing.data_loader import load_config
 from container_packing.algorithms.feasibility import FixedOrientationFeasibilityPolicy
 from container_packing.levels.level_08_delivery_repair import DeliveryRepairEngine
+from container_packing.levels.level_08_delivery_scoring import (
+    SequentialBalanceFeasibilityPolicy,
+    StrictLifoFeasibilityPolicy,
+)
 from container_packing.levels.level_08_fixture_output import write_level_08_fixture_validation_run
 from container_packing.levels.level_08_validation import validate_unloading_lifo
 from container_packing.levels.unloading import (
@@ -68,6 +72,72 @@ def test_prospective_delta_matches_new_candidate_lifo_pairs(root: Path) -> None:
 
     assert delta == (1, 1)
     assert sum(record.minimum_rehandle_count for record in complete) == 1
+
+
+def test_strict_lifo_feasibility_rejects_later_item_in_front(root: Path) -> None:
+    items = _items()
+    policy = StrictLifoFeasibilityPolicy(
+        {item.item_id: item for item in items},
+        UnloadingSettings.from_config(_config(root)),
+        FixedOrientationFeasibilityPolicy(),
+    )
+    container = Container("C1", 500, 80, 60, 100, 1)
+
+    assert not policy.allows(
+        container,
+        [_placement("EARLY", 200)],
+        _placement("LATE", 0),
+        loaded_weight_kg=10,
+        tolerance=1e-6,
+    )
+    assert policy.metadata()["strict_lifo_rejected_candidates"] == 1
+
+
+def test_strict_lifo_feasibility_accepts_early_item_in_front(root: Path) -> None:
+    items = _items()
+    policy = StrictLifoFeasibilityPolicy(
+        {item.item_id: item for item in items},
+        UnloadingSettings.from_config(_config(root)),
+        FixedOrientationFeasibilityPolicy(),
+    )
+    container = Container("C1", 500, 80, 60, 100, 1)
+
+    assert policy.allows(
+        container,
+        [_placement("LATE", 200)],
+        _placement("EARLY", 0),
+        loaded_weight_kg=10,
+        tolerance=1e-6,
+    )
+    assert policy.metadata()["strict_lifo_valid_candidates"] == 1
+
+
+def test_reverse_loading_balance_policy_keeps_level7_band_hard(
+    root: Path,
+) -> None:
+    policy = SequentialBalanceFeasibilityPolicy(
+        load_config(root / "config/level_07/balance_rules.yaml"),
+        FixedOrientationFeasibilityPolicy(),
+    )
+    container = Container("C1", 500, 80, 60, 100, 1)
+
+    assert not policy.allows(
+        container,
+        [],
+        _placement("EARLY", 0),
+        loaded_weight_kg=0,
+        tolerance=1e-6,
+    )
+    assert policy.allows(
+        container,
+        [],
+        _placement("EARLY", 200),
+        loaded_weight_kg=0,
+        tolerance=1e-6,
+    )
+    metadata = policy.metadata()
+    assert metadata["sequential_balance_rejected_candidates"] == 1
+    assert metadata["sequential_balance_valid_candidates"] == 1
 
 
 def test_bounded_local_delivery_repair_moves_later_blocker_without_full_repack(root: Path) -> None:

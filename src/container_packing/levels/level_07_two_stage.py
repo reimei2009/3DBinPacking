@@ -44,6 +44,7 @@ CompoundSolver = Callable[..., AlgorithmOutcome]
 def solve_two_stage_balance(
     items: list[Item], containers: list[Container], config: dict,
     *, algorithm_id: str, baseline_solver: CompoundSolver,
+    additional_candidate_validator: Callable[[list[Placement]], bool] | None = None,
 ) -> Level06CompoundResult:
     """Minimize containers first, then repair balance without full rebuilds."""
     pipeline_started = perf_counter()
@@ -163,17 +164,25 @@ def solve_two_stage_balance(
         expanded, resolved = _expand_logical_members(
             items, candidate_roots, baseline.relations
         )
-        return validate_level_07_fixture_bundle(
+        valid = validate_level_07_fixture_bundle(
             items, containers, expanded, config, list(resolved)
         ).result.valid
+        return valid and (
+            additional_candidate_validator is None
+            or additional_candidate_validator(expanded)
+        )
 
     def validate_feasible_roots(candidate_roots: list[Placement]) -> bool:
         expanded, resolved = _expand_logical_members(
             items, candidate_roots, baseline.relations
         )
-        return validate_level_06_bundle(
+        valid = validate_level_06_bundle(
             items, containers, expanded, config, list(resolved)
         ).result.valid
+        return valid and (
+            additional_candidate_validator is None
+            or additional_candidate_validator(expanded)
+        )
 
     repair = engine.repair(
         root_items, fixed, root_placements,

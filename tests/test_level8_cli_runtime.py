@@ -259,6 +259,26 @@ def test_level8_generic_best_fit_opt_in_replay_is_deterministic_and_tamper_evide
     assert not get_level("level_08").validate_run(first_dir).valid
 
 
+def test_level8_generic_replay_timeout_hides_objective_and_writes_no_partial_plan(
+    root: Path, tmp_path: Path
+) -> None:
+    config_path = _sequential_generic_config(root, tmp_path)
+    config = load_config(config_path)
+    config["sequential_simulation"]["time_limit_seconds"] = 1.0e-9
+    config_path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
+    result = run_experiment(_request(
+        config_path,
+        algorithm_id=GENERIC_BEST_FIT,
+        item_count=20,
+        container_count=5,
+    ))
+    run_dir = Path(result.metadata["run_dir"])
+    assert result.solve.status == "INVALID_SOLUTION"
+    assert result.metadata["objective_value"] is None
+    assert result.metadata["sequential_simulation_status"] == "REPLAY_TIME_LIMIT"
+    assert not (run_dir / "simulation").exists()
+
+
 @pytest.mark.parametrize(
     ("overrides", "message"),
     [
@@ -447,7 +467,40 @@ def test_level8_generic_runtime_is_config_driven_and_records_delivery_distributi
     assert result.metadata["delivery_repair_max_candidates"] == 77
     assert result.metadata["delivery_construction_mode_selected"] == "delivery_priority_primary"
     assert result.metadata["compound_item_ordering_source_field"] == "delivery_priority"
+    assert result.metadata["strict_lifo_candidate_feasibility_enabled"] is True
+    assert result.metadata["strict_lifo_candidates_evaluated"] > 0
     assert get_level("level_08").validate_run(Path(result.metadata["run_dir"])).valid
+
+
+def test_level8_runtime_forwards_sequential_construction_settings(
+    root: Path, tmp_path: Path,
+) -> None:
+    config = deepcopy(load_config(root / "config/level_08/default.yaml"))
+    config["paths"]["processed_dir"] = str(tmp_path / "processed")
+    config["paths"]["manifest_json"] = str(
+        tmp_path / "processed" / "latest_manifest.json"
+    )
+    config["paths"]["output_root"] = str(tmp_path / "outputs")
+    config["delivery_construction_mode"] = "delivery_priority_primary"
+    config["sequential_balance_construction_enabled"] = True
+    config_path = tmp_path / "sequential_construction.yaml"
+    config_path.write_text(
+        yaml.safe_dump(config, sort_keys=False), encoding="utf-8"
+    )
+
+    result = run_experiment(_request(
+        config_path,
+        algorithm_id=GENERIC_BEST_FIT,
+        item_count=6,
+        container_count=2,
+    ))
+
+    assert result.metadata["sequential_balance_construction_enabled"] is True
+    assert (
+        result.metadata["sequential_balance_construction_mode"]
+        == "hard_every_reverse_loading_state_v1"
+    )
+    assert result.metadata["sequential_balance_candidates_evaluated"] > 0
 
 
 @pytest.mark.parametrize("algorithm", [GENERIC_BEST_FIT, GENERIC_FFD])

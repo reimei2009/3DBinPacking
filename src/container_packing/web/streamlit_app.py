@@ -214,6 +214,30 @@ def _render_run(run_dir: Path, language: str) -> None:
     )
     for column, (label, value) in zip(columns, values):
         column.metric(label, value)
+    replay_status = metrics.get("sequential_simulation_status")
+    if replay_status and replay_status != "DISABLED":
+        replay_runtime = metrics.get("sequential_replay_total_runtime_seconds")
+        checked_states = metrics.get("sequential_replay_states_checked")
+        reason = metrics.get("sequential_simulation_skip_reason") or metrics.get(
+            "sequential_replay_termination_reason"
+        )
+        replay_text = (
+            f"Replay tuần tự: {replay_status}"
+            + (f" · {float(replay_runtime):.3f}s" if replay_runtime is not None else "")
+            + (f" · {checked_states} trạng thái" if checked_states is not None else "")
+            + (f" · {reason}" if reason else "")
+        ) if language == "vi" else (
+            f"Sequential replay: {replay_status}"
+            + (f" · {float(replay_runtime):.3f}s" if replay_runtime is not None else "")
+            + (f" · {checked_states} states" if checked_states is not None else "")
+            + (f" · {reason}" if reason else "")
+        )
+        if replay_status == "VALID":
+            st.success(replay_text)
+        elif replay_status == "REPLAY_TIME_LIMIT":
+            st.warning(replay_text)
+        else:
+            st.error(replay_text)
     scene_path = run_dir / "visualization" / "scene.json"
     if not scene_path.is_file():
         st.warning(t("no_scene", language))
@@ -794,7 +818,7 @@ def main() -> None:
     level8_demo = level_id == "level_08"
     item_count = int(st.sidebar.number_input(
         t("items", language), min_value=1, max_value=limits.available_items,
-        value=int(instance_defaults["item_count"]), step=1, key="item_count",
+        step=1, key="item_count",
         disabled=level8_demo,
         help=(
             "Demo Streamlit Level 8 dùng fixture 6 kiện/2 container đã được version hóa; dùng CLI synthetic profile để thử quy mô lớn."
@@ -805,7 +829,7 @@ def main() -> None:
     ))
     container_count = int(st.sidebar.number_input(
         t("containers", language), min_value=1,
-        value=int(instance_defaults["container_count"]), step=1, key="container_count",
+        step=1, key="container_count",
         disabled=level8_demo,
         help=(
             "Demo Streamlit Level 8 dùng fixture 6 kiện/2 container đã được version hóa; dùng CLI synthetic profile để thử quy mô lớn."

@@ -147,8 +147,12 @@ members; stack parents and load-transfer edges are recomputed, never copied
 from a preceding state.
 
 The offline deterministic planner accepts only an initially strict-LIFO-valid
-packing, derives topological loading/unloading orders, replays the full Level
-1--7 callback after every removal, then writes:
+packing and derives topological loading/unloading orders. At every removal it
+rebuilds Level 1--7 evidence for the changed container from the raw remaining
+snapshot. Unchanged containers retain only their prior certificate: all active
+constraints are container-local, while removal is monotonic for bounds,
+non-overlap, payload, and supported load. Support/nesting dependencies prevent
+removing a supporter or host before its dependent.
 
 - `simulation/simulation_plan.json`;
 - `simulation/loading_sequence.csv`;
@@ -162,10 +166,19 @@ sequence/timeline and loading/unloading/delivery order; `validate` compares all
 seven artifacts against a newly rebuilt plan.
 
 Logical event times are derived solely from the versioned timing profile. Each
-stop opens and closes every involved container independently. Unloading is
-ordered by ascending priority, container ID and dependency graph. Loading
-prefers descending priority while reversing support/nesting dependencies so a
-supporter or host is always loaded before its dependent.
+stop opens and closes every involved container independently. Unloading keeps
+ascending delivery priority as a hard outer order and respects every
+support/nesting dependency. Among dependency-ready items at the same stop, the
+planner selects the removal whose next container state is closest to the
+configured Level 7 COG target. If that locally best branch cannot complete the
+current stop, deterministic memoized backtracking tries the next-best branch.
+A removal is eligible only when both
+longitudinal and lateral COG remain inside the unchanged Level 7 band. If no
+complete same-stop order exists, replay stops with the actionable
+`NO_BALANCE_SAFE_REMOVAL` diagnostic; it does not widen the band or process a
+later stop. Loading still prefers descending priority while reversing
+support/nesting dependencies so a supporter or host is always loaded before
+its dependent.
 
 `level_08_sequential_replay_fixture` is a CLI-only frozen fixture runtime. It
 has one-container and two-container/three-stop acceptance profiles.
@@ -177,15 +190,64 @@ sequential_simulation:
   enabled: true
   required_when_enabled: true
   rules_file: config/level_08/sequential_simulation_rules.yaml
+  time_limit_seconds: 45
 ```
 
 Replay starts only after packing and static Level 1--8 validation pass. When
 required, any invalid sequential state makes the run `INVALID_SOLUTION` and
-hides its objective. Time-limit or invalid packing runs record a skip reason
-and never fabricate a plan. `validate` reloads the input snapshot, rebuilds
-the graph/order/timeline/metrics, and rejects missing or altered artifacts.
-Streamlit only reads persisted events and changes item visibility/highlighting;
-it contains no planner or validator logic.
+hides its objective. Replay has a separate monotonic 45-second default budget.
+On expiry, the run reports `REPLAY_TIME_LIMIT`, stores phase/state diagnostics,
+and creates no incomplete simulation plan or event log. `validate` reloads the
+input snapshot, rebuilds the graph/order/timeline/metrics, and rejects missing
+or altered artifacts. Streamlit only reads persisted events and changes item
+visibility/highlighting; it contains no planner or validator logic.
+
+Level 8 construction reuses the canonical Level 7 two-stage balance repair
+before static LIFO or sequential replay. A replayed invalid state records its
+first failing sequence, item, issue code and issue message in run metadata;
+this distinguishes a balance handoff failure from a dependency/LIFO failure.
+Generic Level 8 construction also composes strict-LIFO candidate feasibility
+with the inherited Level 6 policy. Door-aware candidate generation includes
+far-side anchors on supporter top faces, and Level 7 balance repair is only
+allowed to retain candidates that remain strict-LIFO valid.
+
+Scale replay profiles additionally enable:
+
+```yaml
+sequential_balance_construction_enabled: true
+delivery_subset_enumeration_threshold: 4
+```
+
+The delivery-first constructor places priorities in descending order. Every
+accepted partial reverse-loading state must already satisfy the Level 7 COG
+band, so reversing that construction supplies at least one balance-safe
+unloading path. Candidate generation adds target-COG anchors and ranks valid
+placements by prospective COG before delivery/geometric tie-breaks. The lower
+subset threshold switches heterogeneous-container selection to the existing
+bounded representative-subset generator; it does not change container-count
+or cost priority. This stronger construction is opt-in because older semantic
+fixtures were designed only for final-state balance, not for balance after
+every individual removal.
+
+Scale acceptance is manual:
+
+```powershell
+.\.venv\Scripts\python.exe .\scripts\generate_level8_synthetic_data.py `
+  --profile config\level_08\synthetic\scale_1000_c80.yaml
+
+.\.venv\Scripts\python.exe .\scripts\run_benchmark.py `
+  --suite config\level_08\benchmarks\sequential_replay_100_manual.yaml
+
+.\.venv\Scripts\python.exe .\scripts\run_benchmark.py `
+  --suite config\level_08\benchmarks\sequential_replay_300_manual.yaml
+```
+
+Both suites sample from the same versioned 1000-item source so prefix and
+stable-random profiles are genuinely different. The 100-item gate requires
+`VALID`. The 300-item observation accepts deterministic `VALID`, explicit
+construction `TIME_LIMIT`, or explicit `REPLAY_TIME_LIMIT`. A timeout is not a
+successful packing: it has no objective and no partial solution/simulation
+artifacts.
 
 ## Data and provenance
 

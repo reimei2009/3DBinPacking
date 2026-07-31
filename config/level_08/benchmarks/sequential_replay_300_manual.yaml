@@ -1,0 +1,35 @@
+# Manual only: generate scale_1000_c80 first. A replay timeout is an accepted bounded outcome.
+suite_id: level_08_sequential_replay_300_from_1000_bounded_v2
+level_id: level_08
+description: >
+  Level 8 bounded sequential replay at 300 items. Best Fit is primary; FFD is
+  a comparator. Every run must finish deterministically as VALID or REPLAY_TIME_LIMIT.
+config: config/level_08/experiments/synthetic_delivery_1000_sequential_local.yaml
+environment: local
+algorithms: [extreme_point_best_fit_delivery, extreme_point_ffd_delivery]
+seeds: [42]
+repeats: 1
+scenarios:
+  - scenario_id: sequential_source1000_prefix_i300_c25
+    item_count: 300
+    container_count: 25
+    item_selection: prefix
+    tags: [manual, sequential_replay, bounded]
+  - scenario_id: sequential_source1000_random_101_i300_c25
+    item_count: 300
+    container_count: 25
+    item_selection: stable_random
+    selection_seed: 101
+    tags: [manual, sequential_replay, bounded, stable_random]
+  - scenario_id: sequential_source1000_random_202_i300_c25
+    item_count: 300
+    container_count: 25
+    item_selection: stable_random
+    selection_seed: 202
+    tags: [manual, sequential_replay, bounded, stable_random]
+  - scenario_id: sequential_source1000_random_303_i300_c25
+    item_count: 300
+    container_count: 25
+    item_selection: stable_random
+    selection_seed: 303
+    tags: [manual, sequential_replay, bounded, stable_random]

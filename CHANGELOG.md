@@ -1,6 +1,32 @@
 # Changelog
 
+- Strengthened generic Level 8 construction with strict-LIFO candidate
+  feasibility, support-surface far-door anchors, and a LIFO-preserving Level 7
+  balance-repair handoff.
+
 ## Unreleased
+
+- Moved Level 8 sequential scale acceptance to the deterministic 1000-item
+  synthetic source so prefix and stable-random scenarios use genuinely
+  different subsets. The 100-item gate is valid and deterministic; the
+  300-item baseline records explicit construction timeouts at the 45-second
+  boundary without objectives or partial simulation artifacts.
+
+- Added opt-in sequential-balance construction for Level 8 scale profiles.
+  Reverse loading states are hard-gated by the unchanged Level 7 COG band,
+  COG-target anchors guide placement, and heterogeneous-container subset
+  search is bounded without changing the primary objective.
+
+- Replaced lexicographic same-stop unloading with deterministic balance-aware
+  backtracking. Delivery priority and support/nesting precedence remain hard;
+  candidates are explored by prospective COG quality and replay reports
+  `NO_BALANCE_SAFE_REMOVAL` only when the complete stop has no safe ordering
+  within its deadline.
+
+- Added bounded, container-local incremental sequential replay for Level 8.
+  Replay now has its own 45-second default deadline, records graph/state phase
+  diagnostics, returns an explicit `REPLAY_TIME_LIMIT` hard-gate outcome, and
+  never writes an incomplete simulation bundle.
 
 - Promoted deterministic Level 8 sequential replay to an opt-in post-processing
   hard gate for valid Best Fit/FFD runs. Added per-stop/per-container door

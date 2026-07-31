@@ -1,0 +1,23 @@
+# Manual only: generate scale_1000_c80 first. Two repeats verify deterministic replay artifacts.
+suite_id: level_08_sequential_replay_100_from_1000_acceptance_v2
+level_id: level_08
+description: >
+  Level 8 Best Fit primary replay acceptance. Every successful run must pass
+  static Level 1--8 validation and the 45-second sequential replay hard gate.
+config: config/level_08/experiments/synthetic_delivery_1000_sequential_local.yaml
+environment: local
+algorithms: [extreme_point_best_fit_delivery]
+seeds: [42]
+repeats: 2
+scenarios:
+  - scenario_id: sequential_source1000_prefix_i100_c10
+    item_count: 100
+    container_count: 10
+    item_selection: prefix
+    tags: [manual, sequential_replay, required_gate]
+  - scenario_id: sequential_source1000_random_101_i100_c10
+    item_count: 100
+    container_count: 10
+    item_selection: stable_random
+    selection_seed: 101
+    tags: [manual, sequential_replay, required_gate, stable_random]

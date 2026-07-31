@@ -12,15 +12,17 @@ from ..data_loader import load_config
 from ..schemas import ValidationResult
 from ..schemas import SolveResult
 from .level_03_preprocessing import validate_instance
-from .level_06_compound_adapter import Level06CompoundAdapter
 from .level_06_compound_adapter import _expand_logical_members
 from .level_06_compound_policy import build_level_06_compound_fixture_policy
 from .level_06_pipeline import _guard as guard_level_06
-from .level_07_fixture_bundle import validate_level_07_fixture_bundle
+from .level_07_fixture_bundle import balance_rules, validate_level_07_fixture_bundle
+from .level_07_two_stage import solve_two_stage_balance
 from .level_08_delivery_scoring import (
     DeliveryAwareCandidateScoringPolicy,
     DeliveryAwareFirstFitCandidateSelection,
     DeliveryDoorPointProvider,
+    SequentialBalanceFeasibilityPolicy,
+    StrictLifoFeasibilityPolicy,
 )
 from .level_08_validation import compose_level_08_validation, validate_unloading_lifo
 from .level_08_delivery_repair import DeliveryRepairEngine
@@ -89,31 +91,97 @@ def _execute(algorithm_id: str, items, containers, settings: dict[str, Any]):
     pipeline_deadline = pipeline_started + pipeline_limit
     rules = unloading_rules(settings)
     unloading = UnloadingSettings.from_config(rules)
-    provider = DeliveryDoorPointProvider(unloading)
-    by_id = {item.item_id: item for item in items}
     if algorithm_id == BEST_FIT_ALGORITHM_ID:
-        scoring = DeliveryAwareCandidateScoringPolicy(by_id, unloading)
-
         def solver(compounds, available, config, **kwargs):
+            base_policy = kwargs.pop("policy")
+            use_sequential_balance = bool(
+                config.get("sequential_balance_construction_enabled", False)
+            )
+            balance_config = (
+                balance_rules(config) if use_sequential_balance else None
+            )
+            policy = StrictLifoFeasibilityPolicy(
+                {item.item_id: item for item in compounds},
+                unloading,
+                base_policy,
+            )
+            if balance_config is not None:
+                policy = SequentialBalanceFeasibilityPolicy(
+                    balance_config, policy
+                )
             return solve_best_fit(
-                compounds, available, config, candidate_scoring_policy=scoring,
-                candidate_point_provider=provider, **kwargs,
+                compounds, available, config,
+                policy=policy,
+                candidate_scoring_policy=DeliveryAwareCandidateScoringPolicy(
+                    {item.item_id: item for item in compounds},
+                    unloading,
+                    balance_config,
+                ),
+                candidate_point_provider=DeliveryDoorPointProvider(
+                    unloading, balance_config
+                ),
+                **kwargs,
             )
-        adapter_id = "level_08_delivery_best_fit_compound_v1"
     elif algorithm_id == FFD_ALGORITHM_ID:
-        selection = DeliveryAwareFirstFitCandidateSelection(by_id, unloading)
-
         def solver(compounds, available, config, **kwargs):
-            return solve_ffd(
-                compounds, available, config, candidate_selection_policy=selection,
-                candidate_point_provider=provider, **kwargs,
+            base_policy = kwargs.pop("policy")
+            use_sequential_balance = bool(
+                config.get("sequential_balance_construction_enabled", False)
             )
-        adapter_id = "level_08_delivery_ffd_compound_v1"
+            balance_config = (
+                balance_rules(config) if use_sequential_balance else None
+            )
+            policy = StrictLifoFeasibilityPolicy(
+                {item.item_id: item for item in compounds},
+                unloading,
+                base_policy,
+            )
+            if balance_config is not None:
+                policy = SequentialBalanceFeasibilityPolicy(
+                    balance_config, policy
+                )
+            return solve_ffd(
+                compounds, available, config,
+                policy=policy,
+                candidate_selection_policy=DeliveryAwareFirstFitCandidateSelection(
+                    {item.item_id: item for item in compounds},
+                    unloading,
+                    balance_config,
+                ),
+                candidate_point_provider=DeliveryDoorPointProvider(
+                    unloading, balance_config
+                ),
+                **kwargs,
+            )
     else:
         raise ValueError(f"Unsupported Level 8 algorithm: {algorithm_id}")
-    adapter = Level06CompoundAdapter(
-        algorithm_id, adapter_id, solver, validate_level_07_fixture_bundle
-    )
+    def construct_balance_valid(source_settings: dict[str, Any]):
+        """Build the compact delivery candidate, then apply Level 7 repair.
+
+        Level 8 may only enter static LIFO and sequential replay from a
+        balance-valid Level 1--7 state.  Reusing the canonical two-stage
+        engine avoids treating the Level 7 validator as a passive final gate.
+        """
+        remaining = max(0.0, pipeline_deadline - perf_counter())
+        return solve_two_stage_balance(
+            items,
+            containers,
+            {
+                **source_settings,
+                "balance_pipeline_time_limit_seconds": remaining,
+                "balance_repair_time_limit_seconds": remaining,
+            },
+            algorithm_id=algorithm_id,
+            baseline_solver=solver,
+            additional_candidate_validator=lambda placements: validate_unloading_lifo(
+                items,
+                placements,
+                rules,
+                tolerance_mm=float(
+                    source_settings.get("coordinate_tolerance_mm", 1e-6)
+                ),
+            ).result.valid,
+        )
     construction_mode = str(settings.get("delivery_construction_mode", "compact_then_delivery_priority"))
     compare_max_items = int(settings.get("delivery_construction_compare_max_items", 100))
     if construction_mode not in {"compact_then_delivery_priority", "delivery_priority_primary"}:
@@ -122,10 +190,10 @@ def _execute(algorithm_id: str, items, containers, settings: dict[str, Any]):
     delivery_settings = _delivery_priority_settings(compact_settings)
     construction_records: list[dict[str, object]] = []
     if construction_mode == "delivery_priority_primary":
-        baseline = adapter.solve(items, containers, delivery_settings)
+        baseline = construct_balance_valid(delivery_settings)
         construction_records.append(_construction_record("delivery_priority_primary", baseline, items, rules, settings))
     else:
-        baseline = adapter.solve(items, containers, compact_settings)
+        baseline = construct_balance_valid(compact_settings)
         construction_records.append(_construction_record("compact_baseline", baseline, items, rules, settings))
         if (
             len(items) <= compare_max_items
@@ -134,7 +202,7 @@ def _execute(algorithm_id: str, items, containers, settings: dict[str, Any]):
             and baseline.validation.result.valid
             and not validate_unloading_lifo(items, list(baseline.placements), rules).result.valid
         ):
-            delivery_candidate = adapter.solve(items, containers, delivery_settings)
+            delivery_candidate = construct_balance_valid(delivery_settings)
             construction_records.append(_construction_record("delivery_priority_compare", delivery_candidate, items, rules, settings))
             if _construction_rank(delivery_candidate, items, rules, settings) < _construction_rank(baseline, items, rules, settings):
                 baseline = delivery_candidate
@@ -307,8 +375,16 @@ def _mark_construction_time_limit(baseline, pipeline_limit: float, elapsed_secon
 
 
 def _delivery_priority_settings(settings: dict[str, Any]) -> dict[str, Any]:
-    return {
+    # Exhaustive heterogeneous-container combinations become prohibitively
+    # expensive once the sequential COG hard gate is active. Reuse the shared
+    # bounded subset generator by lowering only its exhaustive-search
+    # threshold for this delivery-first pass.
+    use_sequential_balance = bool(
+        settings.get("sequential_balance_construction_enabled", False)
+    )
+    result = {
         **settings,
+        "sequential_balance_construction_enabled": use_sequential_balance,
         "compound_item_ordering": {
             "source_field": "delivery_priority",
             # Reverse loading order: later stops occupy the far side first,
@@ -316,6 +392,16 @@ def _delivery_priority_settings(settings: dict[str, Any]) -> dict[str, Any]:
             "direction": "descending",
         },
     }
+    if use_sequential_balance:
+        subset_threshold = int(
+            settings.get("delivery_subset_enumeration_threshold", 4)
+        )
+        if subset_threshold <= 0:
+            raise ValueError(
+                "delivery_subset_enumeration_threshold must be positive"
+            )
+        result["subset_enumeration_limit"] = subset_threshold
+    return result
 
 
 def _construction_record(mode: str, result, items, rules, settings: dict[str, Any]) -> dict[str, object]:

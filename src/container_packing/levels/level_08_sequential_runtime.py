@@ -14,6 +14,8 @@ from .level_08_sequential_output import (
 )
 from .level_08_sequential_planner import (
     SimulationPlan,
+    SequentialReplayTimeLimitError,
+    SequentialReplayValidationError,
     build_deterministic_fixture_plan,
     simulation_metrics,
 )
@@ -31,12 +33,19 @@ def sequential_runtime_options(config: dict[str, Any]) -> dict[str, Any]:
     enabled = bool(value.get("enabled", False))
     required = bool(value.get("required_when_enabled", True))
     rules_file = value.get("rules_file", "config/level_08/sequential_simulation_rules.yaml")
+    try:
+        time_limit_seconds = float(value.get("time_limit_seconds", 45.0))
+    except (TypeError, ValueError) as exc:
+        raise ValueError("sequential_simulation.time_limit_seconds must be a finite positive number") from exc
+    if time_limit_seconds <= 0:
+        raise ValueError("sequential_simulation.time_limit_seconds must be greater than zero")
     if enabled and not isinstance(rules_file, str):
         raise ValueError("sequential_simulation.rules_file must be a path string")
     return {
         "enabled": enabled,
         "required_when_enabled": required,
         "rules_file": str(rules_file),
+        "time_limit_seconds": time_limit_seconds,
     }
 
 
@@ -66,6 +75,7 @@ def sequential_prevalidation_metadata(
         "sequential_simulation_skip_reason": (
             None if complete else f"packing_status_{solve.status.lower()}"
         ),
+        "sequential_simulation_time_limit_seconds": options["time_limit_seconds"],
     }
 
 
@@ -94,6 +104,7 @@ def build_generic_sequential_plan(
         simulation_config=load_sequential_rules(config),
         inherited_config=config,
         nesting_relations=nesting_relations,
+        replay_time_limit_seconds=sequential_runtime_options(config)["time_limit_seconds"],
     )
 
 
@@ -110,6 +121,7 @@ def compose_optional_sequential_validation(
         "sequential_simulation_enabled": options["enabled"],
         "sequential_simulation_required_when_enabled": options["required_when_enabled"],
         "sequential_simulation_rules_file": options["rules_file"],
+        "sequential_simulation_time_limit_seconds": options["time_limit_seconds"],
     }
     if not options["enabled"]:
         return _with_metadata(
@@ -135,24 +147,48 @@ def compose_optional_sequential_validation(
             plan.validation.result.valid,
             list(plan.validation.result.issues),
         )
+    except SequentialReplayTimeLimitError as exc:
+        plan = None
+        plan_validation = ValidationResult(
+            False,
+            [ValidationIssue("SEQUENTIAL_REPLAY_TIME_LIMIT", str(exc))],
+        )
+        time_limit_diagnostics = dict(exc.diagnostics)
+    except SequentialReplayValidationError as exc:
+        plan = None
+        plan_validation = ValidationResult(
+            False,
+            [ValidationIssue("SEQUENTIAL_REPLAY_STATE_INVALID", str(exc))],
+        )
+        time_limit_diagnostics = dict(exc.diagnostics)
     except (OSError, ValueError) as exc:
         plan = None
         plan_validation = ValidationResult(
             False,
             [ValidationIssue("SEQUENTIAL_REPLAY_BUILD_FAILED", str(exc))],
         )
+        time_limit_diagnostics = {}
+    else:
+        time_limit_diagnostics = dict(plan.replay_diagnostics)
     issues = [*inherited.result.issues, *plan_validation.issues]
     required_failure = options["required_when_enabled"] and not plan_validation.valid
     final_issues = issues if required_failure else list(inherited.result.issues)
     metadata = {
         **base_metadata,
-        "sequential_simulation_status": "VALID" if plan_validation.valid else "INVALID",
-        "sequential_simulation_skip_reason": None,
+        "sequential_simulation_status": (
+            "VALID" if plan_validation.valid else
+            "REPLAY_TIME_LIMIT" if any(issue.code == "SEQUENTIAL_REPLAY_TIME_LIMIT" for issue in plan_validation.issues) else
+            "INVALID"
+        ),
+        "sequential_simulation_skip_reason": (
+            "replay_time_limit" if any(issue.code == "SEQUENTIAL_REPLAY_TIME_LIMIT" for issue in plan_validation.issues) else None
+        ),
         "sequential_simulation_hard_gate": options["required_when_enabled"],
         "sequential_simulation_event_count": len(plan.events) if plan is not None else 0,
         "sequential_simulation_stop_count": (
             simulation_metrics(plan)["stop_count"] if plan is not None else 0
         ),
+        **time_limit_diagnostics,
     }
     return ValidationBundle(
         ValidationResult(not final_issues, final_issues),
@@ -168,6 +204,10 @@ def compose_optional_sequential_validation(
             ),
         ],
         metadata={**inherited.metadata, **metadata},
+        post_write_payload={
+            **inherited.post_write_payload,
+            **({"sequential_plan": plan} if plan is not None else {}),
+        },
     )
 
 
@@ -185,8 +225,10 @@ def write_optional_sequential_artifacts(
         return
     if not bundle.result.valid or metadata.get("sequential_simulation_status") != "VALID":
         return
+    plan = bundle.post_write_payload.get("sequential_plan")
+    if not isinstance(plan, SimulationPlan):
+        raise RuntimeError("Validated sequential replay plan is unavailable for artifact writing")
     rules = load_sequential_rules(config)
-    plan = build_generic_sequential_plan(items, containers, placements, config)
     write_sequential_fixture_artifacts(
         run_dir,
         plan,
@@ -230,4 +272,5 @@ def _with_metadata(bundle: ValidationBundle, metadata: dict[str, Any]) -> Valida
         scene_item_metadata=bundle.scene_item_metadata,
         extra_report_lines=bundle.extra_report_lines,
         metadata={**bundle.metadata, **metadata},
+        post_write_payload=bundle.post_write_payload,
     )

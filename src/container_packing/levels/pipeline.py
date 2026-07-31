@@ -25,6 +25,7 @@ class ValidationBundle:
     scene_item_metadata: dict[str, dict[str, Any]] = field(default_factory=dict)
     extra_report_lines: list[str] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
+    post_write_payload: dict[str, Any] = field(default_factory=dict, repr=False)
 
 
 Executor = Callable[[str, list[Item], list[Container], dict[str, Any]], AlgorithmOutcome]
@@ -111,7 +112,11 @@ def run_configured_level(
         # Level 7/8 repair policy can be configured once at the level root.
         runtime_budget_settings = {
             key: value for key, value in config.items()
-            if key.startswith("balance_") or key.startswith("delivery_")
+            if (
+                key.startswith("balance_")
+                or key.startswith("delivery_")
+                or key.startswith("sequential_")
+            )
         }
         settings = {
             **config.get("algorithms", {}).get(algorithm_id, {}),
@@ -193,6 +198,7 @@ def run_configured_level(
             ValidationResult(False, [*bundle.result.issues, audit_issue]),
             bundle.solution_tables, documents, bundle.solution_payload_extra,
             bundle.scene_item_metadata, bundle.extra_report_lines, bundle.metadata,
+            bundle.post_write_payload,
         )
     selected = sorted({placement.container_id for placement in placements})
     container_map = {container.container_id: container for container in containers}
