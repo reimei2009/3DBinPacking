@@ -114,6 +114,32 @@ def test_plotly_display_modes_highlight_and_hide_items():
     assert [trace.name for trace in hidden.data if trace.type == "mesh3d"] == ["I0001"]
 
 
+def test_plotly_can_color_level8_items_by_delivery_stop():
+    containers = [Container("C01", 100, 80, 60, 50, 10, volume_m3=0.00048)]
+    placements = [
+        Placement("A", "C01", 0, 0, 0, 20, 20, 20, 1),
+        Placement("B", "C01", 20, 0, 0, 20, 20, 20, 1),
+    ]
+    scene = build_scene(
+        placements,
+        containers,
+        level_id="level_08",
+        algorithm_id="fixture",
+        validation_status="VALID",
+        item_metadata={
+            "A": {"delivery_stop_id": "STOP-A"},
+            "B": {"delivery_stop_id": "STOP-A"},
+        },
+    )
+
+    figure = create_figure(scene, item_color_mode="delivery_stop")
+    meshes = [trace for trace in figure.data if trace.type == "mesh3d"]
+
+    assert [trace.name for trace in meshes] == ["STOP-A", "STOP-A"]
+    assert meshes[0].color == meshes[1].color
+    assert sum(bool(trace.showlegend) for trace in meshes) == 1
+
+
 @pytest.mark.parametrize("opacity", [0.0, -0.1, 1.01])
 def test_plotly_renderer_rejects_invalid_item_opacity(opacity):
     with pytest.raises(ValueError, match="item_opacity"):

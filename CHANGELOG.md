@@ -1,10 +1,17 @@
 # Changelog
 
+## Unreleased
+
+- Add Level 8 web profiles for 6/2, 20/5, and custom 100/10 experiments.
+- Add explicit delivery-stop CSV validation, deterministic offline routing,
+  optional sanitized Google Compute Routes enrichment, and immutable routing
+  artifacts.
+- Add stop-colored 3D visualization, route map, and replay play/pause/step
+  controls without changing solver objectives or Level 1–8 validation.
+
 - Strengthened generic Level 8 construction with strict-LIFO candidate
   feasibility, support-surface far-door anchors, and a LIFO-preserving Level 7
   balance-repair handoff.
-
-## Unreleased
 
 - Moved Level 8 sequential scale acceptance to the deterministic 1000-item
   synthetic source so prefix and stable-random scenarios use genuinely

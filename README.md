@@ -2,7 +2,10 @@
 
 Level 8 provides an explicit delivery/LIFO data contract, a pure straight-path
 unloadability engine, and experimental delivery-aware Best Fit/FFD solvers.
-Its tracked three-stop demo is available in Streamlit; frozen validation
+Its Streamlit logistics demo provides tracked `6/2`, `20/5`, and custom
+`1–100 items / 1–10 containers` profiles, delivery-stop maps, optional Google
+Routes enrichment, stop-colored 3D views, and deterministic replay controls.
+Frozen validation
 fixtures remain CLI-only regression evidence.
 Sequential loading/unloading replay is optional and disabled by default. When
 enabled for a Level 8 run, it independently revalidates every remaining state,

@@ -55,6 +55,28 @@ These controls change presentation only. They never modify `scene.json`, placeme
 
 Every execution uses the same pipeline as the CLI and writes to a new directory under `outputs/<level>/runs/<run_id>/`. The UI never overwrites an earlier run.
 
+## Level 8 logistics demo
+
+Level 8 exposes three web profiles:
+
+- Quick: 6 items, 2 containers, 3 delivery stops;
+- Standard: 20 items, 5 containers, 3 delivery stops;
+- Research: custom 1–100 items and 1–10 containers, with 5 delivery stops.
+
+Choose either `prefix` or deterministic `stable_random` item selection. The
+research dataset and its generator manifest/checksums are tracked under
+`data/raw/level_08/web_demo/`; 300-item cases remain CLI-only.
+
+The default stop CSV can be replaced by an uploaded CSV containing one depot
+and at most ten delivery stops. The file is checksummed and copied into the
+immutable run. Route order always follows declared delivery priority; the UI
+does not optimize waypoints.
+
+When sequential replay is enabled, its persisted event stream supplies the
+play/pause, previous/next, slider, speed, current stop, highlighted map marker,
+and 3D item visibility. This remains deterministic offline replay, not
+equipment, staging-space, GPS, or real-time simulation.
+
 ## Same-instance benchmark dashboard
 
 Open **So sánh benchmark**, choose at least two algorithms, then enter one item

@@ -125,7 +125,17 @@ def compose_level_08_validation(
             "unloading_validation.json": unloading.payload(),
         },
         solution_payload_extra={**inherited.solution_payload_extra, "unloading": unloading.payload()},
-        scene_item_metadata=inherited.scene_item_metadata,
+        scene_item_metadata={
+            **inherited.scene_item_metadata,
+            **{
+                record.item_id: {
+                    **dict(inherited.scene_item_metadata.get(record.item_id, {})),
+                    "delivery_stop_id": record.delivery_stop_id,
+                    "delivery_priority": record.delivery_priority,
+                }
+                for record in unloading.records
+            },
+        },
         extra_report_lines=[
             *inherited.extra_report_lines,
             f"- Level 8 static LIFO validation: {'VALID' if unloading.result.valid else 'INVALID'}.",

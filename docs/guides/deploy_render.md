@@ -74,3 +74,30 @@ not durable on the default filesystem.
 - A public demo has no authentication. Do not expose private datasets or
   secrets through it. Add an authentication layer before using it with
   non-public data.
+
+## Optional Google route map
+
+The Level 8 demo works without Google by using the deterministic offline route
+provider and Plotly/OpenStreetMap. To enable Google enrichment:
+
+1. Enable billing for the Google Cloud project and enable **Routes API** and
+   **Maps JavaScript API**.
+2. Create two different restricted keys:
+   - `GOOGLE_ROUTES_API_KEY`: application restriction appropriate for the
+     Render server and API restriction to Routes API;
+   - `GOOGLE_MAPS_BROWSER_KEY`: HTTP-referrer restriction to the exact Render
+     domain and API restriction to Maps JavaScript API.
+3. In Render, open **Environment** and add both variables as secret values.
+4. Set a conservative daily quota before exposing the demo publicly.
+
+Never put either key in YAML, Git, notebook cells, logs, or screenshots. The
+server-side key is sent only in the `X-Goog-Api-Key` request header. Persisted
+request snapshots contain the endpoint, field mask, and route request body but
+not authentication data. Google failure is non-fatal: the run keeps its
+packing result and records that the deterministic offline fallback was used.
+
+References:
+
+- https://developers.google.com/maps/documentation/routes/compute-route-over
+- https://developers.google.com/maps/api-security-best-practices
+- https://developers.google.com/maps/documentation/routes/usage-and-billing

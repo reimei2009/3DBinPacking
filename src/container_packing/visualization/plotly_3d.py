@@ -28,6 +28,11 @@ def stable_item_color(item_id: str) -> str:
     return _PALETTE[index]
 
 
+def stable_group_color(group_id: str) -> str:
+    """Return a deterministic color for delivery stops or other scene groups."""
+    return stable_item_color(f"group:{group_id}")
+
+
 def _vertices(x: float, y: float, z: float, length: float, width: float, height: float):
     return (
         (x, y, z), (x + length, y, z), (x, y + width, z), (x + length, y + width, z),
@@ -61,6 +66,7 @@ def create_figure(
     selected_item_id: str | None = None,
     dimmed_opacity: float = DEFAULT_DIMMED_OPACITY,
     hidden_item_ids: set[str] | frozenset[str] | None = None,
+    item_color_mode: str = "item",
 ) -> go.Figure:
     validate_scene(scene)
     if language not in {"vi", "en"}:
@@ -69,6 +75,8 @@ def create_figure(
         raise ValueError(f"item_opacity must be in (0, 1], got {item_opacity}")
     if not 0.0 <= dimmed_opacity <= 1.0:
         raise ValueError(f"dimmed_opacity must be in [0, 1], got {dimmed_opacity}")
+    if item_color_mode not in {"item", "delivery_stop"}:
+        raise ValueError("item_color_mode must be item or delivery_stop")
     hidden = frozenset(hidden_item_ids or ())
     labels = {
         "vi": {"container": "Container", "position": "Tọa độ", "size": "Kích thước", "weight": "Khối lượng", "volume": "thể tích", "payload": "tải trọng"},
@@ -85,6 +93,7 @@ def create_figure(
     }
     selection_active = selected_item_id in displayed_item_ids
     figure = go.Figure()
+    shown_groups: set[str] = set()
     offset_x = 0.0
     max_height = 1.0
     max_width = 1.0
@@ -118,14 +127,34 @@ def create_figure(
                 f"<br>{labels['size']}: {item_dimensions['length']:g} × {item_dimensions['width']:g} × {item_dimensions['height']:g} mm"
                 f"<br>{labels['weight']}: {item.get('weight_kg', 0):g} kg"
             )
+            delivery_stop_id = str(
+                item.get("metadata", {}).get("delivery_stop_id") or "undeclared"
+            )
+            if item_color_mode == "delivery_stop":
+                hover += f"<br>Delivery stop: {delivery_stop_id}"
+            trace_name = (
+                delivery_stop_id if item_color_mode == "delivery_stop"
+                else item["item_id"]
+            )
+            show_group_legend = (
+                item_color_mode == "delivery_stop"
+                and delivery_stop_id not in shown_groups
+            )
+            shown_groups.add(delivery_stop_id)
             is_selected = selection_active and item["item_id"] == selected_item_id
             opacity = 1.0 if is_selected else (dimmed_opacity if selection_active else item_opacity)
             figure.add_trace(go.Mesh3d(
                 x=xs, y=ys, z=zs,
                 i=_TRIANGLE_I, j=_TRIANGLE_J, k=_TRIANGLE_K,
-                color=stable_item_color(item["item_id"]), opacity=opacity,
-                flatshading=True, name=item["item_id"], text=hover, hovertemplate="%{text}<extra></extra>",
-                showscale=False, showlegend=False,
+                color=(
+                    stable_group_color(delivery_stop_id)
+                    if item_color_mode == "delivery_stop"
+                    else stable_item_color(item["item_id"])
+                ),
+                opacity=opacity,
+                flatshading=True, name=trace_name, text=hover, hovertemplate="%{text}<extra></extra>",
+                showscale=False, showlegend=show_group_legend,
+                legendgroup=delivery_stop_id if item_color_mode == "delivery_stop" else item["item_id"],
             ))
             if is_selected:
                 figure.add_trace(_wireframe(

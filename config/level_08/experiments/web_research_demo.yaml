@@ -1,0 +1,27 @@
+extends: ../default.yaml
+instance:
+  item_count: 50
+  container_count: 5
+  item_selection_strategy: prefix
+  item_selection_seed: null
+paths:
+  raw_items_csv: data/raw/level_08/web_demo/web_demo_100_items.csv
+  raw_containers_csv: data/raw/level_08/web_demo/web_demo_10_containers.csv
+  items_source_mapping: config/common/data_sources/level_08_synthetic_delivery.yaml
+  processed_dir: data/processed/level_08/web_demo_100
+  manifest_json: data/processed/level_08/web_demo_100/latest_manifest.json
+delivery_construction_mode: delivery_priority_primary
+sequential_balance_construction_enabled: true
+sequential_simulation:
+  enabled: true
+  required_when_enabled: true
+  rules_file: config/level_08/sequential_simulation_rules.yaml
+  time_limit_seconds: 45
+routing:
+  enabled: true
+  provider: offline
+  stops_file: data/raw/level_08/routes/web_five_stop_route.csv
+  travel_mode: DRIVE
+  return_to_depot: false
+  timeout_seconds: 10
+  fallback_to_offline: true

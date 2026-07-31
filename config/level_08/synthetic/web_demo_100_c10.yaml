@@ -1,0 +1,9 @@
+extends: small.yaml
+profile_id: level_08_web_demo_100_c10_v1
+seed: 8100
+item_count: 100
+container_count: 10
+output_dir: data/raw/level_08/web_demo
+item_file_name: web_demo_100_items.csv
+container_file_name: web_demo_10_containers.csv
+delivery_stop_count: 5

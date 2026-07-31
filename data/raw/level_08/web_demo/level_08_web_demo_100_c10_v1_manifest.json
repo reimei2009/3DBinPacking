@@ -1,0 +1,14 @@
+{
+  "container_count": 10,
+  "container_csv": "web_demo_10_containers.csv",
+  "container_csv_sha256": "68fff3034ad033164517a4562db915b8065afcbb5351939edea4cd154a6a9ba8",
+  "delivery_stop_count": 5,
+  "generator_id": "synthetic_level_08_delivery_v1",
+  "item_count": 100,
+  "item_csv": "web_demo_100_items.csv",
+  "item_csv_sha256": "02d7bed45598bc8186047d13a28a557abf8a6ae810a546b3ca75095c35c68098",
+  "priority_convention": "ascending_is_earlier_delivery",
+  "profile_fingerprint": "e46d719b27bd82c7757ca6042b31f9d696b20d7852f095202ededc151cd14dae",
+  "profile_id": "level_08_web_demo_100_c10_v1",
+  "seed": 8100
+}

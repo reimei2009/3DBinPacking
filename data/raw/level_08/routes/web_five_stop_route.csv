@@ -1,0 +1,7 @@
+stop_id,stop_type,delivery_priority,name,latitude,longitude,address,service_duration_seconds,data_source
+DEPOT,depot,,Kho trung tâm,10.7769,106.7009,Quận 1 Thành phố Hồ Chí Minh,0,synthetic_web_route_v1
+STOP-001,delivery,1,Điểm giao 1,10.7878,106.7041,Quận 3 Thành phố Hồ Chí Minh,600,synthetic_web_route_v1
+STOP-002,delivery,2,Điểm giao 2,10.8012,106.7148,Bình Thạnh Thành phố Hồ Chí Minh,600,synthetic_web_route_v1
+STOP-003,delivery,3,Điểm giao 3,10.8231,106.6297,Tân Bình Thành phố Hồ Chí Minh,600,synthetic_web_route_v1
+STOP-004,delivery,4,Điểm giao 4,10.7468,106.6779,Quận 7 Thành phố Hồ Chí Minh,600,synthetic_web_route_v1
+STOP-005,delivery,5,Điểm giao 5,10.8498,106.7719,Thủ Đức Thành phố Hồ Chí Minh,600,synthetic_web_route_v1

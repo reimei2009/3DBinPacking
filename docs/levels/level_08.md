@@ -5,6 +5,14 @@ delivery-aware Best Fit and FFD solvers against a tracked three-stop demo.
 Frozen fixtures remain CLI-only regression evidence; neither solver is a
 production transport-planning system.
 
+The logistics demo adds three versioned Streamlit profiles (`6/2`, `20/5`,
+and custom up to `100/10`), declared stop coordinates, an optional route
+provider, a stop-colored 3D scene, and artifact-driven replay controls.
+Routing runs only after a valid packing/replay result and never changes the
+objective or any Level 1–8 constraint. The default offline provider is fully
+deterministic. Google Compute Routes is optional, server-side, sanitized, and
+falls back offline on missing key, timeout, quota, or provider error.
+
 The fixture semantic baseline is recorded in
 `docs/reports/manual/level_08_fixture_baseline.md`.
 

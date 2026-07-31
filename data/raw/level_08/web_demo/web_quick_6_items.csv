@@ -1,0 +1,7 @@
+id_item,length,width,height,weight,nesting_height,stackability_code,forced_orientation,max_stackability,delivery_priority,delivery_stop_id,delivery_data_source
+QUICK-A-01,300,80,60,10,0,A,XYZ,3,1,STOP-A,synthetic_level_08_web_quick_v1
+QUICK-A-02,300,80,60,10,0,A,XYZ,3,1,STOP-A,synthetic_level_08_web_quick_v1
+QUICK-B-01,300,80,60,10,0,A,XYZ,3,2,STOP-B,synthetic_level_08_web_quick_v1
+QUICK-B-02,300,80,60,10,0,A,XYZ,3,2,STOP-B,synthetic_level_08_web_quick_v1
+QUICK-C-01,300,80,60,10,0,A,XYZ,3,3,STOP-C,synthetic_level_08_web_quick_v1
+QUICK-C-02,300,80,60,10,0,A,XYZ,3,3,STOP-C,synthetic_level_08_web_quick_v1

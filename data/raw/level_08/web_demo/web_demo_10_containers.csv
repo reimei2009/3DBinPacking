@@ -1,0 +1,11 @@
+﻿container_id,length_mm,width_mm,height_mm,max_weight_kg,availability,cost,volume_m3,data_status,design_note
+L8C001,6000.0,2400.0,2600.0,18000.0,1,1000.0,37.44,synthetic_level_08_generator_v1,Deterministic synthetic Level 8 container; not carrier data
+L8C002,6240.0,2448.0,2678.0,18720.0,1,1040.0,40.90784256,synthetic_level_08_generator_v1,Deterministic synthetic Level 8 container; not carrier data
+L8C003,6480.0,2496.0,2756.0,19440.0,1,1080.0,44.57576448,synthetic_level_08_generator_v1,Deterministic synthetic Level 8 container; not carrier data
+L8C004,6720.0,2400.0,2834.0,20160.0,1,1120.0,45.706752,synthetic_level_08_generator_v1,Deterministic synthetic Level 8 container; not carrier data
+L8C005,6960.0,2448.0,2600.0,20880.0,1,1160.0,44.299008,synthetic_level_08_generator_v1,Deterministic synthetic Level 8 container; not carrier data
+L8C006,6000.0,2496.0,2678.0,18000.0,1,1000.0,40.105728,synthetic_level_08_generator_v1,Deterministic synthetic Level 8 container; not carrier data
+L8C007,6240.0,2400.0,2756.0,18720.0,1,1040.0,41.273856,synthetic_level_08_generator_v1,Deterministic synthetic Level 8 container; not carrier data
+L8C008,6480.0,2448.0,2834.0,19440.0,1,1080.0,44.95585536,synthetic_level_08_generator_v1,Deterministic synthetic Level 8 container; not carrier data
+L8C009,6720.0,2496.0,2600.0,20160.0,1,1120.0,43.610112,synthetic_level_08_generator_v1,Deterministic synthetic Level 8 container; not carrier data
+L8C010,6960.0,2400.0,2678.0,20880.0,1,1160.0,44.733312,synthetic_level_08_generator_v1,Deterministic synthetic Level 8 container; not carrier data

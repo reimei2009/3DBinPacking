@@ -1,0 +1,29 @@
+extends: ../default.yaml
+instance:
+  item_count: 6
+  container_count: 2
+  item_selection_strategy: prefix
+  item_selection_seed: null
+paths:
+  raw_items_csv: data/raw/level_08/web_demo/web_quick_6_items.csv
+  items_source_mapping: config/common/data_sources/level_08_runtime_fixture.yaml
+  processed_dir: data/processed/level_08/web_quick_demo
+  manifest_json: data/processed/level_08/web_quick_demo/latest_manifest.json
+containers:
+  - {container_id: C1, length_mm: 300, width_mm: 80, height_mm: 180, max_weight_kg: 30, cost: 100, availability: 1}
+  - {container_id: C2, length_mm: 300, width_mm: 80, height_mm: 180, max_weight_kg: 30, cost: 100, availability: 1}
+delivery_construction_mode: delivery_priority_primary
+sequential_balance_construction_enabled: true
+sequential_simulation:
+  enabled: true
+  required_when_enabled: true
+  rules_file: config/level_08/sequential_simulation_rules.yaml
+  time_limit_seconds: 45
+routing:
+  enabled: true
+  provider: offline
+  stops_file: data/raw/level_08/routes/web_three_stop_route.csv
+  travel_mode: DRIVE
+  return_to_depot: false
+  timeout_seconds: 10
+  fallback_to_offline: true

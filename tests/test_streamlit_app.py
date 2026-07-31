@@ -255,7 +255,11 @@ def test_streamlit_exposes_level8_delivery_solvers_and_runs_tracked_demo(root: P
     item_count = next(value for value in page.number_input if value.key == "item_count")
     assert item_count.value == 6
     replay = next(value for value in page.checkbox if value.key == "level_08_sequential_replay")
-    assert replay.value is False
+    assert replay.value is True
+    profile = next(
+        value for value in page.selectbox if value.key == "level_08_web_profile"
+    )
+    assert profile.value == "quick"
     assert any("thực nghiệm" in value.value for value in page.warning)
 
     next(value for value in page.button if value.key == "run_experiment").click().run()
@@ -263,3 +267,39 @@ def test_streamlit_exposes_level8_delivery_solvers_and_runs_tracked_demo(root: P
     metrics = {value.label: value.value for value in page.metric}
     assert metrics["Trạng thái"] == "FEASIBLE"
     assert metrics["Kiểm định"] == "VALID"
+    assert len(page.get("plotly_chart")) >= 3
+    assert any(
+        "Bản đồ giao hàng nhiều điểm" in value.value for value in page.markdown
+    )
+
+
+def test_streamlit_level8_profiles_reset_counts_and_cap_custom_scale(root: Path):
+    app = root / "src/container_packing/web/streamlit_app.py"
+    page = AppTest.from_file(str(app), default_timeout=30).run()
+    next(value for value in page.selectbox if value.key == "level_id").set_value(
+        "level_08"
+    ).run()
+    profile = next(
+        value for value in page.selectbox if value.key == "level_08_web_profile"
+    )
+
+    profile.set_value("standard").run()
+    numbers = {value.key: value for value in page.number_input}
+    assert numbers["item_count"].value == 20
+    assert numbers["container_count"].value == 5
+    assert numbers["item_count"].disabled
+    assert numbers["container_count"].disabled
+
+    profile = next(
+        value for value in page.selectbox if value.key == "level_08_web_profile"
+    )
+    profile.set_value("research").run()
+    numbers = {value.key: value for value in page.number_input}
+    assert not numbers["item_count"].disabled
+    assert not numbers["container_count"].disabled
+    numbers["item_count"].set_value(100)
+    numbers["container_count"].set_value(10).run()
+    assert not page.exception
+    assert next(
+        value for value in page.selectbox if value.key == "level_08_item_selection"
+    ).options == ["prefix", "stable_random"]

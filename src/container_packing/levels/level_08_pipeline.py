@@ -32,6 +32,10 @@ from .level_08_sequential_runtime import (
     sequential_runtime_options,
     write_optional_sequential_artifacts,
 )
+from .level_08_routing import (
+    routing_options,
+    write_optional_routing_artifacts,
+)
 from .pipeline import LevelRuntimeStrategy, run_configured_level
 from .unloading import UnloadingSettings, delivery_attributes_for_item
 from .nesting_runtime import compound_to_external_item, compound_to_external_placement
@@ -68,6 +72,7 @@ def _guard(config: dict[str, Any]) -> None:
         raise ValueError("Level 8 runtime requires inherited Level 7 balance validation")
     UnloadingSettings.from_config(unloading_rules(config))
     sequential_runtime_options(config)
+    routing_options(config)
 
 
 def _validate_delivery_instance(items, containers, expected: int) -> None:
@@ -444,6 +449,22 @@ def _validate_solution(items, containers, placements, config):
     )
 
 
+def _write_level_08_postprocessing(
+    run_dir,
+    items,
+    containers,
+    placements,
+    config,
+    metadata,
+    bundle,
+) -> None:
+    """Persist replay first, then optional route enrichment."""
+    write_optional_sequential_artifacts(
+        run_dir, items, containers, placements, config, metadata, bundle
+    )
+    write_optional_routing_artifacts(run_dir, items, config, metadata, bundle)
+
+
 STRATEGY = LevelRuntimeStrategy(
     level_number=8,
     execute=_execute,
@@ -471,7 +492,7 @@ STRATEGY = LevelRuntimeStrategy(
         BEST_FIT_ALGORITHM_ID: "experimental_delivery_aware_practical_candidate",
         FFD_ALGORITHM_ID: "experimental_delivery_aware_fast_comparator",
     },
-    post_write_hook=write_optional_sequential_artifacts,
+    post_write_hook=_write_level_08_postprocessing,
     prevalidation_metadata_hook=sequential_prevalidation_metadata,
 )
 

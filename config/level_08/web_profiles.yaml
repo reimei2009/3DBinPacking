@@ -1,0 +1,31 @@
+schema_version: "1.0"
+level_id: level_08
+profiles:
+  quick:
+    label_vi: "Demo nhanh"
+    label_en: "Quick demo"
+    mode: fixed
+    config_file: config/level_08/experiments/web_quick_demo.yaml
+    item_count: 6
+    container_count: 2
+    delivery_stop_count: 3
+  standard:
+    label_vi: "Demo tiêu chuẩn"
+    label_en: "Standard demo"
+    mode: fixed
+    config_file: config/level_08/experiments/web_standard_demo.yaml
+    item_count: 20
+    container_count: 5
+    delivery_stop_count: 3
+  research:
+    label_vi: "Demo nghiên cứu (tùy chỉnh)"
+    label_en: "Research demo (custom)"
+    mode: custom
+    config_file: config/level_08/experiments/web_research_demo.yaml
+    item_count: 50
+    container_count: 5
+    delivery_stop_count: 5
+    item_count_min: 1
+    item_count_max: 100
+    container_count_min: 1
+    container_count_max: 10

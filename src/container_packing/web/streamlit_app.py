@@ -3,12 +3,17 @@
 from __future__ import annotations
 
 import json
+import hashlib
+import os
 from pathlib import Path
+import tempfile
 from typing import Any
 
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 import streamlit as st
+import streamlit.components.v1 as components
 
 from container_packing.algorithms.registry import get_algorithm, list_algorithms
 from container_packing.application.service import (
@@ -22,6 +27,7 @@ from container_packing.application.service import (
 )
 from container_packing.data_loader import load_config
 from container_packing.levels.registry import get_level, list_levels
+from container_packing.levels.level_08_routing import load_delivery_stops
 from container_packing.instance_data import ITEM_SELECTION_STRATEGIES
 from container_packing.runtime.project import find_project_root
 from container_packing.visualization.plotly_3d import (
@@ -33,6 +39,30 @@ from container_packing.visualization.scene_schema import load_scene
 from container_packing.web.i18n import algorithm_family, text as t
 
 OPACITY_PRESETS = {"solid": DEFAULT_ITEM_OPACITY, "balanced": 0.75, "xray": 0.30}
+
+
+def _level8_web_profiles(root: Path) -> dict[str, dict[str, Any]]:
+    payload = load_config(root / "config/level_08/web_profiles.yaml")
+    profiles = payload.get("profiles")
+    if not isinstance(profiles, dict) or not profiles:
+        raise ValueError("Level 8 web profile registry is empty")
+    return {str(key): dict(value) for key, value in profiles.items()}
+
+
+def _snapshot_uploaded_stops(uploaded: Any) -> Path:
+    """Persist one uploaded CSV outside the source tree until the run snapshots it."""
+    content = uploaded.getvalue()
+    checksum = hashlib.sha256(content).hexdigest()
+    destination = (
+        Path(tempfile.gettempdir())
+        / "3d-container-packing"
+        / "route-uploads"
+        / f"{checksum}.csv"
+    )
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    if not destination.exists():
+        destination.write_bytes(content)
+    return destination
 
 
 def _exact_reference_item_limit(algorithm_id: str, config: dict[str, Any]) -> int | None:
@@ -255,7 +285,7 @@ def _render_run(run_dir: Path, language: str) -> None:
     if opacity_key not in st.session_state:
         st.session_state[opacity_key] = DEFAULT_ITEM_OPACITY
     with st.expander(t("display_controls", language), expanded=True):
-        primary = st.columns(3)
+        primary = st.columns(4)
         selected_view = primary[0].selectbox(
             t("view", language), [*container_ids, all_containers], key=f"view-{run_dir.name}"
         )
@@ -266,6 +296,17 @@ def _render_run(run_dir: Path, language: str) -> None:
         )
         opacity = primary[2].slider(
             t("opacity", language), min_value=0.20, max_value=1.00, step=0.01, key=opacity_key,
+        )
+        color_mode = primary[3].selectbox(
+            "Màu theo" if language == "vi" else "Color by",
+            ("item", "delivery_stop") if scene.get("level") == "level_08" else ("item",),
+            format_func=lambda value: (
+                "Điểm giao" if language == "vi" and value == "delivery_stop"
+                else "Kiện hàng" if language == "vi"
+                else "Delivery stop" if value == "delivery_stop"
+                else "Item"
+            ),
+            key=f"color-mode-{run_dir.name}",
         )
         selected_container = None if selected_view == all_containers else selected_view
         available_items = _scene_items(scene, selected_container)
@@ -294,6 +335,7 @@ def _render_run(run_dir: Path, language: str) -> None:
         selected_item_id=selected_item_id,
         dimmed_opacity=DEFAULT_DIMMED_OPACITY,
         hidden_item_ids=hidden_item_ids,
+        item_color_mode=color_mode,
     )
     st.plotly_chart(figure, width="stretch", config={"displaylogo": False, "scrollZoom": True})
     if selected_item_id is not None:
@@ -315,9 +357,205 @@ def _render_run(run_dir: Path, language: str) -> None:
             st.dataframe(pd.read_csv(support_path), hide_index=True, width="stretch")
 
 
+    _render_logistics_route(run_dir, language)
     _render_sequential_replay(run_dir, scene, language)
 
 
+def _routing_artifacts(
+    run_dir: Path,
+) -> tuple[dict[str, Any], pd.DataFrame, pd.DataFrame] | None:
+    routing = run_dir / "routing"
+    route_path = routing / "route.json"
+    stops_path = routing / "delivery_stops.csv"
+    legs_path = routing / "route_legs.csv"
+    if not route_path.is_file() or not stops_path.is_file() or not legs_path.is_file():
+        return None
+    return _read_json(route_path), pd.read_csv(stops_path), pd.read_csv(legs_path)
+
+
+def _route_figure(
+    route: dict[str, Any],
+    stops: pd.DataFrame,
+    *,
+    highlighted_stop_id: str | None = None,
+) -> go.Figure:
+    coordinates = route.get("polyline_coordinates", [])
+    figure = go.Figure()
+    if coordinates:
+        figure.add_trace(
+            go.Scattermap(
+                lat=[value["latitude"] for value in coordinates],
+                lon=[value["longitude"] for value in coordinates],
+                mode="lines",
+                line={"width": 4, "color": "#e45756"},
+                name="Route",
+            )
+        )
+    labels: list[str] = []
+    colors: list[str] = []
+    sizes: list[int] = []
+    for row in stops.itertuples(index=False):
+        priority = getattr(row, "delivery_priority", "")
+        labels.append(
+            "Depot"
+            if str(row.stop_type) == "depot"
+            else f"{priority} · {row.stop_id}"
+        )
+        selected = highlighted_stop_id == str(row.stop_id)
+        colors.append(
+            "#ffcc00"
+            if selected
+            else "#111827"
+            if str(row.stop_type) == "depot"
+            else "#2563eb"
+        )
+        sizes.append(20 if selected else 15)
+    figure.add_trace(
+        go.Scattermap(
+            lat=stops["latitude"].astype(float),
+            lon=stops["longitude"].astype(float),
+            mode="markers+text",
+            text=labels,
+            textposition="top right",
+            marker={"size": sizes, "color": colors},
+            customdata=stops[["stop_id", "name"]].values,
+            hovertemplate="<b>%{customdata[0]}</b><br>%{customdata[1]}<extra></extra>",
+            name="Stops",
+        )
+    )
+    figure.update_layout(
+        map={"style": "open-street-map", "zoom": 10},
+        margin={"l": 0, "r": 0, "t": 20, "b": 0},
+        height=450,
+        showlegend=False,
+    )
+    return figure
+
+
+def _render_google_route_map(
+    route: dict[str, Any],
+    stops: pd.DataFrame,
+    browser_key: str,
+    *,
+    highlighted_stop_id: str | None = None,
+) -> None:
+    """Use only the separately restricted browser key in client-side HTML."""
+    payload = {
+        "route": route.get("polyline_coordinates", []),
+        "stops": stops.to_dict(orient="records"),
+        "highlighted": highlighted_stop_id,
+    }
+    html = f"""
+    <div id="route-map" style="height:450px;width:100%;border-radius:8px"></div>
+    <script>
+      const DATA = {json.dumps(payload, ensure_ascii=False)};
+      function initMap() {{
+        const first = DATA.stops[0];
+        const map = new google.maps.Map(document.getElementById("route-map"), {{
+          center: {{lat:Number(first.latitude), lng:Number(first.longitude)}},
+          zoom: 11,
+          mapTypeControl: false
+        }});
+        const path = DATA.route.map(p => ({{lat:Number(p.latitude), lng:Number(p.longitude)}}));
+        new google.maps.Polyline({{path, map, strokeColor:"#e45756", strokeWeight:4}});
+        DATA.stops.forEach(stop => {{
+          const selected = stop.stop_id === DATA.highlighted;
+          new google.maps.Marker({{
+            map,
+            position: {{lat:Number(stop.latitude), lng:Number(stop.longitude)}},
+            title: `${{stop.stop_id}} · ${{stop.name}}`,
+            label: stop.stop_type === "depot" ? "D" : String(stop.delivery_priority),
+            zIndex: selected ? 100 : 1
+          }});
+        }});
+      }}
+    </script>
+    <script async src="https://maps.googleapis.com/maps/api/js?key={browser_key}&callback=initMap"></script>
+    """
+    components.html(html, height=470)
+
+
+def _render_logistics_route(
+    run_dir: Path,
+    language: str,
+    *,
+    highlighted_stop_id: str | None = None,
+    compact: bool = False,
+) -> None:
+    artifacts = _routing_artifacts(run_dir)
+    if artifacts is None:
+        return
+    route, stops, legs = artifacts
+    if not compact:
+        st.markdown(
+            "### Bản đồ giao hàng nhiều điểm"
+            if language == "vi"
+            else "### Multi-stop delivery map"
+        )
+    columns = st.columns(4)
+    columns[0].metric("Provider", str(route.get("provider_used", "unknown")))
+    columns[1].metric(
+        "Stops", int((stops["stop_type"].astype(str) == "delivery").sum())
+    )
+    columns[2].metric(
+        "Distance",
+        f"{float(route.get('total_distance_meters', 0.0)) / 1000.0:.2f} km",
+    )
+    columns[3].metric(
+        "Duration",
+        f"{float(route.get('total_duration_seconds', 0.0)) / 60.0:.1f} min",
+    )
+    if route.get("warning"):
+        st.warning(str(route["warning"]))
+    browser_key = os.environ.get("GOOGLE_MAPS_BROWSER_KEY", "").strip()
+    if browser_key and route.get("provider_used") == "google_routes":
+        _render_google_route_map(
+            route,
+            stops,
+            browser_key,
+            highlighted_stop_id=highlighted_stop_id,
+        )
+    else:
+        st.plotly_chart(
+            _route_figure(
+                route, stops, highlighted_stop_id=highlighted_stop_id
+            ),
+            width="stretch",
+            config={"displaylogo": False},
+            key=(
+                f"route-map-{run_dir.name}-"
+                f"{'replay' if compact else 'overview'}-"
+                f"{highlighted_stop_id or 'all'}"
+            ),
+        )
+    if not compact:
+        item_snapshot = run_dir / "input_snapshot" / "items.csv"
+        counts: dict[str, int] = {}
+        if item_snapshot.is_file():
+            item_frame = pd.read_csv(item_snapshot)
+            if "delivery_stop_id" in item_frame:
+                counts = (
+                    item_frame["delivery_stop_id"]
+                    .astype(str)
+                    .value_counts()
+                    .to_dict()
+                )
+        delivery_rows = stops[
+            stops["stop_type"].astype(str) == "delivery"
+        ].copy()
+        delivery_rows["item_count"] = (
+            delivery_rows["stop_id"].astype(str).map(counts).fillna(0).astype(int)
+        )
+        with st.expander(
+            "Các chặng và điểm giao"
+            if language == "vi"
+            else "Route legs and stops"
+        ):
+            st.dataframe(delivery_rows, hide_index=True, width="stretch")
+            st.dataframe(legs, hide_index=True, width="stretch")
+
+
+@st.fragment(run_every=0.5)
 def _render_sequential_replay(
     run_dir: Path, scene: dict[str, Any], language: str
 ) -> None:
@@ -356,12 +594,58 @@ def _render_sequential_replay(
             "not model handling equipment, staging space, routing, or real time."
         )
     )
+    index_key = f"sequential-event-{run_dir.name}"
+    playing_key = f"sequential-playing-{run_dir.name}"
+    speed_key = f"sequential-speed-{run_dir.name}"
+    accumulator_key = f"sequential-accumulator-{run_dir.name}"
+    st.session_state.setdefault(index_key, 0)
+    st.session_state.setdefault(playing_key, False)
+    st.session_state.setdefault(accumulator_key, 0.0)
+    controls = st.columns((1, 1, 1, 2))
+    if controls[0].button(
+        "⏮", key=f"sequential-previous-{run_dir.name}", help="Previous"
+    ):
+        st.session_state[index_key] = max(
+            0, int(st.session_state[index_key]) - 1
+        )
+        st.session_state[playing_key] = False
+    if controls[1].button(
+        "⏸" if st.session_state[playing_key] else "▶",
+        key=f"sequential-play-{run_dir.name}",
+        help="Play / pause",
+    ):
+        st.session_state[playing_key] = not bool(st.session_state[playing_key])
+    if controls[2].button(
+        "⏭", key=f"sequential-next-{run_dir.name}", help="Next"
+    ):
+        st.session_state[index_key] = min(
+            len(events) - 1, int(st.session_state[index_key]) + 1
+        )
+        st.session_state[playing_key] = False
+    speed = controls[3].selectbox(
+        "Tốc độ" if language == "vi" else "Speed",
+        (0.5, 1.0, 2.0),
+        format_func=lambda value: f"{value:g}×",
+        key=speed_key,
+    )
+    if st.session_state[playing_key]:
+        st.session_state[accumulator_key] = (
+            float(st.session_state[accumulator_key]) + float(speed) * 0.5
+        )
+        if st.session_state[accumulator_key] >= 1.0:
+            advance = int(st.session_state[accumulator_key])
+            st.session_state[accumulator_key] -= advance
+            st.session_state[index_key] = min(
+                len(events) - 1,
+                int(st.session_state[index_key]) + advance,
+            )
+            if st.session_state[index_key] >= len(events) - 1:
+                st.session_state[playing_key] = False
     event_index = st.slider(
         "Sự kiện" if language == "vi" else "Event",
         min_value=0,
         max_value=len(events) - 1,
-        value=0,
-        key=f"sequential-event-{run_dir.name}",
+        key=index_key,
     )
     current = events[event_index]
     visible: set[str] = set()
@@ -378,9 +662,20 @@ def _render_sequential_replay(
         for container in scene["containers"]
         for item in container["items"]
     }
-    cards = st.columns(5)
+    event_type = str(current.get("event_type", ""))
+    phase = (
+        "loading"
+        if "load" in event_type and "unload" not in event_type
+        else "travel"
+        if event_type in {"door_opened", "door_closed", "stop_completed"}
+        else "unloading"
+        if event_type in {"item_unloaded", "item_delivered"}
+        else "simulation"
+    )
+    cards = st.columns(6)
     card_values = (
         ("Event", f"{event_index + 1}/{len(events)}"),
+        ("Phase", phase),
         ("Type", current.get("event_type", "—")),
         ("Stop", current.get("delivery_stop_id") or "—"),
         ("Container", current.get("container_id") or "—"),
@@ -395,12 +690,19 @@ def _render_sequential_replay(
         selected_item_id=current.get("item_id"),
         dimmed_opacity=DEFAULT_DIMMED_OPACITY,
         hidden_item_ids=all_item_ids - visible,
+        item_color_mode="delivery_stop",
     )
     st.plotly_chart(
         replay_figure,
         width="stretch",
         config={"displaylogo": False, "scrollZoom": True},
         key=f"sequential-chart-{run_dir.name}",
+    )
+    _render_logistics_route(
+        run_dir,
+        language,
+        highlighted_stop_id=current.get("delivery_stop_id"),
+        compact=True,
     )
     st.caption(
         (
@@ -800,47 +1102,99 @@ def main() -> None:
             "Level 8 is experimental: LIFO uses a static straight-path model; handling equipment, staging, and an exact physical unloading sequence are inactive."
         )
         st.sidebar.caption(
-            "Demo web dùng dataset ba điểm giao đã được version hóa (tối đa 6 kiện). Chạy quy mô lớn bằng CLI với synthetic profile."
+            "Demo web có preset 6/2, 20/5 và tùy chỉnh tối đa 100 kiện/10 container. Quy mô 300 tiếp tục chạy bằng CLI."
             if language == "vi" else
-            "The web demo uses the versioned three-stop dataset (up to 6 items). Use the CLI synthetic profiles for larger runs."
+            "The web demo offers 6/2, 20/5, and custom profiles up to 100 items/10 containers. Keep 300-item research runs on the CLI."
         )
 
-    selected_config = level.config_for_algorithm(algorithm_id)
+    level8_profile_id: str | None = None
+    level8_profile: dict[str, Any] | None = None
+    if level_id == "level_08":
+        profiles = _level8_web_profiles(root)
+        level8_profile_id = st.sidebar.selectbox(
+            "Hồ sơ demo" if language == "vi" else "Demo profile",
+            tuple(profiles),
+            format_func=lambda value: profiles[value][
+                "label_vi" if language == "vi" else "label_en"
+            ],
+            key="level_08_web_profile",
+        )
+        level8_profile = profiles[level8_profile_id]
+        selected_config = Path(str(level8_profile["config_file"]))
+    else:
+        selected_config = level.config_for_algorithm(algorithm_id)
     config_path = root / selected_config
     config = load_config(config_path)
 
     limits = get_instance_limits(config_path, root=root)
     instance_defaults = config["instance"]
-    if st.session_state.get("_instance_level_id") != level_id:
+    instance_scope = (
+        f"{level_id}:{level8_profile_id}" if level8_profile_id else level_id
+    )
+    if st.session_state.get("_instance_level_id") != instance_scope:
         st.session_state["item_count"] = int(instance_defaults["item_count"])
         st.session_state["container_count"] = int(instance_defaults["container_count"])
-        st.session_state["_instance_level_id"] = level_id
-    level8_demo = level_id == "level_08"
+        st.session_state["_instance_level_id"] = instance_scope
+        if level_id == "level_08":
+            st.session_state["level_08_item_selection"] = "prefix"
+            st.session_state["level_08_selection_seed"] = 42
+    level8_fixed_profile = (
+        level8_profile is not None and level8_profile.get("mode") == "fixed"
+    )
+    item_max = min(
+        limits.available_items,
+        int(level8_profile.get("item_count_max", limits.available_items))
+        if level8_profile is not None
+        else limits.available_items,
+    )
     item_count = int(st.sidebar.number_input(
-        t("items", language), min_value=1, max_value=limits.available_items,
+        t("items", language), min_value=1, max_value=item_max,
         step=1, key="item_count",
-        disabled=level8_demo,
+        disabled=level8_fixed_profile,
         help=(
-            "Demo Streamlit Level 8 dùng fixture 6 kiện/2 container đã được version hóa; dùng CLI synthetic profile để thử quy mô lớn."
-            if language == "vi" and level8_demo else
-            "The Level 8 Streamlit demo uses the versioned 6-item/2-container fixture; use CLI synthetic profiles for larger runs."
-            if level8_demo else None
+            "Profile cố định khóa kích thước; chọn Demo nghiên cứu để thử tối đa 100 kiện."
+            if language == "vi" and level8_fixed_profile else
+            "Fixed profiles lock their size; choose Research demo for up to 100 items."
+            if level8_fixed_profile else None
         ),
     ))
+    container_max = (
+        int(level8_profile.get("container_count_max", 10))
+        if level8_profile is not None
+        else max(limits.configured_containers, 1)
+    )
     container_count = int(st.sidebar.number_input(
         t("containers", language), min_value=1,
+        max_value=container_max if level_id == "level_08" else None,
         step=1, key="container_count",
-        disabled=level8_demo,
+        disabled=level8_fixed_profile,
         help=(
-            "Demo Streamlit Level 8 dùng fixture 6 kiện/2 container đã được version hóa; dùng CLI synthetic profile để thử quy mô lớn."
-            if language == "vi" and level8_demo else
-            "The Level 8 Streamlit demo uses the versioned 6-item/2-container fixture; use CLI synthetic profiles for larger runs."
-            if level8_demo else
+            "Profile cố định khóa số container; Demo nghiên cứu cho phép tối đa 10."
+            if language == "vi" and level8_fixed_profile else
+            "Fixed profiles lock the container count; Research demo allows up to 10."
+            if level8_fixed_profile else
             f"Có {limits.configured_containers} container được cấu hình trực tiếp; số lớn hơn sẽ được mở rộng xác định cho Level 1."
             if language == "vi" else
             f"{limits.configured_containers} are explicitly configured; larger counts are deterministically extended Level 1 containers."
         ),
     ))
+    item_selection_strategy = "prefix"
+    item_selection_seed: int | None = None
+    if level_id == "level_08":
+        item_selection_strategy = st.sidebar.selectbox(
+            "Cách chọn items" if language == "vi" else "Item selection",
+            ("prefix", "stable_random"),
+            key="level_08_item_selection",
+        )
+        item_selection_seed = int(
+            st.sidebar.number_input(
+                "Seed chọn tập" if language == "vi" else "Selection seed",
+                min_value=0,
+                step=1,
+                key="level_08_selection_seed",
+                disabled=item_selection_strategy != "stable_random",
+            )
+        )
     random_seed = int(st.sidebar.number_input(
         t("seed", language), min_value=0, value=int(config.get("project", {}).get("random_seed", 42)), step=1,
         key="random_seed",
@@ -849,6 +1203,7 @@ def main() -> None:
     default_parameters = config.get("solver", {}) if algorithm_id == "milp_big_m" else config.get("algorithms", {}).get(algorithm_id, {})
     algorithm_parameters = _algorithm_parameters(algorithm_id, default_parameters, language)
     config_overrides = _level_config_overrides(level_id, config, language)
+    route_input_blocked = False
     if level_id == "level_08" and algorithm_id in {
         "extreme_point_best_fit_delivery",
         "extreme_point_ffd_delivery",
@@ -871,6 +1226,64 @@ def main() -> None:
                 "required_when_enabled": True,
             },
         }
+        routing_config = dict(config.get("routing", {}))
+        routing_enabled = st.sidebar.checkbox(
+            "Bật bản đồ tuyến giao" if language == "vi" else "Enable route map",
+            value=bool(routing_config.get("enabled", True)),
+            key="level_08_routing_enabled",
+        )
+        routing_provider = st.sidebar.selectbox(
+            "Nguồn tuyến đường" if language == "vi" else "Route provider",
+            ("offline", "google_routes"),
+            index=0 if routing_config.get("provider", "offline") == "offline" else 1,
+            key="level_08_routing_provider",
+            disabled=not routing_enabled,
+        )
+        uploaded_stops = st.sidebar.file_uploader(
+            "CSV điểm giao (tùy chọn)"
+            if language == "vi"
+            else "Delivery stops CSV (optional)",
+            type=("csv",),
+            key="level_08_stops_upload",
+            disabled=not routing_enabled,
+        )
+        stops_file = routing_config.get("stops_file")
+        if uploaded_stops is not None:
+            uploaded_path = _snapshot_uploaded_stops(uploaded_stops)
+            uploaded_values = load_delivery_stops(uploaded_path)
+            delivery_count = sum(
+                value.stop_type == "delivery" for value in uploaded_values
+            )
+            if delivery_count > 10:
+                route_input_blocked = True
+                st.sidebar.error(
+                    "Web demo chỉ cho phép tối đa 10 điểm giao."
+                    if language == "vi"
+                    else "The web demo allows at most 10 delivery stops."
+                )
+            else:
+                stops_file = str(uploaded_path)
+                st.sidebar.caption(
+                    f"CSV SHA-256: {hashlib.sha256(uploaded_stops.getvalue()).hexdigest()[:12]}…"
+                )
+        if routing_provider == "google_routes" and not os.environ.get(
+            "GOOGLE_ROUTES_API_KEY"
+        ):
+            st.sidebar.warning(
+                "Thiếu GOOGLE_ROUTES_API_KEY; hệ thống sẽ fallback sang tuyến offline."
+                if language == "vi"
+                else "GOOGLE_ROUTES_API_KEY is missing; routing will fall back offline."
+            )
+        config_overrides = {
+            **config_overrides,
+            "routing": {
+                **routing_config,
+                "enabled": routing_enabled,
+                "provider": routing_provider,
+                "stops_file": stops_file,
+                "fallback_to_offline": True,
+            },
+        }
     exact_reference_limit = _exact_reference_item_limit(algorithm_id, config)
     exact_reference_blocked = (
         exact_reference_limit is not None and item_count > exact_reference_limit
@@ -879,7 +1292,7 @@ def main() -> None:
         st.sidebar.warning(t("exact_reference_limit", language).format(limit=exact_reference_limit))
     run_clicked = st.sidebar.button(
         t("run", language), type="primary", width="stretch", key="run_experiment",
-        disabled=exact_reference_blocked,
+        disabled=exact_reference_blocked or route_input_blocked,
     )
 
     if run_clicked:
@@ -891,6 +1304,8 @@ def main() -> None:
                 algorithm_parameters=algorithm_parameters,
                 config_overrides=config_overrides,
                 config_path=config_path, root=root,
+                item_selection_strategy=item_selection_strategy,
+                item_selection_seed=item_selection_seed,
             )
             with st.spinner(t("running", language)):
                 result = execute_experiment(request)

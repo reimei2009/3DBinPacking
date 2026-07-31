@@ -1,0 +1,9 @@
+extends: sequential_delivery_20_local.yaml
+routing:
+  enabled: true
+  provider: offline
+  stops_file: data/raw/level_08/routes/web_three_stop_route.csv
+  travel_mode: DRIVE
+  return_to_depot: false
+  timeout_seconds: 10
+  fallback_to_offline: true

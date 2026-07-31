@@ -182,12 +182,19 @@ def validate_run(run_dir: Path) -> ValidationResult:
         return ValidationResult(not issues, issues)
     if algorithm_id in GENERIC_ALGORITHM_IDS:
         from .level_08_pipeline import _validate_solution
+        from .level_08_routing import validate_optional_routing_artifacts
         from .level_08_sequential_runtime import validate_optional_sequential_artifacts
         static_and_replay = _validate_solution(items, containers, placements, config).result
         artifact = validate_optional_sequential_artifacts(
             run_dir, items, containers, placements, config
         )
-        issues = [*static_and_replay.issues, *artifact.issues]
+        routing = validate_optional_routing_artifacts(
+            run_dir,
+            items,
+            config,
+            packing_valid=static_and_replay.valid,
+        )
+        issues = [*static_and_replay.issues, *artifact.issues, *routing.issues]
         return ValidationResult(not issues, issues)
     inherited = validate_level_07_fixture_bundle(items, containers, placements, config, relations=[])
     unloading = validate_unloading_lifo(items, placements, _unloading_rules(root, config))

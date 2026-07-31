@@ -7,6 +7,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+import pandas as pd
+
 from ..algorithms.registry import get_algorithm
 from ..benchmarks import BenchmarkResult, BenchmarkScenario, run_benchmark
 from ..data_loader import load_config
@@ -70,7 +72,19 @@ def get_instance_limits(config_path: str | Path, *, root: str | Path | None = No
         available_items = len(load_csv_source(raw_items, mapping).frame)
     except SourceAdapterError as exc:
         raise ValueError(f"Cannot determine item limit from {raw_items}: {exc}") from exc
-    configured_containers = len(config.get("containers", []))
+    raw_containers_value = config.get("paths", {}).get("raw_containers_csv")
+    if raw_containers_value:
+        raw_containers = _resolve(project_root, raw_containers_value)
+        try:
+            configured_containers = len(
+                pd.read_csv(raw_containers, encoding="utf-8-sig")
+            )
+        except (OSError, pd.errors.ParserError) as exc:
+            raise ValueError(
+                f"Cannot determine container limit from {raw_containers}: {exc}"
+            ) from exc
+    else:
+        configured_containers = len(config.get("containers", []))
     if configured_containers <= 0:
         raise ValueError(f"Config {config_path} does not define any base containers")
     return InstanceLimits(available_items=available_items, configured_containers=configured_containers)
@@ -88,6 +102,8 @@ def build_experiment_request(
     config_overrides: dict[str, Any] | None = None,
     config_path: str | Path | None = None,
     root: str | Path | None = None,
+    item_selection_strategy: str = "prefix",
+    item_selection_seed: int | None = None,
 ) -> ExperimentRequest:
     if item_count <= 0 or container_count <= 0:
         raise ValueError("item_count and container_count must be positive")
@@ -95,6 +111,12 @@ def build_experiment_request(
         raise ValueError("random_seed must be zero or greater")
     if environment not in {"local", "colab", "kaggle"}:
         raise ValueError(f"Unsupported environment: {environment}")
+    if item_selection_strategy not in ITEM_SELECTION_STRATEGIES:
+        raise ValueError(
+            f"Unsupported item selection strategy: {item_selection_strategy}"
+        )
+    if item_selection_strategy == "stable_random" and item_selection_seed is None:
+        raise ValueError("stable_random item selection requires item_selection_seed")
     level = get_level(level_id)
     algorithm = get_algorithm(algorithm_id)
     if algorithm_id not in level.supported_algorithms or level_id not in algorithm.supported_levels:
@@ -115,6 +137,12 @@ def build_experiment_request(
         random_seed=random_seed,
         algorithm_parameters=dict(algorithm_parameters or {}),
         config_overrides=dict(config_overrides or {}),
+        item_selection_strategy=item_selection_strategy,
+        item_selection_seed=(
+            item_selection_seed
+            if item_selection_strategy == "stable_random"
+            else None
+        ),
     )
 
 

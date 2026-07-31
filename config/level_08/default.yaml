@@ -19,6 +19,14 @@ containers:
   - {container_id: C2, length_mm: 300, width_mm: 80, height_mm: 60, max_weight_kg: 30, cost: 100, availability: 1}
 unloading:
   rules_file: config/level_08/unloading_rules.yaml
+routing:
+  enabled: false
+  provider: offline
+  stops_file: data/raw/level_08/routes/web_three_stop_route.csv
+  travel_mode: DRIVE
+  return_to_depot: false
+  timeout_seconds: 10
+  fallback_to_offline: true
 sequential_simulation:
   enabled: false
   required_when_enabled: true
