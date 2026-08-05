@@ -1,4 +1,9 @@
 extends: ../default.yaml
+data_identity:
+  profile_kind: synthetic_research
+  dataset_id: level_08_web_demo_100_c10_v1
+  container_catalog_id: level_08_synthetic_web_demo_containers_v1
+  comparison_group_id: null
 instance:
   item_count: 50
   container_count: 5

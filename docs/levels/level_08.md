@@ -5,9 +5,10 @@ delivery-aware Best Fit and FFD solvers against a tracked three-stop demo.
 Frozen fixtures remain CLI-only regression evidence; neither solver is a
 production transport-planning system.
 
-The logistics demo adds three versioned Streamlit profiles (`6/2`, `20/5`,
-and custom up to `100/10`), declared stop coordinates, an optional route
-provider, a stop-colored 3D scene, and artifact-driven replay controls.
+The logistics demo adds four versioned Streamlit profiles: fixture `6/2`,
+semantic fixture `20/5`, cross-level comparable `20/5`, and synthetic custom
+up to `100/10`. It includes declared stop coordinates, a route provider, a
+stop-colored 3D scene, and artifact-driven replay controls.
 Routing runs only after a valid packing/replay result and never changes the
 objective or any Level 1–8 constraint. The default offline provider is fully
 deterministic. Google Compute Routes is optional, server-side, sanitized, and
@@ -223,17 +224,38 @@ Scale replay profiles additionally enable:
 
 ```yaml
 sequential_balance_construction_enabled: true
-delivery_subset_enumeration_threshold: 4
+delivery_subset_exhaustive_max_containers: 8
+delivery_subset_max_candidates_per_count: 32
 ```
 
 The delivery-first constructor places priorities in descending order. Every
 accepted partial reverse-loading state must already satisfy the Level 7 COG
 band, so reversing that construction supplies at least one balance-safe
 unloading path. Candidate generation adds target-COG anchors and ranks valid
-placements by prospective COG before delivery/geometric tie-breaks. The lower
-subset threshold switches heterogeneous-container selection to the existing
-bounded representative-subset generator; it does not change container-count
-or cost priority. This stronger construction is opt-in because older semantic
+placements by prospective COG before delivery/geometric tie-breaks.
+
+Container selection uses `adaptive_exact_small_bounded_diverse_large_v1`:
+
+- catalogs up to the configured exact threshold enumerate every subset in
+  increasing container-count and cost order;
+- larger catalogs retain a bounded portfolio built from cost, volume,
+  payload, efficiency and one-swap neighborhoods;
+- aggregate payload/volume bounds prune impossible subsets before geometry;
+- run metadata records every attempted small-catalog subset and whether its
+  constructive packing failed, succeeded or hit the deadline.
+
+This avoids silently missing a middle catalog combination such as `C3+C4`
+while preventing combinatorial enumeration on 25--80 container catalogs.
+It remains a heuristic feasibility search, not a proof that a failed smaller
+subset is mathematically infeasible. The Level 8 policy also rejects a support
+edge when its supporter must be delivered earlier than the supported item,
+because that relation cannot be replayed in declared delivery order.
+
+Low volume utilization is therefore not sufficient evidence that a container
+can be closed: the candidate must also retain exact support, stack/load rules,
+static LIFO and a balance-valid state after every removal. The solver summary
+exposes the aggregate capacity lower bound and attempted subsets so this gap
+is auditable. This stronger construction is opt-in because older semantic
 fixtures were designed only for final-state balance, not for balance after
 every individual removal.
 
@@ -259,6 +281,31 @@ artifacts.
 
 ## Data and provenance
 
+The cross-level comparison profile uses the versioned inputs under
+`data/raw/level_08/cross_level/`. All 501 item rows preserve the public source
+order, IDs, dimensions, weights, orientation, nesting, and stackability
+fields; only five-stop delivery declarations are added. Its C1-C5 containers
+match Levels 1-7 exactly, while C6-C10 follow the same deterministic extension
+rule. The preparation script and checksum manifest make this auditable.
+
+Results are comparable only when `dataset_id`, `container_catalog_id`,
+`comparison_group_id`, selected-item checksum, selection strategy, and seed
+match. Level 8 can still require more containers because delivery/LIFO and
+sequential replay add hard constraints.
+
+The tracked 20/5 comparison currently recommends delivery-aware FFD: it finds
+four replay-valid containers while Best Fit finds five. The compact Level 7
+C3+C4 candidate is retained as a repair target rather than discarded, but its
+13 direct rehandles were not eliminated by the bounded Level 8 repair. See
+`docs/reports/manual/level_08_cross_level_subset_audit_20260731.md`. This is an
+R&D heuristic result, not proof that two or three containers are infeasible.
+The 50/8 comparable profile remains outside the web acceptance gate because it
+did not yet produce a final Level 8-valid solution.
+
+Routing defaults to the deterministic offline provider. It follows declared
+priority and reports Haversine distance with a 35 km/h duration estimate;
+routing remains enrichment and never changes packing or validation.
+
 Legacy 3DBPPsi rows do not have delivery metadata. They are preserved as
 `unloading_disabled_undeclared`; no priority is inferred from dimensions,
 weight, nesting, stackability, or input order.
@@ -269,6 +316,30 @@ shared source adapter. Reproducible scale profiles create untracked synthetic
 inputs for 500–5000 items and 50–200 containers; their YAML profile and seed
 are the source of truth.
 
+### Stop-aware fixed-subset construction candidate
+
+Level 8 Best Fit includes an optional hierarchical soft-affinity candidate over
+compound roots. The planner evaluates fixed container subsets in increasing
+cardinality, processes delivery groups deterministically, and hard-prunes only
+individual fit, aggregate payload, and aggregate volume. Its preferred
+container is guidance: Best Fit may fall back to another container inside the
+same subset when geometry, support, stackability, load bearing, or balance
+requires it. Container count and cost are selected by the outer fixed-subset
+search; affinity only ranks candidates inside that already selected subset.
+
+`order_id` is the only declaration that groups multiple items as one order. If
+it is absent, the item ID is used; items sharing a stop are not silently merged
+into one order. Explicit multi-item orders cannot be split after their first
+item is placed. Planned and actual container counts and stop fragmentation are
+reported separately, together with preferred hits, fallbacks, and moved groups.
+COG, support, LIFO, and replay remain construction-policy and independent
+Level 1--8 validation responsibilities.
+
+The pipeline ranks this candidate alongside compact and delivery-priority
+candidates by validity, used-container count, then cost. Assignment failure or
+timeout cannot replace a valid baseline. FFD remains unchanged as the fast
+comparator in this checkpoint.
+
 ## Inactive
 
 - SimPy or wall-clock event execution and route optimization;
@@ -277,3 +348,18 @@ are the source of truth.
 - loading order, handling equipment, time, staging space, and door geometry;
 - vehicle axle/floor-zone constraints, dynamic transport loads, and vehicle
   certification.
+### Bounded container elimination
+
+Sau khi chọn được một nghiệm qua toàn bộ validator Level 1--8, runtime có thể
+thử đóng các container ít tải trong một ngân sách riêng. Search di chuyển
+nguyên support closure sang **các container đang mở**, không được mở container
+khác và chỉ nhận thay đổi khi independent validator Level 1--8 vẫn `VALID`.
+Metadata `delivery_container_elimination_*` phân biệt rõ container đã đóng,
+hết thời gian và trường hợp không có phép loại bỏ hợp lệ. Việc thất bại ở pha
+này không làm nghiệm ban đầu mất tính hợp lệ.
+
+Nếu relocation closure trực tiếp thất bại, conflict-neighborhood LNS tháo một
+tập support-component có giới hạn ở các container nhận rồi xếp lại đồng thời
+với hàng từ container cần đóng. Neighborhood mặc định `4/8/12`, candidate cap
+và deadline đều lấy từ config. Nó không full-rebuild instance, không tách
+support component và không được chấp nhận nếu full Level 1--8 validation lỗi.

@@ -1,10 +1,41 @@
 # 3D Container Packing
 
+Large reproducible research populations can be generated from the immutable
+public item source using the template/physical-instance workflow documented in
+`docs/datasets/large_synthetic_instances.md`. Generated CSVs remain untracked
+under `data/interim/synthetic/`.
+
+Inspect a generated population without invoking preprocessing or a packing
+solver (streaming is the bounded-memory default):
+
+```powershell
+.\.venv\Scripts\python.exe .\scripts\inspect_generated_dataset.py `
+  --manifest data\interim\synthetic\empirical_scale_1k_100_v1\generation_manifest.json `
+  --mode stream
+```
+
+The inspection report is isolated under
+`outputs/<level>/runs/<run_id>/reports/dataset_inspection.json` and records
+checksum/schema evidence, throughput, process RSS and Python heap peaks.
+The current validated data-pipeline ceiling is 100k items. One-million-item
+profiles are retained as unvalidated future references and are never generated
+by tests, CI, smoke tests or acceptance (schema parsing only). See the versioned baseline in
+`docs/reports/manual/generated_dataset_scale_baseline_20260803.md`.
+
+Level 8 now includes a separate cross-level comparison profile using the same
+public items and C1-C5 container catalog as Levels 1-7. The existing small
+logistics fixtures remain isolated for LIFO/replay semantics. Offline
+Plotly/Haversine routing needs no API key; Google Routes is optional only when
+a server-side key is configured.
+Level 8 uses exact container-subset enumeration for small catalogs and a
+bounded diverse subset portfolio for larger catalogs; failed smaller subsets
+remain heuristic failures, not proofs of infeasibility.
+
 Level 8 provides an explicit delivery/LIFO data contract, a pure straight-path
 unloadability engine, and experimental delivery-aware Best Fit/FFD solvers.
-Its Streamlit logistics demo provides tracked `6/2`, `20/5`, and custom
-`1–100 items / 1–10 containers` profiles, delivery-stop maps, optional Google
-Routes enrichment, stop-colored 3D views, and deterministic replay controls.
+Its Streamlit logistics demo provides tracked `6/2`, semantic `20/5`,
+cross-level comparable `20/5`, and custom `1–100 items / 1–10 containers`
+profiles with delivery-stop maps, stop-colored 3D views, and replay controls.
 Frozen validation
 fixtures remain CLI-only regression evidence.
 Sequential loading/unloading replay is optional and disabled by default. When

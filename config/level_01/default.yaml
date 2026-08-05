@@ -9,6 +9,16 @@ instance:
   container_count: 5
   item_selection_strategy: prefix
   item_selection_seed: null
+container_search:
+  enabled: false
+  initial_used_container_count: 1
+  max_used_container_count: 5
+  automatically_increase_container_count: false
+  exhaustive_max_containers: 10
+  max_candidates_per_count: 32
+  neighborhood_width: 8
+  soft_volume_buffer_ratio: 0.10
+  time_limit_seconds: 30
 paths:
   raw_items_csv: data/raw/dataset_small_items_original.csv
   items_source_mapping: config/common/data_sources/3dbppsi_dataset_small.yaml

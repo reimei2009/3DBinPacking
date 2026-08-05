@@ -6,18 +6,32 @@ from dataclasses import dataclass, field
 from time import perf_counter
 from typing import Callable
 
+from ..contracts import (
+    AttemptStatistics,
+    ConstructionAttemptResult,
+    ConstructionTerminationReason,
+    UnpackedItemDiagnostic,
+)
 from ..feasibility import FixedOrientationFeasibilityPolicy, PlacementFeasibilityPolicy
 from ..orientation import OrientationProvider, fixed_orientation_provider
 from ...geometry.orientation import OrientedDimensions
 from ...schemas import Container, Item, Placement
 from .constructive_common import candidate_subsets, container_orders, item_sort_key
+from .container_subset_selection import ContainerSubsetSelectionPolicy
+from .container_assignment import (
+    ContainerAssignmentPlanner,
+    ContainerPreferencePolicy,
+)
 from .first_fit_selection import FirstFitCandidate, FirstFitCandidateSelectionPolicy
 from .candidate_points import CandidatePointProvider
 
 Point = tuple[float, float, float]
 PackOrder = Callable[
-    [list[Item], tuple[Container, ...], float, "SearchStats", PlacementFeasibilityPolicy],
-    list[Placement] | None,
+    [
+        list[Item], tuple[Container, ...], float, "SearchStats",
+        PlacementFeasibilityPolicy, ContainerPreferencePolicy | None,
+    ],
+    ConstructionAttemptResult,
 ]
 
 
@@ -44,14 +58,30 @@ class SearchStats:
     orientation_candidates_evaluated: int = 0
     deadline_monotonic: float | None = None
     time_limit_reached: bool = False
+    subset_attempts: list[dict[str, object]] = field(default_factory=list)
+    assignment_plans_evaluated: int = 0
+    selected_assignment_metadata: dict[str, object] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
 class ConstructiveSearchResult:
-    placements: list[Placement] | None
+    attempt: ConstructionAttemptResult | None
     chosen_containers: tuple[Container, ...]
     stats: SearchStats
     time_limit_reached: bool = False
+
+    @property
+    def placements(self) -> list[Placement] | None:
+        """Chỉ expose placements như nghiệm khi attempt đã complete."""
+        if self.attempt is None or not self.attempt.complete:
+            return None
+        return list(self.attempt.placements)
+
+    @property
+    def best_partial_attempt(self) -> ConstructionAttemptResult | None:
+        if self.attempt is None or self.attempt.complete:
+            return None
+        return self.attempt
 
 
 def _deadline_reached(stats: SearchStats) -> bool:
@@ -137,21 +167,101 @@ def place_candidate(state: ContainerState, placement: Placement, tolerance: floa
     return placement
 
 
+def _flatten_placements(states: list[ContainerState]) -> tuple[Placement, ...]:
+    return tuple(placement for state in states for placement in state.placements)
+
+
+def _attempt_signature(
+    items: list[Item], containers: tuple[Container, ...], algorithm_id: str,
+) -> str:
+    return "|".join((
+        algorithm_id,
+        ",".join(value.container_id for value in containers),
+        ",".join(value.item_id for value in items),
+    ))
+
+
+def _complete_attempt(
+    items: list[Item], containers: tuple[Container, ...], states: list[ContainerState],
+    algorithm_id: str, statistics: AttemptStatistics,
+) -> ConstructionAttemptResult:
+    return ConstructionAttemptResult(
+        complete=True,
+        placements=_flatten_placements(states),
+        unpacked_items=(),
+        failed_item_id=None,
+        termination_reason=ConstructionTerminationReason.COMPLETE,
+        attempt_signature=_attempt_signature(items, containers, algorithm_id),
+        statistics=statistics,
+        subset_ids=tuple(value.container_id for value in containers),
+        container_order=tuple(value.container_id for value in containers),
+        algorithm_id=algorithm_id,
+    )
+
+
+def _incomplete_attempt(
+    items: list[Item], failed_index: int, containers: tuple[Container, ...],
+    states: list[ContainerState], algorithm_id: str,
+    reason: ConstructionTerminationReason, failed_item_statistics: AttemptStatistics,
+    attempt_statistics: AttemptStatistics | None = None,
+) -> ConstructionAttemptResult:
+    diagnostics: list[UnpackedItemDiagnostic] = []
+    for index, item in enumerate(items[failed_index:], start=failed_index):
+        is_failed_item = index == failed_index
+        diagnostics.append(UnpackedItemDiagnostic(
+            item_id=item.item_id,
+            reason_code=(
+                str(reason) if is_failed_item else
+                str(ConstructionTerminationReason.NOT_ATTEMPTED_AFTER_FAILURE)
+            ),
+            containers_tested=failed_item_statistics.containers_tested if is_failed_item else 0,
+            orientations_tested=failed_item_statistics.orientations_tested if is_failed_item else 0,
+            candidate_positions_tested=(
+                failed_item_statistics.candidate_positions_tested if is_failed_item else 0
+            ),
+        ))
+    return ConstructionAttemptResult(
+        complete=False,
+        placements=_flatten_placements(states),
+        unpacked_items=tuple(diagnostics),
+        failed_item_id=items[failed_index].item_id,
+        termination_reason=str(reason),
+        attempt_signature=_attempt_signature(items, containers, algorithm_id),
+        statistics=attempt_statistics or failed_item_statistics,
+        subset_ids=tuple(value.container_id for value in containers),
+        container_order=tuple(value.container_id for value in containers),
+        algorithm_id=algorithm_id,
+        search_score=(float(len(diagnostics)), -float(len(_flatten_placements(states)))),
+    )
+
+
 def pack_order_first_fit(
     items: list[Item], containers: tuple[Container, ...], tolerance: float, stats: SearchStats,
     policy: PlacementFeasibilityPolicy, *, orientation_provider: OrientationProvider | None = None,
     candidate_selection_policy: FirstFitCandidateSelectionPolicy | None = None,
     candidate_point_provider: CandidatePointProvider | None = None,
-) -> list[Placement] | None:
+) -> ConstructionAttemptResult:
     """Place the first feasible extreme-point/orientation candidate in order."""
     selected_provider = orientation_provider or fixed_orientation_provider()
     states = [ContainerState(container) for container in containers]
-    for item in items:
+    start_candidates = stats.extreme_points_evaluated
+    start_orientations = stats.orientation_candidates_evaluated
+    attempt_containers_tested = 0
+    for item_index, item in enumerate(items):
+        containers_tested = 0
+        candidates_tested = 0
+        orientations_tested = 0
         if _deadline_reached(stats):
-            return None
+            return _incomplete_attempt(
+                items, item_index, containers, states, "extreme_point_ffd",
+                ConstructionTerminationReason.TIME_LIMIT_REACHED,
+                AttemptStatistics(),
+            )
         if candidate_selection_policy is not None:
             selected: tuple[ContainerState, Placement] | None = None
             for state in states:
+                containers_tested += 1
+                attempt_containers_tested += 1
                 candidates: list[FirstFitCandidate] = []
                 if candidate_point_provider is None:
                     candidates_iter = (
@@ -167,9 +277,22 @@ def pack_order_first_fit(
                     )
                 for point, orientation_rank, dimensions in candidates_iter:
                     if _deadline_reached(stats):
-                        return None
+                        return _incomplete_attempt(
+                            items, item_index, containers, states, "extreme_point_ffd",
+                            ConstructionTerminationReason.TIME_LIMIT_REACHED,
+                            AttemptStatistics(
+                                containers_tested, candidates_tested, orientations_tested,
+                            ),
+                            AttemptStatistics(
+                                attempt_containers_tested,
+                                stats.extreme_points_evaluated - start_candidates,
+                                stats.orientation_candidates_evaluated - start_orientations,
+                            ),
+                        )
                     stats.extreme_points_evaluated += 1
                     stats.orientation_candidates_evaluated += 1
+                    candidates_tested += 1
+                    orientations_tested += 1
                     candidate = candidate_placement(state, item, point, dimensions)
                     if selected_policy_allows(state, candidate, tolerance, policy):
                         candidates.append(FirstFitCandidate(
@@ -179,11 +302,24 @@ def pack_order_first_fit(
                     selected = state, candidate_selection_policy.select(state, tuple(candidates))
                     break
             if selected is None:
-                return None
+                return _incomplete_attempt(
+                    items, item_index, containers, states, "extreme_point_ffd",
+                    ConstructionTerminationReason.NO_FEASIBLE_CANDIDATE,
+                    AttemptStatistics(
+                        containers_tested, candidates_tested, orientations_tested,
+                    ),
+                    AttemptStatistics(
+                        attempt_containers_tested,
+                        stats.extreme_points_evaluated - start_candidates,
+                        stats.orientation_candidates_evaluated - start_orientations,
+                    ),
+                )
             place_candidate(selected[0], selected[1], tolerance)
             continue
         selected: tuple[ContainerState, Placement] | None = None
         for state in states:
+            containers_tested += 1
+            attempt_containers_tested += 1
             if candidate_point_provider is None:
                 candidates_iter = (
                     (point, dimensions)
@@ -198,9 +334,22 @@ def pack_order_first_fit(
                 )
             for point, dimensions in candidates_iter:
                 if _deadline_reached(stats):
-                    return None
+                    return _incomplete_attempt(
+                        items, item_index, containers, states, "extreme_point_ffd",
+                        ConstructionTerminationReason.TIME_LIMIT_REACHED,
+                        AttemptStatistics(
+                            containers_tested, candidates_tested, orientations_tested,
+                        ),
+                        AttemptStatistics(
+                            attempt_containers_tested,
+                            stats.extreme_points_evaluated - start_candidates,
+                            stats.orientation_candidates_evaluated - start_orientations,
+                        ),
+                    )
                 stats.extreme_points_evaluated += 1
                 stats.orientation_candidates_evaluated += 1
+                candidates_tested += 1
+                orientations_tested += 1
                 candidate = candidate_placement(state, item, point, dimensions)
                 if selected_policy_allows(state, candidate, tolerance, policy):
                     selected = state, candidate
@@ -208,9 +357,27 @@ def pack_order_first_fit(
             if selected is not None:
                 break
         if selected is None:
-            return None
+            return _incomplete_attempt(
+                items, item_index, containers, states, "extreme_point_ffd",
+                ConstructionTerminationReason.NO_FEASIBLE_CANDIDATE,
+                AttemptStatistics(
+                    containers_tested, candidates_tested, orientations_tested,
+                ),
+                AttemptStatistics(
+                    attempt_containers_tested,
+                    stats.extreme_points_evaluated - start_candidates,
+                    stats.orientation_candidates_evaluated - start_orientations,
+                ),
+            )
         place_candidate(selected[0], selected[1], tolerance)
-    return [placement for state in states for placement in state.placements]
+    return _complete_attempt(
+        items, containers, states, "extreme_point_ffd",
+        AttemptStatistics(
+            attempt_containers_tested,
+            stats.extreme_points_evaluated - start_candidates,
+            stats.orientation_candidates_evaluated - start_orientations,
+        ),
+    )
 
 
 def _candidate_points(
@@ -258,24 +425,105 @@ def constructive_search(
     ordered_items: list[Item], containers: list[Container], tolerance: float,
     subset_limit: int, pack_order: PackOrder, policy: PlacementFeasibilityPolicy,
     *, deadline_monotonic: float | None = None,
+    container_subset_policy: ContainerSubsetSelectionPolicy | None = None,
+    container_assignment_planner: ContainerAssignmentPlanner | None = None,
 ) -> ConstructiveSearchResult:
     total_weight = sum(value.weight_kg for value in ordered_items)
     total_volume = sum(value.volume_m3 for value in ordered_items)
     stats = SearchStats(deadline_monotonic=deadline_monotonic)
-    for subset in candidate_subsets(containers, subset_limit):
+    best_partial: ConstructionAttemptResult | None = None
+    best_partial_containers: tuple[Container, ...] = ()
+    subsets = (
+        candidate_subsets(containers, subset_limit)
+        if container_subset_policy is None
+        else container_subset_policy.candidates(containers, ordered_items)
+    )
+    for subset in subsets:
         if _deadline_reached(stats):
             return ConstructiveSearchResult(None, (), stats, time_limit_reached=True)
         stats.candidate_subsets_evaluated += 1
+        attempt = {
+            "container_ids": [value.container_id for value in subset],
+            "container_count": len(subset),
+            "total_cost": sum(value.cost for value in subset),
+            "status": "packing_failed",
+        }
         if sum(value.max_weight_kg for value in subset) + tolerance < total_weight:
+            attempt["status"] = "aggregate_payload_infeasible"
+            if len(stats.subset_attempts) < 128:
+                stats.subset_attempts.append(attempt)
             continue
         if sum(value.volume_m3 for value in subset) + tolerance < total_volume:
+            attempt["status"] = "aggregate_volume_infeasible"
+            if len(stats.subset_attempts) < 128:
+                stats.subset_attempts.append(attempt)
             continue
-        for container_order in container_orders(subset):
-            stats.packing_attempts += 1
-            placements = pack_order(ordered_items, container_order, tolerance, stats, policy)
+        plans = (
+            (None,)
+            if container_assignment_planner is None
+            else container_assignment_planner.plans(
+                subset, ordered_items, deadline_monotonic=deadline_monotonic
+            )
+        )
+        if not plans:
+            attempt["status"] = (
+                "time_limit" if _deadline_reached(stats)
+                else "assignment_planner_found_no_plan"
+            )
+            if len(stats.subset_attempts) < 128:
+                stats.subset_attempts.append(attempt)
             if stats.time_limit_reached:
-                return ConstructiveSearchResult(None, (), stats, time_limit_reached=True)
-            if placements is not None:
-                chosen = tuple({value.container_id: value for value in container_order}.values())
-                return ConstructiveSearchResult(placements, chosen, stats)
-    return ConstructiveSearchResult(None, (), stats)
+                return ConstructiveSearchResult(
+                    None, (), stats, time_limit_reached=True
+                )
+            continue
+        for plan in plans:
+            if plan is not None:
+                stats.assignment_plans_evaluated += 1
+            orders = (
+                (tuple(sorted(subset, key=lambda value: value.container_id)),)
+                if plan is not None
+                else container_orders(subset)
+            )
+            for container_order in orders:
+                preference_policy = (
+                    None if plan is None else ContainerPreferencePolicy(plan)
+                )
+                stats.packing_attempts += 1
+                pack_attempt = pack_order(
+                    ordered_items, container_order, tolerance, stats,
+                    policy, preference_policy,
+                )
+                if (
+                    not pack_attempt.complete
+                    and (
+                        best_partial is None
+                        or len(pack_attempt.placements) > len(best_partial.placements)
+                    )
+                ):
+                    best_partial = pack_attempt
+                    best_partial_containers = container_order
+                if stats.time_limit_reached:
+                    attempt["status"] = "time_limit"
+                    if len(stats.subset_attempts) < 128:
+                        stats.subset_attempts.append(attempt)
+                    return ConstructiveSearchResult(
+                        pack_attempt, container_order, stats, time_limit_reached=True,
+                    )
+                if pack_attempt.complete:
+                    attempt["status"] = "feasible"
+                    if plan is not None:
+                        attempt["assignment"] = plan.metadata()
+                        stats.selected_assignment_metadata = {
+                            **plan.metadata(),
+                            **preference_policy.metadata(list(pack_attempt.placements)),
+                        }
+                    if len(stats.subset_attempts) < 128:
+                        stats.subset_attempts.append(attempt)
+                    chosen = tuple({
+                        value.container_id: value for value in container_order
+                    }.values())
+                    return ConstructiveSearchResult(pack_attempt, chosen, stats)
+        if len(stats.subset_attempts) < 128:
+            stats.subset_attempts.append(attempt)
+    return ConstructiveSearchResult(best_partial, best_partial_containers, stats)

@@ -1,6 +1,44 @@
 # Changelog
 
+## Unreleased — Level 8 soft stop affinity
+
+- Replaced hard aggregate item-to-container assignment with a fixed-subset
+  soft-affinity plan for Level 8 Best Fit.
+- Added deterministic geometric fallback within the subset, explicit
+  `order_id` no-split semantics, and planned-versus-actual affinity evidence.
+- Kept compact and delivery-priority candidates, full Level 1--8 validation,
+  strict LIFO, sequential replay, and the FFD comparator unchanged.
+
+## Unreleased — Shared large synthetic instances
+
+- Added an empirical template catalog generator for large physical item populations.
+- Added repeated physical container fleets where instances of one type share identical specifications.
+- Added reproducible Level 8 delivery enrichment, capacity audit and generation manifests for 1k–1m profiles.
+- Classified large profiles as solver-research or data-pipeline-only with enforced realized capacity margins.
+- Added execution-intent guards that allow preparation but reject pipeline-only data in solver experiments and benchmarks.
+- Added a bounded-memory generated-dataset inspector with stream/materialize modes,
+  full provenance and cross-file consistency checks, isolated reports, and
+  `psutil`/`tracemalloc` memory evidence without invoking a solver.
+- Validated bounded-memory streaming through 100k items / 5k containers and
+  explicitly deferred all 1m profiles as unvalidated future references.
+
+- Replaced Level 8's fixed four-container exhaustive threshold with an
+  adaptive container-subset policy: exact enumeration for small catalogs and
+  a bounded diverse portfolio for larger catalogs. Added aggregate capacity
+  lower bounds, per-subset attempt diagnostics, and a delivery/support
+  precedence gate so static-LIFO candidates cannot later fail replay solely
+  because a supporter belongs to an earlier delivery stop. Levels 1--7 retain
+  their canonical subset behavior.
+
 ## Unreleased
+
+- Add a Level 8 cross-level comparison profile that preserves all 501 public
+  3DBPPsi rows, enriches only declared delivery metadata, and uses a C1-C10
+  catalog matching Level 1 containers and their deterministic extension.
+- Persist dataset/catalog/comparison identity in instance and run metadata;
+  Streamlit now previews container dimensions, volume, payload, and cost.
+- Make offline Haversine routing the only web option when no server-side
+  Google Routes key exists; the optional Google adapter remains available.
 
 - Add Level 8 web profiles for 6/2, 20/5, and custom 100/10 experiments.
 - Add explicit delivery-stop CSV validation, deterministic offline routing,
@@ -369,3 +407,10 @@
 
 - Implemented the complete Level 1 sparse MILP, CLI, validation, reporting, tests, and reproducible data preparation.
 - Explicitly excluded rotation, stacking, support, and stability constraints.
+- Added bounded Level 8 container-elimination search over complete support
+  closures, with full Level 1--8 revalidation and explicit diagnostics.
+  Fragmented receiver space now triggers bounded conflict-neighborhood
+  destroy/reinsert (`4/8/12`) before the valid baseline is retained.
+- Added an optional hierarchical stop-aware beam assignment candidate for
+  Level 8 Best Fit. It assigns compound roots within cardinality-ordered
+  subsets and cannot replace a valid baseline when bounded search fails.

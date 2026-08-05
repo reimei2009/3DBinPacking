@@ -1,4 +1,9 @@
 extends: ../default.yaml
+data_identity:
+  profile_kind: semantic_fixture
+  dataset_id: level_08_sequential_delivery_20_fixture_v1
+  container_catalog_id: level_08_sequential_delivery_fixture_containers_v1
+  comparison_group_id: null
 project:
   level_id: level_08
   algorithm_id: extreme_point_best_fit_delivery

@@ -469,6 +469,31 @@ def test_level8_generic_runtime_is_config_driven_and_records_delivery_distributi
     assert result.metadata["compound_item_ordering_source_field"] == "delivery_priority"
     assert result.metadata["strict_lifo_candidate_feasibility_enabled"] is True
     assert result.metadata["strict_lifo_candidates_evaluated"] > 0
+    assert result.metadata["delivery_container_elimination_enabled"] is True
+    assert result.metadata["delivery_container_elimination_initial_count"] >= (
+        result.metadata["delivery_container_elimination_final_count"]
+    )
+    assert result.metadata["delivery_container_elimination_termination_reason"] in {
+        "container_eliminated", "no_valid_elimination", "time_limit",
+        "no_pipeline_budget",
+    }
+    if algorithm == GENERIC_BEST_FIT:
+        assert result.metadata["delivery_stop_assignment_skip_reason"] == "candidate_evaluated"
+        assignment_record = next(
+            value
+            for value in result.metadata["delivery_construction_candidates"]
+            if value["mode"] == "stop_aware_fixed_subset"
+        )
+        assert assignment_record["assignment_mode"] == (
+            "fixed_subset_soft_stop_affinity_v1"
+        )
+        assert assignment_record["assignment_planned_container_count"] >= 1
+        assert assignment_record["assignment_actual_container_count"] >= 1
+        assert assignment_record["assignment_preferred_hits"] >= 0
+        assert assignment_record["assignment_fallback_count"] >= 0
+        assert assignment_record["assignment_failure_stage"] == "none"
+    else:
+        assert result.metadata["delivery_stop_assignment_skip_reason"] == "best_fit_only"
     assert get_level("level_08").validate_run(Path(result.metadata["run_dir"])).valid
 
 
@@ -501,6 +526,44 @@ def test_level8_runtime_forwards_sequential_construction_settings(
         == "hard_every_reverse_loading_state_v1"
     )
     assert result.metadata["sequential_balance_candidates_evaluated"] > 0
+
+
+def test_optional_stop_assignment_timeout_keeps_valid_baseline(
+    root: Path, tmp_path: Path,
+) -> None:
+    config = deepcopy(load_config(root / "config/level_08/default.yaml"))
+    config["paths"]["processed_dir"] = str(tmp_path / "processed")
+    config["paths"]["manifest_json"] = str(
+        tmp_path / "processed" / "latest_manifest.json"
+    )
+    config["paths"]["output_root"] = str(tmp_path / "outputs")
+    config["delivery_stop_assignment"] = {
+        **config["delivery_stop_assignment"],
+        "enabled": True,
+        "time_limit_seconds": 0,
+    }
+    config_path = tmp_path / "assignment_timeout.yaml"
+    config_path.write_text(
+        yaml.safe_dump(config, sort_keys=False), encoding="utf-8"
+    )
+
+    result = run_experiment(_request(
+        config_path,
+        algorithm_id=GENERIC_BEST_FIT,
+        item_count=6,
+        container_count=2,
+    ))
+
+    assignment_record = next(
+        value for value in result.metadata["delivery_construction_candidates"]
+        if value["mode"] == "stop_aware_fixed_subset"
+    )
+    assert assignment_record["solver_status"] == "TIME_LIMIT"
+    assert result.solve.status == "FEASIBLE"
+    assert result.validation is not None and result.validation.valid
+    assert result.metadata["delivery_construction_mode_selected"] != (
+        "stop_aware_fixed_subset"
+    )
 
 
 @pytest.mark.parametrize("algorithm", [GENERIC_BEST_FIT, GENERIC_FFD])

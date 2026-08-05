@@ -49,6 +49,84 @@ def _level8_web_profiles(root: Path) -> dict[str, dict[str, Any]]:
     return {str(key): dict(value) for key, value in profiles.items()}
 
 
+def _level8_profile_metadata(
+    profile_id: str, profile: dict[str, Any], config: dict[str, Any]
+) -> dict[str, str]:
+    """Return presentation metadata without coupling the UI to one registry schema."""
+    paths = dict(config.get("paths", {}))
+    identity = dict(config.get("data_identity", {}))
+    data_kind = str(
+        identity.get("profile_kind")
+        or profile.get(
+            "data_kind",
+            "cross_level_comparable"
+            if bool(profile.get("cross_level_comparable", False))
+            else "semantic_fixture",
+        )
+    )
+    dataset_id = str(
+        identity.get("dataset_id")
+        or profile.get("dataset_id")
+        or config.get("dataset_id")
+        or Path(str(paths.get("raw_items_csv", "undeclared"))).stem
+    )
+    catalog_id = str(
+        identity.get("container_catalog_id")
+        or profile.get("container_catalog_id")
+        or config.get("container_catalog_id")
+        or Path(str(paths.get("raw_containers_csv", "inline_containers"))).stem
+    )
+    return {
+        "profile_id": profile_id,
+        "data_kind": data_kind,
+        "dataset_id": dataset_id,
+        "container_catalog_id": catalog_id,
+        "comparison_group_id": str(
+            identity.get("comparison_group_id")
+            or profile.get("comparison_group_id", "")
+        ),
+    }
+
+
+def _configured_container_preview(
+    root: Path, config: dict[str, Any], container_count: int
+) -> pd.DataFrame:
+    """Build a read-only preview from either a CSV catalog or inline containers."""
+    raw_path = config.get("paths", {}).get("raw_containers_csv")
+    if raw_path:
+        path = Path(str(raw_path))
+        path = path if path.is_absolute() else root / path
+        frame = pd.read_csv(path, encoding="utf-8-sig")
+    else:
+        frame = pd.DataFrame(config.get("containers", []))
+    if frame.empty:
+        return frame
+    if "availability" in frame:
+        frame = frame[pd.to_numeric(frame["availability"], errors="coerce") == 1]
+    frame = frame.head(container_count).copy()
+    required_dimensions = {"length_mm", "width_mm", "height_mm"}
+    if "volume_m3" not in frame and required_dimensions.issubset(frame.columns):
+        frame["volume_m3"] = (
+            pd.to_numeric(frame["length_mm"])
+            * pd.to_numeric(frame["width_mm"])
+            * pd.to_numeric(frame["height_mm"])
+            / 1_000_000_000.0
+        )
+    columns = [
+        "container_id", "length_mm", "width_mm", "height_mm",
+        "volume_m3", "max_weight_kg", "cost",
+    ]
+    return frame[[value for value in columns if value in frame.columns]]
+
+
+def _routing_provider_options(environ: dict[str, str] | None = None) -> tuple[str, ...]:
+    """Google routing is selectable only when its server-side key is configured."""
+    values = os.environ if environ is None else environ
+    if str(values.get("GOOGLE_ROUTES_API_KEY", "")).strip():
+        return ("offline", "google_routes")
+    return ("offline",)
+
+
 def _snapshot_uploaded_stops(uploaded: Any) -> Path:
     """Persist one uploaded CSV outside the source tree until the run snapshots it."""
     content = uploaded.getvalue()
@@ -507,6 +585,14 @@ def _render_logistics_route(
     )
     if route.get("warning"):
         st.warning(str(route["warning"]))
+    if route.get("provider_used") == "offline":
+        st.caption(
+            "Tuyến offline theo delivery_priority; khoảng cách Haversine (đường chim bay), "
+            "thời gian ước tính ở 35 km/h, không phản ánh mạng đường hoặc giao thông thực."
+            if language == "vi"
+            else "Offline route in delivery_priority order; Haversine straight-line distance "
+            "and duration estimated at 35 km/h, not real roads or traffic."
+        )
     browser_key = os.environ.get("GOOGLE_MAPS_BROWSER_KEY", "").strip()
     if browser_key and route.get("provider_used") == "google_routes":
         _render_google_route_map(
@@ -1163,9 +1249,41 @@ def main() -> None:
         if level8_profile is not None
         else max(limits.configured_containers, 1)
     )
+    inventory_search_supported = (
+        level_id == "level_01"
+        and algorithm_id in {"extreme_point_best_fit", "extreme_point_ffd"}
+    )
+    inventory_search_config = dict(config.get("container_search", {}))
+    inventory_search_enabled = False
+    if inventory_search_supported:
+        inventory_search_enabled = st.sidebar.checkbox(
+            (
+                "Tìm container tốt nhất trong toàn bộ kho"
+                if language == "vi"
+                else "Search the full container inventory"
+            ),
+            value=bool(inventory_search_config.get("enabled", False)),
+            key="level_01_inventory_search_enabled",
+            help=(
+                "Số container bên dưới là giới hạn sử dụng ban đầu; hệ thống vẫn đọc toàn bộ catalog."
+                if language == "vi"
+                else "The count below is the initial usage limit; the full catalog remains searchable."
+            ),
+        )
     container_count = int(st.sidebar.number_input(
-        t("containers", language), min_value=1,
-        max_value=container_max if level_id == "level_08" else None,
+        (
+            "Số container sử dụng ban đầu"
+            if language == "vi" and inventory_search_enabled
+            else "Initial used-container count"
+            if inventory_search_enabled
+            else t("containers", language)
+        ),
+        min_value=1,
+        max_value=(
+            limits.configured_containers
+            if inventory_search_enabled
+            else container_max if level_id == "level_08" else None
+        ),
         step=1, key="container_count",
         disabled=level8_fixed_profile,
         help=(
@@ -1178,6 +1296,102 @@ def main() -> None:
             f"{limits.configured_containers} are explicitly configured; larger counts are deterministically extended Level 1 containers."
         ),
     ))
+    inventory_search_auto_increase = False
+    inventory_search_max_count = container_count
+    if inventory_search_enabled:
+        st.sidebar.caption(
+            (
+                f"Kho có {limits.configured_containers} physical container; solver sẽ xét catalog thay vì lấy prefix."
+                if language == "vi"
+                else f"The inventory has {limits.configured_containers} physical containers; the solver searches the catalog instead of a prefix."
+            )
+        )
+        inventory_search_auto_increase = st.sidebar.checkbox(
+            (
+                "Tự tăng số container khi chưa có nghiệm"
+                if language == "vi"
+                else "Automatically increase the container count"
+            ),
+            value=bool(
+                inventory_search_config.get(
+                    "automatically_increase_container_count", False
+                )
+            ),
+            key="level_01_inventory_search_auto_increase",
+        )
+        configured_maximum = max(
+            container_count,
+            min(
+                int(inventory_search_config.get(
+                    "max_used_container_count", limits.configured_containers
+                )),
+                limits.configured_containers,
+            ),
+        )
+        inventory_search_max_count = int(st.sidebar.number_input(
+            (
+                "Số container sử dụng tối đa"
+                if language == "vi"
+                else "Maximum used-container count"
+            ),
+            min_value=container_count,
+            max_value=limits.configured_containers,
+            value=configured_maximum,
+            step=1,
+            key="level_01_inventory_search_max_count",
+            disabled=not inventory_search_auto_increase,
+        ))
+    if level_id == "level_08" and level8_profile is not None:
+        profile_metadata = _level8_profile_metadata(
+            str(level8_profile_id), level8_profile, config
+        )
+        comparable = profile_metadata["data_kind"] == "cross_level_comparable"
+        kind_labels = {
+            "cross_level_comparable": {
+                "vi": "Dữ liệu so sánh liên level",
+                "en": "Cross-level comparable data",
+            },
+            "semantic_fixture": {
+                "vi": "Dữ liệu fixture ngữ nghĩa",
+                "en": "Semantic fixture data",
+            },
+            "synthetic_research": {
+                "vi": "Dữ liệu nghiên cứu synthetic",
+                "en": "Synthetic research data",
+            },
+        }
+        kind_label = kind_labels.get(
+            profile_metadata["data_kind"],
+            {"vi": "Dữ liệu Level 8", "en": "Level 8 data"},
+        )
+        st.sidebar.markdown(
+            f"**{kind_label[language]}**"
+        )
+        st.sidebar.caption(
+            f"Dataset: `{profile_metadata['dataset_id']}` · "
+            f"Container catalog: `{profile_metadata['container_catalog_id']}`"
+        )
+        if comparable:
+            st.sidebar.info(
+                "Chỉ so sánh kết quả khi dataset, catalog container, checksum tập item, "
+                "cách chọn và seed hoàn toàn giống nhau."
+                if language == "vi"
+                else "Compare results only when dataset, container catalog, selected-item "
+                "checksum, selection strategy, and seed all match."
+            )
+        with st.sidebar.expander(
+            "Thông số container" if language == "vi" else "Container specifications"
+        ):
+            preview = _configured_container_preview(root, config, container_count)
+            if preview.empty:
+                st.caption(
+                    "Không có catalog container để hiển thị."
+                    if language == "vi"
+                    else "No container catalog is available for preview."
+                )
+            else:
+                st.dataframe(preview, hide_index=True, width="stretch")
+
     item_selection_strategy = "prefix"
     item_selection_seed: int | None = None
     if level_id == "level_08":
@@ -1203,6 +1417,19 @@ def main() -> None:
     default_parameters = config.get("solver", {}) if algorithm_id == "milp_big_m" else config.get("algorithms", {}).get(algorithm_id, {})
     algorithm_parameters = _algorithm_parameters(algorithm_id, default_parameters, language)
     config_overrides = _level_config_overrides(level_id, config, language)
+    if inventory_search_supported:
+        config_overrides = {
+            **config_overrides,
+            "container_search": {
+                **inventory_search_config,
+                "enabled": inventory_search_enabled,
+                "initial_used_container_count": container_count,
+                "max_used_container_count": inventory_search_max_count,
+                "automatically_increase_container_count": (
+                    inventory_search_auto_increase
+                ),
+            },
+        }
     route_input_blocked = False
     if level_id == "level_08" and algorithm_id in {
         "extreme_point_best_fit_delivery",
@@ -1232,13 +1459,30 @@ def main() -> None:
             value=bool(routing_config.get("enabled", True)),
             key="level_08_routing_enabled",
         )
+        provider_options = _routing_provider_options()
+        configured_provider = str(routing_config.get("provider", "offline"))
+        if configured_provider not in provider_options:
+            configured_provider = "offline"
+        if (
+            "level_08_routing_provider" in st.session_state
+            and st.session_state["level_08_routing_provider"] not in provider_options
+        ):
+            del st.session_state["level_08_routing_provider"]
         routing_provider = st.sidebar.selectbox(
             "Nguồn tuyến đường" if language == "vi" else "Route provider",
-            ("offline", "google_routes"),
-            index=0 if routing_config.get("provider", "offline") == "offline" else 1,
+            provider_options,
+            index=provider_options.index(configured_provider),
             key="level_08_routing_provider",
             disabled=not routing_enabled,
         )
+        if routing_enabled and routing_provider == "offline":
+            st.sidebar.caption(
+                "Tuyến offline đi theo delivery_priority. Khoảng cách là Haversine "
+                "(đường chim bay); thời gian ước tính với vận tốc 35 km/h và không phản ánh giao thông thực."
+                if language == "vi"
+                else "The offline route follows delivery_priority. Distance uses Haversine "
+                "(straight-line); duration assumes 35 km/h and does not represent road traffic."
+            )
         uploaded_stops = st.sidebar.file_uploader(
             "CSV điểm giao (tùy chọn)"
             if language == "vi"

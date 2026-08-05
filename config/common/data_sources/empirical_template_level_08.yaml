@@ -1,0 +1,22 @@
+adapter_id: csv_column_mapping_v1
+source_id: empirical_template_physical_instances_v1
+columns:
+  id_item: [id_item]
+  length: [length]
+  width: [width]
+  height: [height]
+  weight: [weight]
+  nesting_height: [nesting_height]
+  stackability_code: [stackability_code]
+  forced_orientation: [forced_orientation]
+  max_stackability: [max_stackability]
+  delivery_priority: [delivery_priority]
+  delivery_stop_id: [delivery_stop_id]
+  delivery_data_source: [delivery_data_source]
+nesting:
+  semantics: undeclared
+  data_source: public_3dbppsi_preserved_inactive
+delivery:
+  semantics: priority_and_stop
+  data_source: empirical_template_level_08_enrichment_v1
+extra_columns: preserve

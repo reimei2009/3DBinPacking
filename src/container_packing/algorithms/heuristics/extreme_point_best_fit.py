@@ -8,7 +8,12 @@ from time import perf_counter
 
 from scipy.optimize import OptimizeResult
 
-from ..contracts import AlgorithmOutcome
+from ..contracts import (
+    AlgorithmOutcome,
+    AttemptStatistics,
+    ConstructionAttemptResult,
+    ConstructionTerminationReason,
+)
 from ..feasibility import FixedOrientationFeasibilityPolicy, PlacementFeasibilityPolicy
 from ..orientation import OrientationProvider, fixed_orientation_provider
 from .extreme_point_core import (
@@ -20,9 +25,16 @@ from .extreme_point_core import (
     place_candidate,
     resolved_item_order,
     selected_policy_allows,
+    _complete_attempt,
+    _incomplete_attempt,
 )
 from .candidate_scoring import CandidateScoringPolicy
 from .candidate_points import CandidatePointProvider
+from .container_subset_selection import ContainerSubsetSelectionPolicy
+from .container_assignment import (
+    ContainerAssignmentPlanner,
+    ContainerPreferencePolicy,
+)
 from ...schemas import Container, Item, Placement, SolveResult
 
 
@@ -69,18 +81,38 @@ def pack_order_best_fit(
     policy: PlacementFeasibilityPolicy, *, orientation_provider: OrientationProvider | None = None,
     candidate_scoring_policy: CandidateScoringPolicy | None = None,
     candidate_point_provider: CandidatePointProvider | None = None,
-) -> list[Placement] | None:
+    container_preference_policy: ContainerPreferencePolicy | None = None,
+) -> ConstructionAttemptResult:
     """Place each item at the best feasible container/extreme-point candidate."""
     selected_provider = orientation_provider or fixed_orientation_provider()
     states = [ContainerState(container) for container in containers]
-    for item in items:
+    start_candidates = stats.extreme_points_evaluated
+    start_orientations = stats.orientation_candidates_evaluated
+    attempt_containers_tested = 0
+    for item_index, item in enumerate(items):
+        containers_tested = 0
+        candidates_tested = 0
+        orientations_tested = 0
         if stats.time_limit_reached or (
             stats.deadline_monotonic is not None and perf_counter() >= stats.deadline_monotonic
         ):
             stats.time_limit_reached = True
-            return None
+            return _incomplete_attempt(
+                items, item_index, containers, states, "extreme_point_best_fit",
+                ConstructionTerminationReason.TIME_LIMIT_REACHED,
+                AttemptStatistics(),
+            )
         selected: tuple[tuple[float, ...], ContainerState, Placement] | None = None
         for container_rank, state in enumerate(states):
+            if (
+                container_preference_policy is not None
+                and not container_preference_policy.allows(
+                    item, state.container.container_id
+                )
+            ):
+                continue
+            containers_tested += 1
+            attempt_containers_tested += 1
             if candidate_point_provider is None:
                 candidates_iter = (
                     (point, dimensions)
@@ -96,9 +128,22 @@ def pack_order_best_fit(
             for point, dimensions in candidates_iter:
                 if stats.deadline_monotonic is not None and perf_counter() >= stats.deadline_monotonic:
                     stats.time_limit_reached = True
-                    return None
+                    return _incomplete_attempt(
+                        items, item_index, containers, states, "extreme_point_best_fit",
+                        ConstructionTerminationReason.TIME_LIMIT_REACHED,
+                        AttemptStatistics(
+                            containers_tested, candidates_tested, orientations_tested,
+                        ),
+                        AttemptStatistics(
+                            attempt_containers_tested,
+                            stats.extreme_points_evaluated - start_candidates,
+                            stats.orientation_candidates_evaluated - start_orientations,
+                        ),
+                    )
                 stats.extreme_points_evaluated += 1
                 stats.orientation_candidates_evaluated += 1
+                candidates_tested += 1
+                orientations_tested += 1
                 placement = candidate_placement(state, item, point, dimensions)
                 if not selected_policy_allows(state, placement, tolerance, policy):
                     continue
@@ -107,12 +152,41 @@ def pack_order_best_fit(
                     base_score if candidate_scoring_policy is None else
                     candidate_scoring_policy.score(state, placement, container_rank, base_score)
                 )
+                if container_preference_policy is not None:
+                    candidate = (
+                        float(container_preference_policy.rank(
+                            item, state.container.container_id
+                        )),
+                        *candidate,
+                    )
                 if selected is None or candidate < selected[0]:
                     selected = candidate, state, placement
         if selected is None:
-            return None
+            return _incomplete_attempt(
+                items, item_index, containers, states, "extreme_point_best_fit",
+                ConstructionTerminationReason.NO_FEASIBLE_CANDIDATE,
+                AttemptStatistics(
+                    containers_tested, candidates_tested, orientations_tested,
+                ),
+                AttemptStatistics(
+                    attempt_containers_tested,
+                    stats.extreme_points_evaluated - start_candidates,
+                    stats.orientation_candidates_evaluated - start_orientations,
+                ),
+            )
         place_candidate(selected[1], selected[2], tolerance)
-    return [placement for state in states for placement in state.placements]
+        if container_preference_policy is not None:
+            container_preference_policy.record_selection(
+                item, selected[1].container.container_id
+            )
+    return _complete_attempt(
+        items, containers, states, "extreme_point_best_fit",
+        AttemptStatistics(
+            attempt_containers_tested,
+            stats.extreme_points_evaluated - start_candidates,
+            stats.orientation_candidates_evaluated - start_orientations,
+        ),
+    )
 
 
 def solve(
@@ -121,6 +195,8 @@ def solve(
     orientation_provider: OrientationProvider | None = None,
     candidate_scoring_policy: CandidateScoringPolicy | None = None,
     candidate_point_provider: CandidatePointProvider | None = None,
+    container_subset_policy: ContainerSubsetSelectionPolicy | None = None,
+    container_assignment_planner: ContainerAssignmentPlanner | None = None,
 ) -> AlgorithmOutcome:
     """Pack all items with deterministic Best Fit; FEASIBLE is not proof of optimality."""
     settings = settings or {}
@@ -134,16 +210,19 @@ def solve(
     if deadline is not None and (not isinstance(deadline, (int, float)) or not isfinite(float(deadline))):
         raise ValueError("constructive_deadline_monotonic must be a finite monotonic timestamp")
     ordered_items = resolved_item_order(items, settings)
-    def pack_order(items, containers, tolerance, stats, policy):
+    def pack_order(items, containers, tolerance, stats, policy, preference_policy):
         return pack_order_best_fit(
             items, containers, tolerance, stats, policy,
             orientation_provider=selected_orientation_provider,
             candidate_scoring_policy=candidate_scoring_policy,
             candidate_point_provider=candidate_point_provider,
+            container_preference_policy=preference_policy,
         )
     search = constructive_search(
         ordered_items, containers, tolerance, subset_limit, pack_order, selected_policy,
         deadline_monotonic=None if deadline is None else float(deadline),
+        container_subset_policy=container_subset_policy,
+        container_assignment_planner=container_assignment_planner,
     )
 
     priority = 1.0 + sum(value.cost for value in containers)
@@ -191,10 +270,23 @@ def solve(
             "n_items": len(items),
             "n_containers": len(containers),
             "construction_time_limit_reached": search.time_limit_reached,
+            **({} if search.attempt is None else search.attempt.metadata()),
             **selected_orientation_provider.metadata(),
             **selected_policy.metadata(),
             **({} if candidate_scoring_policy is None else candidate_scoring_policy.metadata()),
             **({} if candidate_point_provider is None else candidate_point_provider.metadata()),
+            **({} if container_subset_policy is None else container_subset_policy.metadata()),
+            **(
+                {}
+                if container_subset_policy is None
+                else {"container_subset_attempts": search.stats.subset_attempts}
+            ),
+            "container_assignment_plans_evaluated": search.stats.assignment_plans_evaluated,
+            **search.stats.selected_assignment_metadata,
+            **(
+                {} if container_assignment_planner is None
+                else container_assignment_planner.metadata()
+            ),
         },
     )
 

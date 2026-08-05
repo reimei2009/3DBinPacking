@@ -9,6 +9,7 @@ from container_packing.data_loader import load_config
 from container_packing.algorithms.feasibility import FixedOrientationFeasibilityPolicy
 from container_packing.levels.level_08_delivery_repair import DeliveryRepairEngine
 from container_packing.levels.level_08_delivery_scoring import (
+    DeliveryDependencyFeasibilityPolicy,
     SequentialBalanceFeasibilityPolicy,
     StrictLifoFeasibilityPolicy,
 )
@@ -110,6 +111,40 @@ def test_strict_lifo_feasibility_accepts_early_item_in_front(root: Path) -> None
         tolerance=1e-6,
     )
     assert policy.metadata()["strict_lifo_valid_candidates"] == 1
+
+
+def test_delivery_dependency_policy_rejects_later_item_on_earlier_supporter() -> None:
+    items = _items()
+    policy = DeliveryDependencyFeasibilityPolicy(
+        {item.item_id: item for item in items},
+        FixedOrientationFeasibilityPolicy(),
+    )
+    container = Container("C1", 200, 80, 120, 100, 1)
+    earlier_supporter = _placement("EARLY", 0)
+    later_candidate = Placement("LATE", "C1", 0, 0, 60, 100, 80, 60, 10)
+
+    assert not policy.allows(
+        container, [earlier_supporter], later_candidate,
+        loaded_weight_kg=10, tolerance=1e-6,
+    )
+    assert policy.metadata()["delivery_dependency_rejected_candidates"] == 1
+
+
+def test_delivery_dependency_policy_accepts_earlier_item_on_later_supporter() -> None:
+    items = _items()
+    policy = DeliveryDependencyFeasibilityPolicy(
+        {item.item_id: item for item in items},
+        FixedOrientationFeasibilityPolicy(),
+    )
+    container = Container("C1", 200, 80, 120, 100, 1)
+    later_supporter = _placement("LATE", 0)
+    earlier_candidate = Placement("EARLY", "C1", 0, 0, 60, 100, 80, 60, 10)
+
+    assert policy.allows(
+        container, [later_supporter], earlier_candidate,
+        loaded_weight_kg=10, tolerance=1e-6,
+    )
+    assert policy.metadata()["delivery_dependency_valid_candidates"] == 1
 
 
 def test_reverse_loading_balance_policy_keeps_level7_band_hard(

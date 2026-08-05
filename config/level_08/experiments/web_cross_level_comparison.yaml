@@ -1,0 +1,55 @@
+extends: ../default.yaml
+project:
+  level_id: level_08
+  algorithm_id: extreme_point_ffd_delivery
+  random_seed: 42
+instance:
+  item_count: 20
+  container_count: 5
+  item_selection_strategy: prefix
+  item_selection_seed: null
+data_identity:
+  profile_kind: cross_level_comparable
+  dataset_id: public_3dbppsi_dataset_small_delivery_enriched_v1
+  container_catalog_id: cross_level_container_catalog_v1
+  comparison_group_id: public_3dbppsi_cross_level_v1
+paths:
+  raw_items_csv: data/raw/level_08/cross_level/dataset_small_delivery_items_v1.csv
+  raw_containers_csv: data/raw/level_08/cross_level/container_catalog_c1_c10_v1.csv
+  items_source_mapping: config/common/data_sources/level_08_cross_level_delivery.yaml
+  processed_dir: data/processed/level_08/web_cross_level_comparison
+  manifest_json: data/processed/level_08/web_cross_level_comparison/latest_manifest.json
+delivery_construction_mode: compact_then_delivery_priority
+delivery_repair_max_candidates: 2048
+delivery_repair_contributor_limit: 20
+delivery_repair_relocation_transfer_max_candidates: 1024
+delivery_repair_swap_max_candidates: 512
+delivery_repair_neighborhood_max_candidates: 512
+delivery_repair_extra_max_candidates: 512
+delivery_container_elimination_enabled: true
+delivery_container_elimination_time_limit_seconds: 5
+delivery_container_elimination_lns_enabled: true
+delivery_container_elimination_lns_neighborhood_sizes: [4, 8, 12]
+delivery_container_elimination_lns_max_candidates: 2048
+delivery_container_elimination_lns_points_per_group: 24
+delivery_stop_assignment:
+  enabled: true
+  beam_width: 32
+  max_plans_per_subset: 16
+  utilization_target: 0.85
+  time_limit_seconds: 10
+  max_items: 300
+sequential_balance_construction_enabled: true
+sequential_simulation:
+  enabled: true
+  required_when_enabled: true
+  rules_file: config/level_08/sequential_simulation_rules.yaml
+  time_limit_seconds: 45
+routing:
+  enabled: true
+  provider: offline
+  stops_file: data/raw/level_08/routes/web_five_stop_route.csv
+  travel_mode: DRIVE
+  return_to_depot: false
+  timeout_seconds: 10
+  fallback_to_offline: true

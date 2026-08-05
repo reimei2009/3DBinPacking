@@ -1,0 +1,31 @@
+schema_version: "2.0"
+profile_id: override_me
+seed: 8042
+usage_class: solver_research
+
+capacity_policy:
+  minimum_volume_margin_ratio: 1.40
+  minimum_payload_margin_ratio: 1.40
+  reject_below_minimum: true
+
+source:
+  items_file: data/raw/dataset_small_items_original.csv
+  containers_file: data/raw/level_08/cross_level/container_catalog_c1_c10_v1.csv
+  container_types: [C1, C2, C3, C4, C5]
+
+item_population:
+  count: 1000
+  sampling: empirical_template_frequency
+  weight_noise_percent: 0
+
+container_fleet:
+  quantities: {}
+
+level_08_enrichment:
+  delivery_stop_count: 10
+  assignment: balanced_seeded
+
+output:
+  directory: data/interim/synthetic/override_me
+
+allow_intentionally_infeasible: false

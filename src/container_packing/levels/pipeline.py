@@ -9,6 +9,7 @@ from typing import Any, Callable
 
 from ..algorithms.contracts import AlgorithmOutcome
 from ..data_loader import load_config, load_containers, load_items, merge_config
+from ..dataset_usage import DatasetExecutionIntent, validate_dataset_usage
 from ..instance_data import prepare_instance
 from ..reporting import write_run_outputs, write_status_outputs
 from ..runtime.project import find_project_root
@@ -76,6 +77,9 @@ def run_configured_level(
     config_file = Path(config_path).resolve()
     config = load_config(config_file)
     config = merge_config(config, dict(config_overrides or {}))
+    dataset_usage = validate_dataset_usage(
+        find_project_root(__file__), config, DatasetExecutionIntent.SOLVER_EXPERIMENT,
+    )
     seed = int(config.get("project", {}).get("random_seed", 42) if random_seed is None else random_seed)
     if seed < 0:
         raise ValueError(f"random_seed must be zero or greater, got {seed}")
@@ -88,7 +92,11 @@ def run_configured_level(
         item_selection_strategy=item_selection_strategy, item_selection_seed=item_selection_seed,
     )
     config.setdefault("instance", {}).update({
-        "item_count": int(manifest["n_items"]), "container_count": int(manifest["n_containers"]),
+        "item_count": int(manifest["n_items"]),
+        "container_count": int(
+            manifest.get("requested_used_container_count", manifest["n_containers"])
+        ),
+        "container_inventory_count": int(manifest["n_containers"]),
         "item_selection_strategy": manifest["item_selection_strategy"],
         "item_selection_seed": manifest["item_selection_seed"],
         "selected_item_ids_checksum": manifest["selected_item_ids_checksum"],
@@ -104,6 +112,7 @@ def run_configured_level(
         settings = {
             **config.get("solver", {}), "coordinate_tolerance_mm": tolerance,
             "support": config.get("support", {}),
+            "container_search": config.get("container_search", {}),
         }
     else:
         config.setdefault("algorithms", {}).setdefault(algorithm_id, {}).update(overrides)
@@ -131,6 +140,7 @@ def run_configured_level(
             "load_tolerance_kg": config.get("validation", {}).get(
                 "load_tolerance_kg", 1e-6
             ),
+            "container_search": config.get("container_search", {}),
         }
     started = perf_counter()
     outcome = strategy.execute(algorithm_id, items, containers, settings)
@@ -171,6 +181,17 @@ def run_configured_level(
         "selected_item_ids_checksum": manifest["selected_item_ids_checksum"],
         "item_profile": manifest["item_profile"],
         "source_adapter": manifest.get("source_adapter"),
+        "data_identity": manifest.get("data_identity", {}),
+        "data_profile_kind": manifest.get("data_identity", {}).get("profile_kind"),
+        "dataset_usage": dataset_usage.to_dict() if dataset_usage is not None else None,
+        "dataset_id": manifest.get("data_identity", {}).get("dataset_id"),
+        "container_catalog_id": manifest.get("data_identity", {}).get("container_catalog_id"),
+        "container_inventory_count": manifest.get("container_inventory_count"),
+        "requested_used_container_count": manifest.get(
+            "requested_used_container_count"
+        ),
+        "container_search_enabled": manifest.get("container_search_enabled", False),
+        "comparison_group_id": manifest.get("data_identity", {}).get("comparison_group_id"),
         **prevalidation_metadata,
         "active_constraints": list(strategy.active_constraints),
         "inactive_constraints": list(strategy.inactive_constraints),

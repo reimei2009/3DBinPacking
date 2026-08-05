@@ -77,7 +77,9 @@ def test_web_profile_registry_uses_tracked_reproducible_sources(
     root: Path,
 ) -> None:
     registry = load_config(root / "config/level_08/web_profiles.yaml")
+    comparable = registry["profiles"]["comparable"]
     research = registry["profiles"]["research"]
+    comparable_limits = get_instance_limits(comparable["config_file"], root=root)
     limits = get_instance_limits(research["config_file"], root=root)
     manifest = json.loads(
         (
@@ -86,7 +88,12 @@ def test_web_profile_registry_uses_tracked_reproducible_sources(
         ).read_text(encoding="utf-8")
     )
 
-    assert tuple(registry["profiles"]) == ("quick", "standard", "research")
+    assert tuple(registry["profiles"]) == (
+        "quick", "standard", "comparable", "research"
+    )
+    assert comparable["cross_level_comparable"] is True
+    assert comparable_limits.available_items == 501
+    assert comparable_limits.configured_containers == 10
     assert limits.available_items == 100
     assert limits.configured_containers == 10
     assert manifest["item_count"] == 100

@@ -1,4 +1,9 @@
 extends: ../default.yaml
+data_identity:
+  profile_kind: semantic_fixture
+  dataset_id: level_08_web_quick_fixture_v1
+  container_catalog_id: level_08_web_quick_fixture_containers_v1
+  comparison_group_id: null
 instance:
   item_count: 6
   container_count: 2

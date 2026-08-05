@@ -1,0 +1,11 @@
+﻿container_id,length_mm,width_mm,height_mm,max_weight_kg,availability,cost,volume_m3,container_catalog_id,data_status,design_note
+C1,3000,2200,2200,1500,1,650,14.52,cross_level_container_catalog_v1,cross_level_comparable_synthetic_catalog,Matches the canonical Level 1 catalog and deterministic extension rule
+C2,3600,2300,2300,2200,1,760,19.044,cross_level_container_catalog_v1,cross_level_comparable_synthetic_catalog,Matches the canonical Level 1 catalog and deterministic extension rule
+C3,4200,2400,2400,3000,1,880,24.192,cross_level_container_catalog_v1,cross_level_comparable_synthetic_catalog,Matches the canonical Level 1 catalog and deterministic extension rule
+C4,5000,2450,2600,4200,1,1050,31.85,cross_level_container_catalog_v1,cross_level_comparable_synthetic_catalog,Matches the canonical Level 1 catalog and deterministic extension rule
+C5,6000,2500,2800,5500,1,1250,42.0,cross_level_container_catalog_v1,cross_level_comparable_synthetic_catalog,Matches the canonical Level 1 catalog and deterministic extension rule
+C6,6500.0,2550.0,2900.0,6250.0,1,1400.0,48.0675,cross_level_container_catalog_v1,cross_level_comparable_synthetic_catalog,Matches the canonical Level 1 catalog and deterministic extension rule
+C7,7000.0,2600.0,3000.0,7000.0,1,1550.0,54.6,cross_level_container_catalog_v1,cross_level_comparable_synthetic_catalog,Matches the canonical Level 1 catalog and deterministic extension rule
+C8,7500.0,2650.0,3100.0,7750.0,1,1700.0,61.6125,cross_level_container_catalog_v1,cross_level_comparable_synthetic_catalog,Matches the canonical Level 1 catalog and deterministic extension rule
+C9,8000.0,2700.0,3200.0,8500.0,1,1850.0,69.12,cross_level_container_catalog_v1,cross_level_comparable_synthetic_catalog,Matches the canonical Level 1 catalog and deterministic extension rule
+C10,8500.0,2750.0,3300.0,9250.0,1,2000.0,77.1375,cross_level_container_catalog_v1,cross_level_comparable_synthetic_catalog,Matches the canonical Level 1 catalog and deterministic extension rule

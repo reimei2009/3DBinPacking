@@ -9,6 +9,7 @@ from typing import Any
 
 import pandas as pd
 
+from .dataset_usage import DatasetExecutionIntent, validate_dataset_usage
 from .provenance import sha256_file
 from .runtime.project import find_project_root
 from .source_adapter import CsvSourceResult, load_csv_source
@@ -168,11 +169,15 @@ def _item_profile(items: pd.DataFrame) -> dict[str, Any]:
     }
 
 
-def _container_definitions(config: dict[str, Any], requested: int) -> list[dict[str, Any]]:
+def _container_definitions(
+    config: dict[str, Any], requested: int | None,
+) -> list[dict[str, Any]]:
     """Select configured containers and deterministically extend synthetic ones if needed."""
     configured = [dict(value) for value in config.get("containers", [])]
     if not configured:
         raise ValueError("Config must define at least one base container")
+    if requested is None:
+        return configured
     selected = configured[:requested]
     while len(selected) < requested:
         previous = selected[-1]
@@ -190,7 +195,12 @@ def _container_definitions(config: dict[str, Any], requested: int) -> list[dict[
     return selected
 
 
-def _container_frame(root: Path, config: dict[str, Any], requested: int, level_id: str) -> tuple[pd.DataFrame, Path | None]:
+def _container_frame(
+    root: Path,
+    config: dict[str, Any],
+    requested: int | None,
+    level_id: str,
+) -> tuple[pd.DataFrame, Path | None]:
     """Use an immutable canonical container CSV when declared, otherwise config containers."""
     paths = config["paths"]
     raw_value = paths.get("raw_containers_csv")
@@ -223,9 +233,9 @@ def _container_frame(root: Path, config: dict[str, Any], requested: int, level_i
         raise ValueError(f"Raw container file {source_path} is missing required columns: {', '.join(missing)}")
     if frame["container_id"].astype(str).duplicated().any():
         raise ValueError(f"Raw container file {source_path} contains duplicate container_id values")
-    if requested > len(frame):
+    if requested is not None and requested > len(frame):
         raise ValueError(f"Requested {requested} containers but raw container data contains only {len(frame)} rows")
-    selected = frame.head(requested).copy()
+    selected = frame.copy() if requested is None else frame.head(requested).copy()
     for column in ("length_mm", "width_mm", "height_mm", "max_weight_kg", "cost"):
         selected[column] = pd.to_numeric(selected[column], errors="raise")
         if (selected[column] <= 0).any():
@@ -233,8 +243,10 @@ def _container_frame(root: Path, config: dict[str, Any], requested: int, level_i
     if "availability" not in selected:
         selected["availability"] = 1
     selected["availability"] = pd.to_numeric(selected["availability"], errors="raise").astype(int)
-    if (selected["availability"] <= 0).any():
-        raise ValueError(f"Raw container file {source_path} has non-positive availability")
+    if not selected["availability"].isin((0, 1)).all():
+        raise ValueError(
+            f"Raw container file {source_path} has availability outside {{0, 1}}"
+        )
     selected["volume_m3"] = selected["length_mm"] * selected["width_mm"] * selected["height_mm"] / 1_000_000_000
     selected["data_status"] = selected.get("data_status", f"raw_{level_id}")
     selected["unit_note"] = selected.get("unit_note", "mm, kg; source-declared container data")
@@ -257,6 +269,7 @@ def prepare_instance(
     File names, notes, manifest values, and later output names are derived from
     the actual row counts; callers never need to synchronize them manually.
     """
+    dataset_usage = validate_dataset_usage(root, config, DatasetExecutionIntent.DATA_PREPARATION)
     settings = config.get("instance", {})
     if "item_count" not in settings or "container_count" not in settings:
         raise ValueError("Config instance must define item_count and container_count")
@@ -296,10 +309,21 @@ def prepare_instance(
     items["level1_note"] = f"{selection_notes[strategy]}; advanced fields classified by {level_label} contract"
     items["source_url"] = SOURCE_URL
 
-    containers, raw_containers_path = _container_frame(root, config, requested_containers, level_id)
+    container_search = dict(config.get("container_search", {}))
+    inventory_search_enabled = (
+        level_id == "level_01" and container_search.get("enabled", False) is True
+    )
+    containers, raw_containers_path = _container_frame(
+        root,
+        config,
+        None if inventory_search_enabled else requested_containers,
+        level_id,
+    )
     actual_containers = len(containers)
     selection_token = strategy if selection_seed is None else f"{strategy}_seed{selection_seed}"
     run_id = instance_id(actual_items, actual_containers, level_id)
+    if inventory_search_enabled:
+        run_id = f"{run_id}__target{requested_containers}"
     if strategy != "prefix":
         run_id = f"{run_id}__{selection_token}"
 
@@ -315,6 +339,9 @@ def prepare_instance(
         "level_id": level_id,
         "n_items": actual_items,
         "n_containers": actual_containers,
+        "container_inventory_count": actual_containers,
+        "requested_used_container_count": requested_containers,
+        "container_search_enabled": inventory_search_enabled,
         "items_csv": _portable_path(root, items_path),
         "containers_csv": _portable_path(root, containers_path),
         "source_url": SOURCE_URL,
@@ -337,6 +364,8 @@ def prepare_instance(
         "selected_item_ids": items["id_item"].astype(str).tolist(),
         "selected_item_ids_checksum": _selection_checksum(items["id_item"].astype(str).tolist()),
         "item_profile": _item_profile(items),
+        "data_identity": dict(config.get("data_identity", {})),
+        "dataset_usage": dataset_usage.to_dict() if dataset_usage is not None else None,
     }
     latest_manifest = _path(root, paths.get("manifest_json", "data/processed/level1_manifest.json"))
     manifests_dir = processed / "manifests"

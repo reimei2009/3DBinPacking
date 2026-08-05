@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Callable
 
-from ..contracts import AlgorithmOutcome
+from ..contracts import AlgorithmOutcome, ConstructionAttemptResult
 from ..feasibility import PlacementFeasibilityPolicy
 from ..orientation import OrientationProvider
 from ...schemas import Container, Item, Placement
@@ -16,7 +16,7 @@ from .extreme_point_ffd import solve as solve_extreme_point_ffd
 
 RepairPackOrder = Callable[
     [list[Item], tuple[Container, ...], float, SearchStats, PlacementFeasibilityPolicy],
-    list[Placement] | None,
+    ConstructionAttemptResult,
 ]
 
 
@@ -26,7 +26,7 @@ class ConstructionStrategy:
 
     strategy_id: str
     solve_initial: Callable[..., AlgorithmOutcome]
-    pack_repair_order: Callable[..., list[Placement] | None]
+    pack_repair_order: Callable[..., ConstructionAttemptResult]
 
     def initial(
         self,
@@ -52,10 +52,13 @@ class ConstructionStrategy:
         *,
         orientation_provider: OrientationProvider,
     ) -> list[Placement] | None:
-        return self.pack_repair_order(
+        attempt = self.pack_repair_order(
             items, containers, tolerance, stats, policy,
             orientation_provider=orientation_provider,
         )
+        if not attempt.complete:
+            return None
+        return list(attempt.placements)
 
 
 _STRATEGIES = {

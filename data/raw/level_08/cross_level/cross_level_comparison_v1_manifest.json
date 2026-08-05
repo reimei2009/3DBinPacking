@@ -1,0 +1,16 @@
+{
+  "schema_version": "1.0",
+  "dataset_id": "public_3dbppsi_dataset_small_delivery_enriched_v1",
+  "container_catalog_id": "cross_level_container_catalog_v1",
+  "comparison_group_id": "public_3dbppsi_cross_level_v1",
+  "transformation": "preserve source rows; add cyclic five-stop delivery declarations only",
+  "delivery_priority_rule": "source_row_zero_based_modulo_5_plus_1",
+  "source_items": "data/raw/dataset_small_items_original.csv",
+  "source_items_sha256": "33cc4d74b04c34714f1c3ed639396deda5c087a408214f6541d744142b239a1e",
+  "items_file": "data/raw/level_08/cross_level/dataset_small_delivery_items_v1.csv",
+  "items_sha256": "86fe24b9fed6b96fb58081b021f293ecd6693917af89fc67fd79a8320fdc94db",
+  "item_count": 501,
+  "containers_file": "data/raw/level_08/cross_level/container_catalog_c1_c10_v1.csv",
+  "containers_sha256": "a5b8591a90ceef9e79d3baa87eec70e602d3367eb7b4e65a485696c0dc3997d8",
+  "container_count": 10
+}

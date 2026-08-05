@@ -13,6 +13,8 @@ from ..orientation import OrientationProvider, fixed_orientation_provider
 from .extreme_point_core import constructive_search, pack_order_first_fit, resolved_item_order
 from .first_fit_selection import FirstFitCandidateSelectionPolicy
 from .candidate_points import CandidatePointProvider
+from .container_subset_selection import ContainerSubsetSelectionPolicy
+from .container_assignment import ContainerAssignmentPlanner
 from ...schemas import Container, Item, SolveResult
 
 
@@ -22,6 +24,8 @@ def solve(
     orientation_provider: OrientationProvider | None = None,
     candidate_selection_policy: FirstFitCandidateSelectionPolicy | None = None,
     candidate_point_provider: CandidatePointProvider | None = None,
+    container_subset_policy: ContainerSubsetSelectionPolicy | None = None,
+    container_assignment_planner: ContainerAssignmentPlanner | None = None,
 ) -> AlgorithmOutcome:
     """Pack all items with an explicit orientation provider; not globally optimal."""
     settings = settings or {}
@@ -35,7 +39,8 @@ def solve(
     if deadline is not None and (not isinstance(deadline, (int, float)) or not isfinite(float(deadline))):
         raise ValueError("constructive_deadline_monotonic must be a finite monotonic timestamp")
     ordered_items = resolved_item_order(items, settings)
-    def pack_order(items, containers, tolerance, stats, policy):
+    def pack_order(items, containers, tolerance, stats, policy, preference_policy):
+        del preference_policy  # FFD remains the fast comparator in this checkpoint.
         return pack_order_first_fit(
             items, containers, tolerance, stats, policy,
             orientation_provider=selected_orientation_provider,
@@ -45,6 +50,8 @@ def solve(
     search = constructive_search(
         ordered_items, containers, tolerance, subset_limit, pack_order, selected_policy,
         deadline_monotonic=None if deadline is None else float(deadline),
+        container_subset_policy=container_subset_policy,
+        container_assignment_planner=container_assignment_planner,
     )
 
     priority = 1.0 + sum(value.cost for value in containers)
@@ -88,10 +95,23 @@ def solve(
             "n_items": len(items),
             "n_containers": len(containers),
             "construction_time_limit_reached": search.time_limit_reached,
+            **({} if search.attempt is None else search.attempt.metadata()),
             **selected_orientation_provider.metadata(),
             **selected_policy.metadata(),
             **({} if candidate_selection_policy is None else candidate_selection_policy.metadata()),
             **({} if candidate_point_provider is None else candidate_point_provider.metadata()),
+            **({} if container_subset_policy is None else container_subset_policy.metadata()),
+            **(
+                {}
+                if container_subset_policy is None
+                else {"container_subset_attempts": search.stats.subset_attempts}
+            ),
+            "container_assignment_plans_evaluated": search.stats.assignment_plans_evaluated,
+            **search.stats.selected_assignment_metadata,
+            **(
+                {} if container_assignment_planner is None
+                else container_assignment_planner.metadata()
+            ),
         },
     )
 

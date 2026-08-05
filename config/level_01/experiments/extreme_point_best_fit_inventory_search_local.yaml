@@ -1,0 +1,16 @@
+extends: ../default.yaml
+project:
+  algorithm_id: extreme_point_best_fit
+instance:
+  item_count: 3
+  container_count: 1
+container_search:
+  enabled: true
+  initial_used_container_count: 1
+  max_used_container_count: 5
+  automatically_increase_container_count: false
+  exhaustive_max_containers: 10
+  max_candidates_per_count: 32
+  neighborhood_width: 8
+  soft_volume_buffer_ratio: 0.10
+  time_limit_seconds: 30

@@ -142,6 +142,14 @@ def _compound_item_order(items: list[Item], ordering: object) -> list[str]:
     direction = ordering.get("direction")
     if direction not in {"ascending", "descending"}:
         raise ValueError("compound_item_ordering.direction must be ascending or descending")
+    within_group_order = ordering.get("within_group_order", "decreasing_volume")
+    if within_group_order not in {
+        "decreasing_volume", "increasing_volume", "decreasing_weight",
+    }:
+        raise ValueError(
+            "compound_item_ordering.within_group_order must be decreasing_volume, "
+            "increasing_volume, or decreasing_weight"
+        )
     values: dict[str, int] = {}
     for item in items:
         raw = item.source.get(field)
@@ -154,13 +162,31 @@ def _compound_item_order(items: list[Item], ordering: object) -> list[str]:
         if value <= 0:
             raise ValueError(f"Compound item {item.item_id} field {field!r} must be positive")
         values[item.item_id] = value
+    def within_key(item: Item) -> tuple[float, ...]:
+        if within_group_order == "increasing_volume":
+            return (
+                item.volume_m3,
+                max(item.length_mm, item.width_mm, item.height_mm),
+                item.weight_kg,
+            )
+        if within_group_order == "decreasing_weight":
+            return (-item.weight_kg, -item.volume_m3)
+        return (
+            -item.volume_m3,
+            -max(item.length_mm, item.width_mm, item.height_mm),
+            -item.weight_kg,
+        )
+
     return [
-        item.item_id for item in sorted(
+        item.item_id
+        for item in sorted(
             items,
             key=lambda item: (
-                values[item.item_id] if direction == "ascending" else -values[item.item_id], -item.volume_m3,
-                -max(item.length_mm, item.width_mm, item.height_mm),
-                -item.weight_kg, item.item_id,
+                values[item.item_id]
+                if direction == "ascending"
+                else -values[item.item_id],
+                *within_key(item),
+                item.item_id,
             ),
         )
     ]
@@ -174,6 +200,9 @@ def _compound_item_ordering_metadata(ordering: object) -> dict[str, object]:
         "compound_item_ordering": "declared_source_field_order_then_volume_dimension_weight",
         "compound_item_ordering_source_field": ordering["source_field"],
         "compound_item_ordering_direction": ordering["direction"],
+        "compound_item_ordering_within_group": ordering.get(
+            "within_group_order", "decreasing_volume"
+        ),
     }
 
 

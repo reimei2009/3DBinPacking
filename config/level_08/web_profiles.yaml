@@ -2,24 +2,43 @@ schema_version: "1.0"
 level_id: level_08
 profiles:
   quick:
-    label_vi: "Demo nhanh"
-    label_en: "Quick demo"
+    label_vi: "Demo logistics nhanh — fixture 6/2"
+    label_en: "Quick logistics demo — 6/2 fixture"
     mode: fixed
     config_file: config/level_08/experiments/web_quick_demo.yaml
     item_count: 6
     container_count: 2
     delivery_stop_count: 3
+    data_kind: semantic_fixture
+    dataset_id: level_08_web_quick_fixture_v1
+    container_catalog_id: level_08_web_quick_fixture_containers_v1
   standard:
-    label_vi: "Demo tiêu chuẩn"
-    label_en: "Standard demo"
+    label_vi: "Demo logistics ngữ nghĩa — fixture 20/5"
+    label_en: "Logistics semantics demo — 20/5 fixture"
     mode: fixed
     config_file: config/level_08/experiments/web_standard_demo.yaml
     item_count: 20
     container_count: 5
     delivery_stop_count: 3
+    data_kind: semantic_fixture
+    dataset_id: level_08_sequential_delivery_20_fixture_v1
+    container_catalog_id: level_08_sequential_delivery_fixture_containers_v1
+  comparable:
+    label_vi: "So sánh liên level — shared data 20/5"
+    label_en: "Cross-level comparison — shared data 20/5"
+    mode: fixed
+    config_file: config/level_08/experiments/web_cross_level_comparison.yaml
+    item_count: 20
+    container_count: 5
+    delivery_stop_count: 5
+    data_kind: cross_level_comparable
+    cross_level_comparable: true
+    dataset_id: public_3dbppsi_dataset_small_delivery_enriched_v1
+    container_catalog_id: cross_level_container_catalog_v1
+    comparison_group_id: public_3dbppsi_cross_level_v1
   research:
-    label_vi: "Demo nghiên cứu (tùy chỉnh)"
-    label_en: "Research demo (custom)"
+    label_vi: "Demo nghiên cứu synthetic — tùy chỉnh"
+    label_en: "Synthetic research demo — custom"
     mode: custom
     config_file: config/level_08/experiments/web_research_demo.yaml
     item_count: 50
@@ -29,3 +48,6 @@ profiles:
     item_count_max: 100
     container_count_min: 1
     container_count_max: 10
+    data_kind: synthetic_research
+    dataset_id: level_08_web_demo_100_c10_v1
+    container_catalog_id: level_08_synthetic_web_demo_containers_v1

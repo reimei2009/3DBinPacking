@@ -57,11 +57,22 @@ Every execution uses the same pipeline as the CLI and writes to a new directory 
 
 ## Level 8 logistics demo
 
-Level 8 exposes three web profiles:
+The UI distinguishes four data profiles:
 
-- Quick: 6 items, 2 containers, 3 delivery stops;
-- Standard: 20 items, 5 containers, 3 delivery stops;
-- Research: custom 1–100 items and 1–10 containers, with 5 delivery stops.
+- Quick logistics fixture: 6 items / 2 containers / 3 stops;
+- Logistics semantics fixture: 20 items / 5 small fixture containers / 3 stops;
+- Cross-level comparison: 20 public items with the same C1-C5 catalog used by
+  Levels 1-7 and five declared delivery stops;
+- Synthetic research: custom up to 100 items / 10 containers / 5 stops.
+
+Only compare runs when dataset ID, container catalog ID, selected-item
+checksum, selection strategy, and seed all match. The sidebar displays these
+identifiers and previews container dimensions, volume, payload, and cost.
+
+Without `GOOGLE_ROUTES_API_KEY`, only deterministic offline routing is shown.
+It follows declared delivery priority, calculates Haversine straight-line
+distance, and estimates duration at 35 km/h. It does not use a road network,
+traffic data, billing account, or external API.
 
 Choose either `prefix` or deterministic `stable_random` item selection. The
 research dataset and its generator manifest/checksums are tracked under

@@ -13,6 +13,7 @@ import yaml
 
 from ..algorithms.registry import get_algorithm
 from ..data_loader import load_config, merge_config
+from ..dataset_usage import DatasetExecutionIntent, DatasetUsageEvidence, validate_dataset_usage
 from ..experiments.contracts import ExperimentRequest
 from ..experiments.runner import run_experiment
 from ..instance_data import item_selection_fingerprint
@@ -84,6 +85,7 @@ def _input_fingerprint(
     config: dict[str, Any],
     root: Path,
     selection: dict[str, Any] | None = None,
+    dataset_usage: DatasetUsageEvidence | None = None,
 ) -> str:
     """Hash the complete level contract shared by algorithms in one scenario."""
     raw_items = _resolve(root, config["paths"]["raw_items_csv"])
@@ -105,6 +107,9 @@ def _input_fingerprint(
         "model": config.get("model", {}),
         "support": config.get("support", {}),
         "orientation": config.get("orientation", {}),
+        "generation_manifest_checksum": (
+            dataset_usage.generation_manifest_checksum if dataset_usage is not None else None
+        ),
     }
     import hashlib
     import json
@@ -286,6 +291,7 @@ def run_benchmark(
     config_file = _resolve(root, selected_config)
     config = load_config(config_file)
     config = merge_config(config, dict(config_overrides or {}))
+    dataset_usage = validate_dataset_usage(root, config, DatasetExecutionIntent.BENCHMARK_ACCEPTANCE)
     raw_items_path = _resolve(root, config["paths"]["raw_items_csv"])
     mapping_path = (
         _resolve(root, config["paths"]["items_source_mapping"])
@@ -308,6 +314,7 @@ def run_benchmark(
             config=config,
             root=root,
             selection=scenario_selections[scenario.scenario_id],
+            dataset_usage=dataset_usage,
         )
         for scenario in selected_scenarios
     }
@@ -353,6 +360,7 @@ def run_benchmark(
         "environment": environment,
         "config_file": str(config_file),
         "config_overrides": dict(config_overrides or {}),
+        "dataset_usage": dataset_usage.to_dict() if dataset_usage is not None else None,
     }
     write_json(benchmark_dir / "request.json", request_payload)
     resolved_config_path = run_dir / "resolved_config.yaml"
@@ -434,6 +442,7 @@ def run_benchmark(
         "successful_case_count": succeeded,
         "config_file": str(config_file),
         "resolved_config_checksum": sha256_file(resolved_config_path),
+        "dataset_usage": dataset_usage.to_dict() if dataset_usage is not None else None,
         "source_runs": [value for value in results["experiment_run_dir"].dropna().tolist()],
         "artifacts": {
             "canonical": ["manifest.json", "resolved_config.yaml", "benchmark/request.json", "benchmark/results.csv"],

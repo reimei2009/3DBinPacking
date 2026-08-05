@@ -40,7 +40,8 @@ algorithms:
 delivery_construction_mode: compact_then_delivery_priority
 delivery_construction_compare_max_items: 100
 sequential_balance_construction_enabled: false
-delivery_subset_enumeration_threshold: 4
+delivery_subset_exhaustive_max_containers: 8
+delivery_subset_max_candidates_per_count: 32
 delivery_pipeline_time_limit_seconds: 45
 delivery_repair_time_limit_seconds: 45
 delivery_repair_fixed_subset_seconds: 35
@@ -54,3 +55,16 @@ delivery_repair_neighborhood_sizes: [4, 8, 12]
 delivery_repair_operator_time_fractions: [0.5, 0.25, 0.25]
 delivery_repair_extra_max_candidates: 128
 delivery_repair_max_extra_containers: 1
+delivery_container_elimination_enabled: true
+delivery_container_elimination_time_limit_seconds: 5
+delivery_container_elimination_lns_enabled: true
+delivery_container_elimination_lns_neighborhood_sizes: [4, 8, 12]
+delivery_container_elimination_lns_max_candidates: 2048
+delivery_container_elimination_lns_points_per_group: 24
+delivery_stop_assignment:
+  enabled: true
+  beam_width: 32
+  max_plans_per_subset: 16
+  utilization_target: 0.85
+  time_limit_seconds: 10
+  max_items: 300

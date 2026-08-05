@@ -14,6 +14,7 @@ from ..schemas import Container, Item, Placement
 from .center_of_mass import evaluate_center_of_mass
 from .level_07_balance_points import BalanceAnchorPointProvider
 from .unloading import UnloadingSettings, prospective_direct_rehandle_delta
+from ..geometry.support import evaluate_support
 
 
 @dataclass
@@ -82,6 +83,84 @@ class StrictLifoFeasibilityPolicy:
             "strict_lifo_rejected_candidates": self.lifo_rejected_candidates,
             "strict_lifo_valid_candidates": self.lifo_valid_candidates,
             "strict_lifo_rejection_examples": list(self.lifo_rejection_examples),
+        }
+
+
+@dataclass
+class DeliveryDependencyFeasibilityPolicy:
+    """Reject support edges that contradict declared delivery precedence.
+
+    If candidate ``i`` rests on existing item ``j``, unloading requires
+    ``i`` before ``j``. Since smaller priority means earlier delivery, the
+    necessary relation is ``priority(i) <= priority(j)``. This incremental
+    gate prevents a packing that is static-LIFO valid but impossible to replay
+    without removing a later-stop item first.
+    """
+
+    items_by_id: dict[str, Item]
+    base: PlacementFeasibilityPolicy
+    support_epsilon_mm: float = 1e-4
+    policy_id: str = "level_08_delivery_priority_support_dependency_v1"
+    candidates_evaluated: int = 0
+    rejected_candidates: int = 0
+    valid_candidates: int = 0
+    rejection_examples: list[str] = field(default_factory=list)
+
+    def allows(
+        self,
+        container: Container,
+        existing: list[Placement],
+        candidate: Placement,
+        *,
+        loaded_weight_kg: float,
+        tolerance: float,
+    ) -> bool:
+        if not self.base.allows(
+            container,
+            existing,
+            candidate,
+            loaded_weight_kg=loaded_weight_kg,
+            tolerance=tolerance,
+        ):
+            return False
+        self.candidates_evaluated += 1
+        candidate_priority = int(
+            str(self.items_by_id[candidate.item_id].source["delivery_priority"])
+        )
+        support = evaluate_support(
+            candidate, existing, epsilon_mm=self.support_epsilon_mm
+        )
+        conflicting = tuple(
+            supporter_id
+            for supporter_id in support.supporting_item_ids
+            if candidate_priority
+            > int(
+                str(
+                    self.items_by_id[supporter_id].source["delivery_priority"]
+                )
+            )
+        )
+        if conflicting:
+            self.rejected_candidates += 1
+            if len(self.rejection_examples) < 10:
+                self.rejection_examples.append(
+                    f"{candidate.item_id}@{candidate.container_id} supported_by="
+                    + ",".join(conflicting)
+                )
+            return False
+        self.valid_candidates += 1
+        return True
+
+    def metadata(self) -> dict[str, object]:
+        return {
+            **self.base.metadata(),
+            "feasibility_policy": self.policy_id,
+            "delivery_dependency_candidates_evaluated": self.candidates_evaluated,
+            "delivery_dependency_rejected_candidates": self.rejected_candidates,
+            "delivery_dependency_valid_candidates": self.valid_candidates,
+            "delivery_dependency_rejection_examples": list(
+                self.rejection_examples
+            ),
         }
 
 

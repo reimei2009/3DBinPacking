@@ -1,0 +1,19 @@
+extends: ../default.yaml
+project:
+  level_id: level_08
+  algorithm_id: extreme_point_best_fit_delivery
+  random_seed: 42
+instance:
+  item_count: 10000
+  container_count: 500
+  item_selection_strategy: prefix
+  item_selection_seed: null
+paths:
+  raw_items_csv: data/interim/synthetic/empirical_scale_10k_500_v1/solver_items.csv
+  raw_containers_csv: data/interim/synthetic/empirical_scale_10k_500_v1/solver_containers.csv
+  items_source_mapping: config/common/data_sources/empirical_template_level_08.yaml
+  processed_dir: data/processed/level_08/empirical_scale_10k_500_v1
+  manifest_json: data/processed/level_08/empirical_scale_10k_500_v1/latest_manifest.json
+dataset_policy:
+  generation_manifest: data/interim/synthetic/empirical_scale_10k_500_v1/generation_manifest.json
+  expected_usage_class: data_pipeline_only

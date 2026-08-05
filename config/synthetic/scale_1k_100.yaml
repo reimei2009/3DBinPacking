@@ -1,0 +1,16 @@
+extends: base_large_instances.yaml
+profile_id: empirical_scale_1k_100_v1
+seed: 8100
+item_population:
+  count: 1000
+container_fleet:
+  quantities:
+    C1: 5
+    C2: 10
+    C3: 15
+    C4: 20
+    C5: 50
+level_08_enrichment:
+  delivery_stop_count: 10
+output:
+  directory: data/interim/synthetic/empirical_scale_1k_100_v1

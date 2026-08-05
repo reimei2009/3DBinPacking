@@ -2,6 +2,56 @@ from pathlib import Path
 
 from streamlit.testing.v1 import AppTest
 from container_packing.web.i18n import text as t
+from container_packing.web.streamlit_app import (
+    _configured_container_preview,
+    _level8_profile_metadata,
+    _routing_provider_options,
+)
+
+
+def test_level8_web_metadata_and_container_preview_support_comparable_data(
+    root: Path,
+) -> None:
+    config = {
+        "data_identity": {
+            "profile_kind": "cross_level_comparable",
+            "dataset_id": "shared_items_v1",
+            "container_catalog_id": "cross_level_container_catalog_v1",
+            "comparison_group_id": "level_01_to_08",
+        },
+        "containers": [
+            {
+                "container_id": "C1", "length_mm": 3000, "width_mm": 2200,
+                "height_mm": 2200, "max_weight_kg": 1500, "cost": 650,
+                "availability": 1,
+            },
+            {
+                "container_id": "C2", "length_mm": 3600, "width_mm": 2300,
+                "height_mm": 2300, "max_weight_kg": 2200, "cost": 760,
+                "availability": 1,
+            },
+        ],
+    }
+
+    metadata = _level8_profile_metadata("comparable", {}, config)
+    preview = _configured_container_preview(root, config, 1)
+
+    assert metadata == {
+        "profile_id": "comparable",
+        "data_kind": "cross_level_comparable",
+        "dataset_id": "shared_items_v1",
+        "container_catalog_id": "cross_level_container_catalog_v1",
+        "comparison_group_id": "level_01_to_08",
+    }
+    assert preview["container_id"].tolist() == ["C1"]
+    assert preview.iloc[0]["volume_m3"] == 14.52
+
+
+def test_level8_web_routing_hides_google_without_server_key() -> None:
+    assert _routing_provider_options({}) == ("offline",)
+    assert _routing_provider_options({"GOOGLE_ROUTES_API_KEY": " secret "}) == (
+        "offline", "google_routes",
+    )
 
 
 def test_streamlit_app_runs_valid_experiment_and_renders_3d(root: Path):
@@ -55,6 +105,31 @@ def test_streamlit_app_runs_valid_experiment_and_renders_3d(root: Path):
     hidden_items.set_value(["I0007"]).run()
     assert not page.exception
     assert len(page.get("plotly_chart")) >= 1
+
+
+def test_level1_inventory_search_controls_are_explicit_and_opt_in(root: Path) -> None:
+    app = root / "src/container_packing/web/streamlit_app.py"
+    page = AppTest.from_file(str(app), default_timeout=30).run()
+    page = next(
+        value for value in page.selectbox if value.key == "algorithm_id"
+    ).set_value("extreme_point_best_fit").run()
+
+    control = next(
+        value for value in page.checkbox
+        if value.key == "level_01_inventory_search_enabled"
+    )
+    assert control.value is False
+
+    page = control.set_value(True).run()
+
+    numbers = {value.key: value for value in page.number_input}
+    assert numbers["container_count"].label == "Số container sử dụng ban đầu"
+    assert numbers["container_count"].max == 5
+    assert numbers["level_01_inventory_search_max_count"].disabled
+    assert any(
+        "solver sẽ xét catalog thay vì lấy prefix" in value.value
+        for value in page.caption
+    )
 
 
 def test_streamlit_exposes_same_instance_benchmark_controls(root: Path):
@@ -282,6 +357,12 @@ def test_streamlit_level8_profiles_reset_counts_and_cap_custom_scale(root: Path)
     profile = next(
         value for value in page.selectbox if value.key == "level_08_web_profile"
     )
+    assert profile.options == [
+        "Demo logistics nhanh — fixture 6/2",
+        "Demo logistics ngữ nghĩa — fixture 20/5",
+        "So sánh liên level — shared data 20/5",
+        "Demo nghiên cứu synthetic — tùy chỉnh",
+    ]
 
     profile.set_value("standard").run()
     numbers = {value.key: value for value in page.number_input}
@@ -289,6 +370,18 @@ def test_streamlit_level8_profiles_reset_counts_and_cap_custom_scale(root: Path)
     assert numbers["container_count"].value == 5
     assert numbers["item_count"].disabled
     assert numbers["container_count"].disabled
+
+    profile = next(
+        value for value in page.selectbox if value.key == "level_08_web_profile"
+    )
+    profile.set_value("comparable").run()
+    numbers = {value.key: value for value in page.number_input}
+    assert numbers["item_count"].value == 20
+    assert numbers["container_count"].value == 5
+    assert any(
+        "public_3dbppsi_dataset_small_delivery_enriched_v1" in value.value
+        for value in page.caption
+    )
 
     profile = next(
         value for value in page.selectbox if value.key == "level_08_web_profile"

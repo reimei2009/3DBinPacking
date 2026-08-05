@@ -66,7 +66,7 @@ def source_tree_sha256(root: Path) -> str:
 
 def dependency_versions() -> dict[str, str]:
     values = {}
-    for package in ("numpy", "scipy", "pandas", "PyYAML", "plotly", "streamlit"):
+    for package in ("numpy", "scipy", "pandas", "PyYAML", "plotly", "psutil", "streamlit"):
         try:
             values[package] = importlib.metadata.version(package)
         except importlib.metadata.PackageNotFoundError:
