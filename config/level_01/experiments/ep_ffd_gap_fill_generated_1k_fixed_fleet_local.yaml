@@ -1,0 +1,34 @@
+extends: ep_ffd_gap_fill_real_data_ab_local.yaml
+project:
+  algorithm_id: extreme_point_ffd
+environment: local
+instance:
+  item_count: 100
+  container_count: 100
+  item_selection_strategy: prefix
+  item_selection_seed: null
+paths:
+  raw_items_csv: data/interim/synthetic/empirical_scale_1k_100_v1/solver_items.csv
+  raw_containers_csv: data/interim/synthetic/empirical_scale_1k_100_v1/solver_containers.csv
+  items_source_mapping: config/common/data_sources/empirical_template_level_08.yaml
+  processed_dir: data/processed/level_01/gap_fill_generated_1k
+  manifest_json: data/processed/level_01/gap_fill_generated_1k/latest_manifest.json
+container_search:
+  enabled: false
+dataset_policy:
+  generation_manifest: data/interim/synthetic/empirical_scale_1k_100_v1/generation_manifest.json
+  expected_usage_class: solver_research
+algorithms:
+  extreme_point_ffd:
+    fixed_subset: true
+    subset_enumeration_limit: 1
+  extreme_point_ffd_gap_fill:
+    fixed_subset: true
+    subset_enumeration_limit: 1
+    gap_fill:
+      lookahead_window_size: 5
+      max_constrained_points_per_step: 8
+      max_candidates_per_step: 64
+      maximum_reorder_distance: 4
+    gap_fill_time_limit_seconds: 30
+    gap_fill_validation_reserve_seconds: 2

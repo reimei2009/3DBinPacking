@@ -21,10 +21,18 @@ import psutil
 import yaml
 
 from .dataset_usage import ValidatedGenerationManifest, validate_generation_manifest_files
+from .algorithms.search import (
+    InventorySearchLimits,
+    LazyRankedContainerSubsetPolicy,
+    estimate_container_lower_bound,
+    normalize_container_inventory,
+    run_hard_precheck,
+)
 from .provenance import runtime_metadata
 from .reporting import write_json
 from .runtime.run_context import create_run_directory
 from .runtime.structured_logging import append_event
+from .schemas import Container, Item
 from .source_adapter import load_csv_source
 
 
@@ -32,6 +40,11 @@ class InspectionMode(str, Enum):
     STREAM = "stream"
     MATERIALIZE = "materialize"
     BOTH = "both"
+
+
+class InspectionIntent(str, Enum):
+    DATASET_INSPECTION = "dataset_inspection"
+    INVENTORY_SCALE_GATE = "inventory_scale_gate"
 
 
 @dataclass(frozen=True)
@@ -63,6 +76,26 @@ class DatasetInspectionRequest:
     mode: InspectionMode = InspectionMode.STREAM
     output_root: Path = Path("outputs")
     project_root: Path = Path(".")
+    intent: InspectionIntent = InspectionIntent.DATASET_INSPECTION
+    inventory_preview_item_count: int = 20
+    inventory_preview_candidates: int = 32
+
+
+@dataclass(frozen=True)
+class InventoryScaleGateEvidence:
+    status: str
+    runtime_seconds: float
+    peak_rss_mb: float
+    python_heap_peak_mb: float
+    preview_item_count: int
+    physical_container_count: int
+    equivalent_type_count: int
+    lower_bound: int
+    hard_precheck_valid: bool
+    candidate_count: int
+    candidate_signatures: tuple[tuple[str, ...], ...]
+    subset_policy_metadata: dict[str, Any]
+    issue: str | None = None
 
 
 @dataclass(frozen=True)
@@ -76,6 +109,7 @@ class DatasetInspectionResult:
     provenance: PhaseResult
     stream: PhaseResult | None
     materialize: PhaseResult | None
+    inventory_scale_gate: InventoryScaleGateEvidence | None
     issues: tuple[InspectionIssue, ...]
 
     @property
@@ -135,6 +169,7 @@ def inspect_generated_dataset(request: DatasetInspectionRequest) -> DatasetInspe
         "manifest_path": str(request.manifest_path.resolve()),
         "level_id": request.level_id,
         "mode": request.mode.value,
+        "intent": request.intent.value,
         "output_root": str(output_root.resolve()),
     }
     (run_dir / "resolved_config.yaml").write_text(
@@ -166,6 +201,20 @@ def inspect_generated_dataset(request: DatasetInspectionRequest) -> DatasetInspe
                 materialize_result = _run_phase(
                     "materialize", lambda: _materialize_inspect(validated, project_root), issues,
                 )
+    inventory_gate: InventoryScaleGateEvidence | None = None
+    if (
+        request.intent == InspectionIntent.INVENTORY_SCALE_GATE
+        and provenance.status == "VALID"
+        and validated is not None
+    ):
+        inventory_gate = _inventory_scale_gate(
+            validated,
+            project_root,
+            item_limit=request.inventory_preview_item_count,
+            candidate_limit=request.inventory_preview_candidates,
+        )
+        if inventory_gate.status != "VALID":
+            issues.append(InspectionIssue("inventory_scale_gate", "GATE_FAILED", inventory_gate.issue or "unknown error"))
     payload = validated.payload if validated is not None else peek
     status = "VALID" if not issues else "INVALID"
     result = DatasetInspectionResult(
@@ -178,10 +227,13 @@ def inspect_generated_dataset(request: DatasetInspectionRequest) -> DatasetInspe
         provenance=provenance,
         stream=stream_result,
         materialize=materialize_result,
+        inventory_scale_gate=inventory_gate,
         issues=tuple(issues[:100]),
     )
     report = _result_payload(result)
     write_json(run_dir / "reports" / "dataset_inspection.json", report)
+    if inventory_gate is not None:
+        write_json(run_dir / "reports" / "inventory_scale_gate.json", asdict(inventory_gate))
     write_json(run_dir / "manifest.json", {
         "schema_version": "1.0",
         "run_type": "dataset_inspection",
@@ -199,7 +251,9 @@ def inspect_generated_dataset(request: DatasetInspectionRequest) -> DatasetInspe
                 "manifest.json", "resolved_config.yaml",
                 "input_snapshot/generation_manifest.json", "reports/dataset_inspection.json",
             ],
-            "diagnostics": ["logs/run.log"],
+            "diagnostics": (["logs/run.log"] + (
+                ["reports/inventory_scale_gate.json"] if inventory_gate is not None else []
+            )),
         },
         **runtime_metadata(project_root),
     })
@@ -347,6 +401,87 @@ def _materialize_inspect(validated: ValidatedGenerationManifest, project_root: P
     return len(item_result.frame) + len(containers), bytes_processed
 
 
+def _inventory_scale_gate(
+    validated: ValidatedGenerationManifest,
+    project_root: Path,
+    *,
+    item_limit: int,
+    candidate_limit: int,
+) -> InventoryScaleGateEvidence:
+    """Inspect inventory normalization and bounded lazy generation without packing."""
+    if item_limit <= 0 or candidate_limit <= 0:
+        return InventoryScaleGateEvidence(
+            status="INVALID", runtime_seconds=0.0, peak_rss_mb=0.0, python_heap_peak_mb=0.0,
+            preview_item_count=item_limit, physical_container_count=0, equivalent_type_count=0,
+            lower_bound=0, hard_precheck_valid=False, candidate_count=0, candidate_signatures=(),
+            subset_policy_metadata={}, issue="inventory preview item/candidate limits must be positive",
+        )
+    tracker = _MemoryTracker()
+    tracker.start()
+    started = time.perf_counter()
+    try:
+        files = validated.file_paths
+        mapping = project_root / "config/common/data_sources/empirical_template_level_08.yaml"
+        item_frame = load_csv_source(files["solver_items"], mapping).frame.head(item_limit)
+        if item_frame.empty:
+            raise ValueError("Generated solver_items.csv has no rows for inventory preview")
+        items = [
+            Item(
+                item_id=str(row.id_item), length_mm=float(row.length), width_mm=float(row.width),
+                height_mm=float(row.height), weight_kg=float(row.weight), level1_order=index,
+            )
+            for index, row in enumerate(item_frame.itertuples(index=False), start=1)
+        ]
+        container_frame = pd.read_csv(files["solver_containers"], encoding="utf-8-sig")
+        containers = [
+            Container(
+                container_id=str(row.container_id), length_mm=float(row.length_mm),
+                width_mm=float(row.width_mm), height_mm=float(row.height_mm),
+                max_weight_kg=float(row.max_weight_kg), cost=float(row.cost),
+                availability=int(row.availability), volume_m3=float(row.volume_m3),
+                source={"container_type_id": str(row.container_type_id)},
+            )
+            for row in container_frame.itertuples(index=False)
+        ]
+        inventory = normalize_container_inventory(containers)
+        precheck = run_hard_precheck(items, inventory)
+        lower_bound = estimate_container_lower_bound(items, inventory)
+        target = max(1, lower_bound.aggregate_lower_bound)
+        policy = LazyRankedContainerSubsetPolicy(
+            InventorySearchLimits(target, target, False),
+            max_candidates_per_count=candidate_limit,
+            neighborhood_width=min(32, candidate_limit),
+        )
+        candidates = list(policy.iter_candidates(containers, items))
+        initial, peak, _, heap_peak = tracker.stop()
+        return InventoryScaleGateEvidence(
+            status="VALID" if precheck.valid else "INVALID",
+            runtime_seconds=time.perf_counter() - started,
+            peak_rss_mb=peak,
+            python_heap_peak_mb=heap_peak,
+            preview_item_count=len(items),
+            physical_container_count=inventory.physical_container_count,
+            equivalent_type_count=inventory.equivalent_type_count,
+            lower_bound=lower_bound.aggregate_lower_bound,
+            hard_precheck_valid=precheck.valid,
+            candidate_count=len(candidates),
+            candidate_signatures=tuple(
+                tuple(container.container_id for container in candidate) for candidate in candidates
+            ),
+            subset_policy_metadata=policy.metadata(),
+            issue=None if precheck.valid else "; ".join(issue.message for issue in precheck.issues),
+        )
+    except Exception as exc:
+        _, peak, _, heap_peak = tracker.stop()
+        return InventoryScaleGateEvidence(
+            status="INVALID", runtime_seconds=time.perf_counter() - started,
+            peak_rss_mb=peak, python_heap_peak_mb=heap_peak,
+            preview_item_count=item_limit, physical_container_count=0, equivalent_type_count=0,
+            lower_bound=0, hard_precheck_valid=False, candidate_count=0, candidate_signatures=(),
+            subset_policy_metadata={}, issue=str(exc),
+        )
+
+
 def _catalog_by(path: Path, key: str) -> dict[str, dict[str, str]]:
     with path.open(encoding="utf-8-sig", newline="") as handle:
         rows = list(csv.DictReader(handle))
@@ -434,6 +569,10 @@ def _result_payload(result: DatasetInspectionResult) -> dict[str, Any]:
             "provenance": asdict(result.provenance),
             "stream": asdict(result.stream) if result.stream is not None else None,
             "materialize": asdict(result.materialize) if result.materialize is not None else None,
+            "inventory_scale_gate": (
+                asdict(result.inventory_scale_gate)
+                if result.inventory_scale_gate is not None else None
+            ),
         },
         "issues": [asdict(issue) for issue in result.issues],
     }

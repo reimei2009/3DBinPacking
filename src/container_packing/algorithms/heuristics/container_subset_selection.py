@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from dataclasses import dataclass
+from hashlib import sha256
 from itertools import combinations
 from typing import Protocol
 
@@ -23,6 +24,27 @@ class ContainerSubsetSelectionPolicy(Protocol):
     ) -> Iterable[tuple[Container, ...]]: ...
 
     def metadata(self) -> dict[str, object]: ...
+
+
+@dataclass
+class FixedContainerSubsetSelectionPolicy:
+    """Return precisely the supplied physical subset for controlled A/B runs."""
+
+    subset_ids: tuple[str, ...] = ()
+
+    def candidates(self, containers: list[Container], items: list[Item]) -> tuple[tuple[Container, ...], ...]:
+        del items
+        subset = tuple(sorted(containers, key=lambda value: value.container_id))
+        self.subset_ids = tuple(value.container_id for value in subset)
+        return (subset,)
+
+    def metadata(self) -> dict[str, object]:
+        signature = sha256("\n".join(self.subset_ids).encode("utf-8")).hexdigest()
+        return {
+            "container_subset_policy": "fixed_input_subset_v1",
+            "fixed_container_subset_ids": list(self.subset_ids),
+            "fixed_container_subset_signature": signature,
+        }
 
 
 def _subset_sort_key(subset: tuple[Container, ...]) -> tuple[object, ...]:

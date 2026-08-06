@@ -15,6 +15,11 @@ from .precheck import (
     run_hard_precheck,
 )
 from .subset_generation import LazyRankedContainerSubsetPolicy
+from .inventory_orchestration import (
+    InventoryConstructiveExecutor,
+    InventorySearchOrchestrator,
+    InventorySearchRequest,
+)
 
 __all__ = [
     "ContainerTypeGroup",
@@ -22,6 +27,9 @@ __all__ = [
     "HardPrecheckIssue",
     "HardPrecheckResult",
     "InventorySearchLimits",
+    "InventoryConstructiveExecutor",
+    "InventorySearchOrchestrator",
+    "InventorySearchRequest",
     "LazyRankedContainerSubsetPolicy",
     "LowerBoundEstimate",
     "NormalizedContainerInventory",

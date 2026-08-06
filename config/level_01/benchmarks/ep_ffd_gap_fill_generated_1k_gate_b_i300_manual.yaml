@@ -1,0 +1,36 @@
+suite_id: level_01_ep_ffd_gap_fill_generated_1k_gate_b_i300_v1
+level_id: level_01
+description: >
+  Gate B so sánh EP-FFD với Gap Fill trên 300 item được chọn từ generated
+  solver-research population 1.000 item và toàn bộ fixed fleet 100 container.
+config: config/level_01/experiments/ep_ffd_gap_fill_generated_1k_fixed_fleet_local.yaml
+environment: local
+algorithms:
+  - extreme_point_ffd
+  - extreme_point_ffd_gap_fill
+seeds: [42]
+repeats: 1
+scenarios:
+  - scenario_id: generated_prefix_i300_c100
+    item_count: 300
+    container_count: 100
+    item_selection: prefix
+    tags: [generated_data, controlled_ab, fixed_fleet, gate_b]
+  - scenario_id: generated_stable_random_101_i300_c100
+    item_count: 300
+    container_count: 100
+    item_selection: stable_random
+    selection_seed: 101
+    tags: [generated_data, controlled_ab, fixed_fleet, gate_b, seeded_subset]
+  - scenario_id: generated_stable_random_202_i300_c100
+    item_count: 300
+    container_count: 100
+    item_selection: stable_random
+    selection_seed: 202
+    tags: [generated_data, controlled_ab, fixed_fleet, gate_b, seeded_subset]
+  - scenario_id: generated_stable_random_303_i300_c100
+    item_count: 300
+    container_count: 100
+    item_selection: stable_random
+    selection_seed: 303
+    tags: [generated_data, controlled_ab, fixed_fleet, gate_b, seeded_subset]

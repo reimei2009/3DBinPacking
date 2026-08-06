@@ -9,6 +9,162 @@ from container_packing.benchmarks import run_benchmark
 from container_packing.benchmarks.runner import _aggregate
 from container_packing.benchmarks.suites import BenchmarkScenario, load_benchmark_suite
 from container_packing.data_loader import load_config
+from container_packing.dataset_usage import DatasetExecutionIntent, validate_dataset_usage
+
+
+def test_level1_gap_fill_screening_suite_has_ten_fair_seeded_profiles(
+    root: Path,
+) -> None:
+    suite = load_benchmark_suite(
+        root / "config/level_01/benchmarks/ep_ffd_gap_fill_screening_i20_c5_local.yaml"
+    )
+
+    assert suite.suite_id == "level_01_ep_ffd_gap_fill_screening_i20_c5_v1"
+    assert suite.algorithms == ("extreme_point_ffd", "extreme_point_ffd_gap_fill")
+    assert suite.seeds == (42,)
+    assert suite.repeats == 1
+    assert len(suite.scenarios) == 10
+    assert [value.item_selection_seed for value in suite.scenarios] == list(range(101, 111))
+    assert all(value.item_selection_strategy == "stable_random" for value in suite.scenarios)
+    assert all((value.item_count, value.container_count) == (20, 5) for value in suite.scenarios)
+    assert all(value.algorithm_ids == suite.algorithms for value in suite.scenarios)
+    assert all("fixed_subset" in value.tags for value in suite.scenarios)
+
+
+def test_level1_gap_fill_generated_scale_gates_use_one_qualified_fixed_fleet(
+    root: Path,
+) -> None:
+    config_path = (
+        root
+        / "config/level_01/experiments/ep_ffd_gap_fill_generated_1k_fixed_fleet_local.yaml"
+    )
+    config = load_config(config_path)
+    generated_root = Path("data/interim/synthetic/empirical_scale_1k_100_v1")
+    manifest_path = root / generated_root / "generation_manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    usage = validate_dataset_usage(
+        root, config, DatasetExecutionIntent.BENCHMARK_ACCEPTANCE,
+    )
+
+    assert config["paths"]["raw_items_csv"] == str(generated_root / "solver_items.csv").replace("\\", "/")
+    assert config["paths"]["raw_containers_csv"] == str(generated_root / "solver_containers.csv").replace("\\", "/")
+    assert config["paths"]["items_source_mapping"] == "config/common/data_sources/empirical_template_level_08.yaml"
+    assert config["paths"]["processed_dir"] == "data/processed/level_01/gap_fill_generated_1k"
+    assert config["dataset_policy"] == {
+        "generation_manifest": str(generated_root / "generation_manifest.json").replace("\\", "/"),
+        "expected_usage_class": "solver_research",
+    }
+    assert config["instance"]["container_count"] == 100
+    assert config["container_search"]["enabled"] is False
+    assert config["algorithms"]["extreme_point_ffd"]["fixed_subset"] is True
+    assert config["algorithms"]["extreme_point_ffd_gap_fill"]["fixed_subset"] is True
+    assert config["algorithms"]["extreme_point_ffd_gap_fill"]["gap_fill"] == {
+        "lookahead_window_size": 5,
+        "max_constrained_points_per_step": 8,
+        "max_candidates_per_step": 64,
+        "maximum_reorder_distance": 4,
+    }
+    assert manifest["item_count"] == 1000
+    assert manifest["container_count"] == 100
+    assert manifest["usage_class"] == "solver_research"
+    assert manifest["capacity_qualification"] == "solver_qualified"
+    assert manifest["solver_acceptance_allowed"] is True
+    assert usage is not None
+    assert usage.profile_id == "empirical_scale_1k_100_v1"
+    assert usage.solver_acceptance_allowed is True
+    assert usage.execution_intent == "benchmark_acceptance"
+    for key in ("raw_items_csv", "raw_containers_csv", "processed_dir", "manifest_json"):
+        configured_path = Path(config["paths"][key])
+        assert not configured_path.is_absolute()
+        assert "outputs" not in configured_path.parts
+
+    suite_specs = (
+        ("ep_ffd_gap_fill_generated_1k_gate_a_i100_manual.yaml", 100, (None, 101, 202, 303), 8),
+        ("ep_ffd_gap_fill_generated_1k_gate_b_i300_manual.yaml", 300, (None, 101, 202, 303), 8),
+        ("ep_ffd_gap_fill_generated_1k_gate_c_i500_manual.yaml", 500, (None, 101), 4),
+    )
+    expected_algorithms = ("extreme_point_ffd", "extreme_point_ffd_gap_fill")
+    for filename, item_count, selection_seeds, source_run_count in suite_specs:
+        suite = load_benchmark_suite(root / "config/level_01/benchmarks" / filename)
+        assert suite.config_path == Path(
+            "config/level_01/experiments/ep_ffd_gap_fill_generated_1k_fixed_fleet_local.yaml"
+        )
+        assert suite.algorithms == expected_algorithms
+        assert suite.seeds == (42,)
+        assert suite.repeats == 1
+        assert len(suite.scenarios) * len(suite.algorithms) == source_run_count
+        assert [value.item_selection_seed for value in suite.scenarios] == list(selection_seeds)
+        assert all(value.item_count == item_count for value in suite.scenarios)
+        assert all(value.container_count == 100 for value in suite.scenarios)
+        assert all(value.algorithm_ids == expected_algorithms for value in suite.scenarios)
+        assert all("fixed_fleet" in value.tags for value in suite.scenarios)
+        assert not suite.config_path.is_absolute()
+        assert "outputs" not in suite.config_path.parts
+
+
+def test_level1_inventory_scale_gate_suites_are_bounded_and_reproducible(
+    root: Path,
+) -> None:
+    specifications = (
+        (
+            "config/level_01/experiments/extreme_point_best_fit_inventory_fleet_500.yaml",
+            "config/level_01/benchmarks/inventory_fleet_500_manual.yaml",
+            500,
+            10,
+            "level_01_inventory_fleet_500_t10_v1",
+            ((20, 1), (50, 1)),
+            8,
+            30,
+        ),
+        (
+            "config/level_01/experiments/extreme_point_best_fit_inventory_fleet_5000.yaml",
+            "config/level_01/benchmarks/inventory_fleet_5000_manual.yaml",
+            5_000,
+            25,
+            "level_01_inventory_fleet_5000_t25_v1",
+            ((100, 1),),
+            4,
+            60,
+        ),
+    )
+    algorithms = ("extreme_point_best_fit", "extreme_point_ffd")
+
+    for (
+        config_name,
+        suite_name,
+        physical_count,
+        type_count,
+        expected_profile_id,
+        expected_scenarios,
+        expected_source_runs,
+        expected_seconds,
+    ) in specifications:
+        config = load_config(root / config_name)
+        suite = load_benchmark_suite(root / suite_name)
+        usage = validate_dataset_usage(
+            root, config, DatasetExecutionIntent.BENCHMARK_ACCEPTANCE,
+        )
+        manifest_path = root / config["dataset_policy"]["generation_manifest"]
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+
+        assert usage is not None
+        assert usage.solver_acceptance_allowed is True
+        assert usage.profile_id == expected_profile_id
+        assert manifest["container_count"] == physical_count
+        assert len(manifest["container_type_quantities"]) == type_count
+        assert manifest["solver_acceptance_allowed"] is True
+        assert config["container_search"]["enabled"] is True
+        assert config["container_search"]["time_limit_seconds"] == expected_seconds
+        assert config["container_search"]["max_candidates_per_count"] < physical_count
+        assert config["container_search"]["exhaustive_max_containers"] <= 10
+        assert suite.algorithms == algorithms
+        assert suite.seeds == (42,)
+        assert suite.repeats == 2
+        assert tuple((value.item_count, value.container_count) for value in suite.scenarios) == expected_scenarios
+        assert len(suite.scenarios) * len(suite.algorithms) * suite.repeats == expected_source_runs
+        assert all(value.container_count == 1 for value in suite.scenarios)
+        assert all("inventory_gate" in value.tags for value in suite.scenarios)
+        assert not suite.config_path.is_absolute()
 
 
 def test_level8_sequential_scale_suites_sample_from_source_1000(

@@ -29,6 +29,19 @@ _ALGORITHMS = {
             en="Deterministic greedy heuristic that sorts items decreasingly and chooses the first feasible extreme point.",
         ),
     ),
+    "extreme_point_ffd_gap_fill": AlgorithmDefinition(
+        algorithm_id="extreme_point_ffd_gap_fill",
+        family="constructive_heuristic_comparator",
+        description="Bounded EP-anchored look-ahead comparator for fixed-subset Level 1 runs",
+        supported_levels=("level_01",),
+        local_friendly=True,
+        web_visible=False,
+        display_name=LocalizedText(vi="Extreme Point — FFD Look-ahead Gap Fill", en="Extreme Point — FFD Look-ahead Gap Fill"),
+        localized_description=LocalizedText(
+            vi="Comparator FFD dùng look-ahead có giới hạn để lấp khe; không thay thế FFD chuẩn.",
+            en="Bounded FFD look-ahead comparator; it does not replace canonical FFD.",
+        ),
+    ),
     "extreme_point_hill_climbing": AlgorithmDefinition(
         algorithm_id="extreme_point_hill_climbing",
         family="local_search",
@@ -147,11 +160,11 @@ _ALGORITHMS = {
         supported_levels=("level_07",),
         local_friendly=True,
         display_name=LocalizedText(
-            vi="Level 7 â€” Fixture validation bundle",
+            vi="Level 7 — Bộ kiểm định fixture",
             en="Level 7 — Fixture validation bundle",
         ),
         localized_description=LocalizedText(
-            vi="Chá»‰ táº¡o báº±ng chá»©ng validation cho fixture COG/cÃ¢n báº±ng Ä‘Ã£ Ä‘Ã³ng; khÃ´ng cháº¡y solver.",
+            vi="Chỉ tạo bằng chứng kiểm định cho fixture COG/cân bằng đã khóa; không chạy solver.",
             en="Produces frozen COG/balance fixture validation evidence only; it does not run a solver.",
         ),
         web_visible=False,
@@ -161,7 +174,7 @@ _ALGORITHMS = {
         family="experimental_constructive_heuristic",
         description="CLI-only Level 7 compound-root Best Fit with prospective COG tie-breaking",
         supported_levels=("level_07",), local_friendly=True,
-        display_name=LocalizedText(vi="Experimental â€” Balance-aware Best Fit", en="Experimental â€” Balance-aware Best Fit"),
+        display_name=LocalizedText(vi="Thử nghiệm — Best Fit có xét cân bằng", en="Experimental — Balance-aware Best Fit"),
         localized_description=LocalizedText(
             vi="Best Fit fixture dùng COG dự kiến làm tie-break; cân bằng chỉ là ràng buộc validation cuối.",
             en="Fixture Best Fit uses prospective COG as a tie-break; balance remains a final validation constraint.",
@@ -173,7 +186,7 @@ _ALGORITHMS = {
         family="experimental_constructive_heuristic",
         description="CLI-only Level 7 canonical Best Fit baseline for balance A/B acceptance",
         supported_levels=("level_07",), local_friendly=True,
-        display_name=LocalizedText(vi="Experimental â€” Balance baseline Best Fit", en="Experimental â€” Balance baseline Best Fit"),
+        display_name=LocalizedText(vi="Thử nghiệm — Best Fit baseline cân bằng", en="Experimental — Balance baseline Best Fit"),
         localized_description=LocalizedText(
             vi="Comparator Best Fit không dùng COG score; final balance validator vẫn bắt buộc.",
             en="Best Fit comparator without COG scoring; final balance validation remains mandatory.",
@@ -185,7 +198,7 @@ _ALGORITHMS = {
         family="experimental_constructive_heuristic",
         description="CLI-only Level 7 First Fit with prospective COG tie-breaking inside its first feasible container",
         supported_levels=("level_07",), local_friendly=True,
-        display_name=LocalizedText(vi="Experimental â€” Balance-aware First Fit", en="Experimental â€” Balance-aware First Fit"),
+        display_name=LocalizedText(vi="Thử nghiệm — First Fit có xét cân bằng", en="Experimental — Balance-aware First Fit"),
         localized_description=LocalizedText(
             vi="Giữ First Fit theo container; COG chỉ chọn extreme point trong container khả thi đầu tiên.",
             en="Preserves First Fit container choice; COG selects only an extreme point within the first feasible container.",
@@ -197,7 +210,7 @@ _ALGORITHMS = {
         family="experimental_constructive_heuristic",
         description="CLI-only Level 7 canonical First Fit baseline for balance A/B acceptance",
         supported_levels=("level_07",), local_friendly=True,
-        display_name=LocalizedText(vi="Experimental â€” Balance baseline First Fit", en="Experimental â€” Balance baseline First Fit"),
+        display_name=LocalizedText(vi="Thử nghiệm — First Fit baseline cân bằng", en="Experimental — Balance baseline First Fit"),
         localized_description=LocalizedText(
             vi="Comparator First Fit không dùng COG; final balance validator vẫn bắt buộc.",
             en="Comparator First Fit without COG scoring; final balance validation remains mandatory.",

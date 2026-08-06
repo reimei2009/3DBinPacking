@@ -45,7 +45,9 @@ def container_summary(placements: list[Placement], containers: list[Container]) 
         weight = sum(value.weight_kg for value in group)
         volume = sum(value.volume_m3 for value in group)
         rows.append({
-            "container_id": container.container_id, "used": bool(group), "item_count": len(group),
+            "container_id": container.container_id,
+            "container_type_id": str(container.source.get("container_type_id", container.container_id)),
+            "used": bool(group), "item_count": len(group),
             "loaded_weight_kg": weight, "max_weight_kg": container.max_weight_kg,
             "weight_utilization_pct": 100 * weight / container.max_weight_kg,
             "loaded_volume_m3": volume, "container_volume_m3": container.volume_m3,
@@ -101,6 +103,13 @@ def solver_payload(metadata: dict[str, Any]) -> dict[str, Any]:
         "construction_complete", "construction_termination_reason",
         "construction_failed_item_id", "best_partial_placement_count",
         "unpacked_item_count", "unpacked_items", "construction_attempt_signature",
+        "gap_fill_policy", "gap_detector", "gap_fill_lookahead_window_size",
+        "gap_fill_max_constrained_points_per_step", "gap_fill_max_candidates_per_step",
+        "gap_fill_maximum_reorder_distance", "gap_fill_constrained_points_detected",
+        "gap_fill_constrained_points_considered", "gap_fill_candidates_evaluated",
+        "gap_fill_candidates_feasible", "gap_fill_insertions",
+        "gap_fill_max_realized_reorder_distance", "gap_fill_realized_item_order",
+        "fixed_container_subset_ids", "fixed_container_subset_signature",
         "container_subset_policy", "container_subset_search_mode",
         "container_subset_exhaustive_max_containers",
         "container_subset_max_candidates_per_count",
@@ -124,10 +133,13 @@ def solver_payload(metadata: dict[str, Any]) -> dict[str, Any]:
         "inventory_physical_container_count",
         "inventory_equivalent_type_count",
         "inventory_unavailable_container_count",
+        "inventory_fingerprint",
         "inventory_container_types",
+        "selected_inventory_type_distribution",
         "initial_used_container_count",
         "max_used_container_count",
         "automatically_increase_container_count",
+        "inventory_search_phase_runtime_seconds",
         "candidate_container_ids",
         "space_representation", "empty_spaces_evaluated", "empty_spaces_generated",
         "empty_spaces_pruned", "maximum_active_spaces",
@@ -453,6 +465,7 @@ def _initialize_run(
             "equivalent_type_count": metadata.get(
                 "inventory_equivalent_type_count"
             ),
+            "inventory_fingerprint": metadata.get("inventory_fingerprint"),
             "requested_initial_used_count": metadata.get(
                 "requested_used_container_count"
             ),

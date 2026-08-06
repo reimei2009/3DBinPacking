@@ -14,6 +14,7 @@ if str(SRC) not in sys.path:
 
 from container_packing.dataset_inspection import (  # noqa: E402
     DatasetInspectionRequest,
+    InspectionIntent,
     InspectionMode,
     inspect_generated_dataset,
 )
@@ -33,6 +34,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="stream (bounded memory), materialize (pandas), or both",
     )
     parser.add_argument("--output-root", type=Path, default=Path("outputs"))
+    parser.add_argument(
+        "--intent",
+        choices=[value.value for value in InspectionIntent],
+        default=InspectionIntent.DATASET_INSPECTION.value,
+        help="dataset_inspection only validates generated files; inventory_scale_gate also checks inventory normalization and lazy subset preview without invoking a solver",
+    )
+    parser.add_argument("--inventory-preview-items", type=int, default=20)
+    parser.add_argument("--inventory-preview-candidates", type=int, default=32)
     return parser
 
 
@@ -44,6 +53,9 @@ def main(argv: list[str] | None = None) -> int:
         mode=InspectionMode(args.mode),
         output_root=args.output_root,
         project_root=ROOT,
+        intent=InspectionIntent(args.intent),
+        inventory_preview_item_count=args.inventory_preview_items,
+        inventory_preview_candidates=args.inventory_preview_candidates,
     ))
     phases = [phase for phase in (result.provenance, result.stream, result.materialize) if phase is not None]
     print("\n=== GENERATED DATASET INSPECTION ===")
@@ -57,6 +69,14 @@ def main(argv: list[str] | None = None) -> int:
             f"delta RSS={phase.rss_delta_mb:.1f} MB"
         )
     print("Solver invoked: False")
+    if result.inventory_scale_gate is not None:
+        gate = result.inventory_scale_gate
+        print(
+            f"Inventory gate: {gate.status}; physical={gate.physical_container_count}; "
+            f"types={gate.equivalent_type_count}; lower-bound={gate.lower_bound}; "
+            f"candidates={gate.candidate_count}; time={gate.runtime_seconds:.3f}s; "
+            f"peak RSS={gate.peak_rss_mb:.1f} MB"
+        )
     print(f"Report        : {result.run_dir / 'reports' / 'dataset_inspection.json'}")
     if result.issues:
         print("Issues:")

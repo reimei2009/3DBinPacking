@@ -14,9 +14,11 @@ from ..benchmarks import BenchmarkResult, BenchmarkScenario, run_benchmark
 from ..data_loader import load_config
 from ..experiments.contracts import ExperimentRequest
 from ..experiments.runner import run_experiment
-from ..instance_data import ITEM_SELECTION_STRATEGIES
+from ..instance_data import ITEM_SELECTION_STRATEGIES, load_configured_container_catalog
 from ..levels.registry import get_level
 from ..runtime.project import find_project_root
+from ..algorithms.search.inventory import normalize_container_inventory
+from ..schemas import Container
 from ..source_adapter import SourceAdapterError, load_csv_source
 from ..schemas import RunResult
 
@@ -25,6 +27,22 @@ from ..schemas import RunResult
 class InstanceLimits:
     available_items: int
     configured_containers: int
+
+
+@dataclass(frozen=True)
+class ContainerInventorySummary:
+    """Read-only inventory evidence suitable for a frontend preview."""
+
+    ready: bool
+    physical_container_count: int
+    equivalent_type_count: int
+    available_container_count: int
+    unavailable_container_count: int
+    total_available_volume_m3: float
+    total_available_payload_kg: float
+    type_rows: tuple[dict[str, object], ...]
+    inventory_fingerprint: str | None = None
+    error: str | None = None
 
 
 @dataclass(frozen=True)
@@ -88,6 +106,82 @@ def get_instance_limits(config_path: str | Path, *, root: str | Path | None = No
     if configured_containers <= 0:
         raise ValueError(f"Config {config_path} does not define any base containers")
     return InstanceLimits(available_items=available_items, configured_containers=configured_containers)
+
+
+def get_container_inventory_summary(
+    config_path: str | Path,
+    *,
+    root: str | Path | None = None,
+) -> ContainerInventorySummary:
+    """Summarize the full configured catalog without invoking a solver.
+
+    Missing generated files are reported as data readiness rather than being
+    silently replaced by the small inline catalog.
+    """
+    project_root = _root(root)
+    resolved_config = _resolve(project_root, config_path)
+    try:
+        config = load_config(resolved_config)
+        level_id = str(config.get("project", {}).get("level_id", "level_01"))
+        frame, _ = load_configured_container_catalog(
+            project_root, config, level_id=level_id
+        )
+        containers = [
+            Container(
+                container_id=str(row.container_id),
+                length_mm=float(row.length_mm),
+                width_mm=float(row.width_mm),
+                height_mm=float(row.height_mm),
+                max_weight_kg=float(row.max_weight_kg),
+                cost=float(row.cost),
+                availability=int(row.availability),
+                volume_m3=float(row.volume_m3),
+                source=row._asdict(),
+            )
+            for row in frame.itertuples(index=False)
+        ]
+        inventory = normalize_container_inventory(containers)
+    except (OSError, ValueError, pd.errors.ParserError) as exc:
+        return ContainerInventorySummary(
+            ready=False,
+            physical_container_count=0,
+            equivalent_type_count=0,
+            available_container_count=0,
+            unavailable_container_count=0,
+            total_available_volume_m3=0.0,
+            total_available_payload_kg=0.0,
+            type_rows=(),
+            inventory_fingerprint=None,
+            error=str(exc),
+        )
+
+    type_rows = tuple({
+        "type_id": group.type_id,
+        "equivalent_type_id": group.type_id,
+        "declared_type_ids": ", ".join(group.declared_type_ids),
+        "display_type_id": group.display_type_id,
+        "representative_container_id": group.representative.container_id,
+        "quantity": group.quantity,
+        "length_mm": group.representative.length_mm,
+        "width_mm": group.representative.width_mm,
+        "height_mm": group.representative.height_mm,
+        "volume_m3": group.representative.volume_m3,
+        "max_weight_kg": group.representative.max_weight_kg,
+        "cost": group.representative.cost,
+        "constraint_profile": group.constraint_profile,
+    } for group in inventory.groups)
+    available = inventory.available_containers
+    return ContainerInventorySummary(
+        ready=True,
+        physical_container_count=len(containers),
+        equivalent_type_count=inventory.equivalent_type_count,
+        available_container_count=inventory.physical_container_count,
+        unavailable_container_count=len(inventory.unavailable_container_ids),
+        total_available_volume_m3=sum(value.volume_m3 for value in available),
+        total_available_payload_kg=sum(value.max_weight_kg for value in available),
+        type_rows=type_rows,
+        inventory_fingerprint=inventory.inventory_fingerprint,
+    )
 
 
 def build_experiment_request(

@@ -1,0 +1,34 @@
+schema_version: "1.0"
+level_id: level_01
+profiles:
+  default_catalog:
+    label_vi: "Catalog cơ bản — 5 container"
+    label_en: "Base catalog — 5 containers"
+    config_file: config/level_01/default.yaml
+    generated: false
+    inventory_search_default: false
+    maximum_used_presets: [1, 2, 3, 5]
+  fleet_500_t10:
+    label_vi: "Kho thử nghiệm — 500 container / 10 loại"
+    label_en: "Research fleet — 500 containers / 10 types"
+    config_file: config/level_01/experiments/extreme_point_best_fit_inventory_fleet_500.yaml
+    generated: true
+    expected_physical_container_count: 500
+    expected_equivalent_type_count: 10
+    inventory_search_default: true
+    maximum_used_presets: [1, 2, 3, 5, 10, 20, 50, 100]
+    generation_command: >-
+      .\.venv\Scripts\python.exe .\scripts\generate_synthetic_instances.py
+      --profile config\synthetic\fleet_500_t10.yaml
+  fleet_5000_t25:
+    label_vi: "Kho thử nghiệm — 5.000 container / 25 loại"
+    label_en: "Research fleet — 5,000 containers / 25 types"
+    config_file: config/level_01/experiments/extreme_point_best_fit_inventory_fleet_5000.yaml
+    generated: true
+    expected_physical_container_count: 5000
+    expected_equivalent_type_count: 25
+    inventory_search_default: true
+    maximum_used_presets: [1, 2, 3, 5, 10, 20, 50, 100, 500]
+    generation_command: >-
+      .\.venv\Scripts\python.exe .\scripts\generate_synthetic_instances.py
+      --profile config\synthetic\fleet_5000_t25.yaml

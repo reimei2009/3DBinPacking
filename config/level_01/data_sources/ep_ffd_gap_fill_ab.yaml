@@ -1,0 +1,16 @@
+adapter_id: csv_column_mapping_v1
+source_id: synthetic_level_01_ep_ffd_gap_fill_ab_v1
+columns:
+  id_item: [id_item]
+  length: [length]
+  width: [width]
+  height: [height]
+  weight: [weight]
+  nesting_height: [nesting_height]
+  stackability_code: [stackability_code]
+  forced_orientation: [forced_orientation]
+  max_stackability: [max_stackability]
+nesting:
+  semantics: undeclared
+  data_source: synthetic_preserved_inactive
+extra_columns: preserve

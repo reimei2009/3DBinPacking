@@ -254,6 +254,21 @@ def _container_frame(
     return selected, source_path
 
 
+def load_configured_container_catalog(
+    root: Path,
+    config: dict[str, Any],
+    *,
+    level_id: str,
+) -> tuple[pd.DataFrame, Path | None]:
+    """Load the complete declared container catalog without writing a run.
+
+    This is the read-only counterpart of the container portion of
+    :func:`prepare_instance`.  Frontends can inspect an inventory without
+    accidentally applying the legacy prefix selection used by a normal run.
+    """
+    return _container_frame(root, config, None, level_id)
+
+
 def prepare_instance(
     root: Path,
     config: dict[str, Any],

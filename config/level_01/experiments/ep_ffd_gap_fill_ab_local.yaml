@@ -1,0 +1,29 @@
+extends: ../default.yaml
+project:
+  algorithm_id: extreme_point_ffd
+environment: local
+instance:
+  item_count: 4
+  container_count: 2
+  item_selection_strategy: prefix
+  item_selection_seed: null
+paths:
+  raw_items_csv: data/raw/level_01/ep_ffd_gap_fill_ab_items.csv
+  items_source_mapping: config/level_01/data_sources/ep_ffd_gap_fill_ab.yaml
+algorithms:
+  extreme_point_ffd:
+    subset_enumeration_limit: 1
+    fixed_subset: true
+  extreme_point_ffd_gap_fill:
+    subset_enumeration_limit: 1
+    fixed_subset: true
+    gap_fill:
+      lookahead_window_size: 5
+      max_constrained_points_per_step: 8
+      max_candidates_per_step: 64
+      maximum_reorder_distance: 4
+    gap_fill_time_limit_seconds: 30
+    gap_fill_validation_reserve_seconds: 2
+containers:
+  - {container_id: C1, length_mm: 10, width_mm: 10, height_mm: 1, max_weight_kg: 100, cost: 1, availability: 1}
+  - {container_id: C2, length_mm: 10, width_mm: 10, height_mm: 1, max_weight_kg: 100, cost: 2, availability: 1}

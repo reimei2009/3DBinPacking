@@ -4,6 +4,7 @@ from streamlit.testing.v1 import AppTest
 from container_packing.web.i18n import text as t
 from container_packing.web.streamlit_app import (
     _configured_container_preview,
+    _level1_inventory_web_profiles,
     _level8_profile_metadata,
     _routing_provider_options,
 )
@@ -114,6 +115,17 @@ def test_level1_inventory_search_controls_are_explicit_and_opt_in(root: Path) ->
         value for value in page.selectbox if value.key == "algorithm_id"
     ).set_value("extreme_point_best_fit").run()
 
+    profile = next(
+        value for value in page.selectbox
+        if value.key == "level_01_inventory_profile"
+    )
+    assert profile.value == "default_catalog"
+    assert profile.options == [
+        "Catalog cơ bản — 5 container",
+        "Kho thử nghiệm — 500 container / 10 loại",
+        "Kho thử nghiệm — 5.000 container / 25 loại",
+    ]
+
     control = next(
         value for value in page.checkbox
         if value.key == "level_01_inventory_search_enabled"
@@ -123,13 +135,39 @@ def test_level1_inventory_search_controls_are_explicit_and_opt_in(root: Path) ->
     page = control.set_value(True).run()
 
     numbers = {value.key: value for value in page.number_input}
-    assert numbers["container_count"].label == "Số container sử dụng ban đầu"
+    assert numbers["container_count"].label == "Số container bắt đầu tìm"
     assert numbers["container_count"].max == 5
-    assert numbers["level_01_inventory_search_max_count"].disabled
+    presets = next(
+        value for value in page.selectbox
+        if value.key == "level_01_inventory_search_max_preset"
+    )
+    assert presets.disabled
     assert any(
         "solver sẽ xét catalog thay vì lấy prefix" in value.value
         for value in page.caption
     )
+
+    auto = next(
+        value for value in page.checkbox
+        if value.key == "level_01_inventory_search_auto_increase"
+    ).set_value(True).run()
+    custom = next(
+        value for value in auto.selectbox
+        if value.key == "level_01_inventory_search_max_preset"
+    ).set_value("Tùy chỉnh").run()
+    assert "level_01_inventory_search_max_count" in {
+        value.key for value in custom.number_input
+    }
+
+
+def test_level1_inventory_web_profiles_are_versioned(root: Path) -> None:
+    profiles = _level1_inventory_web_profiles(root)
+
+    assert set(profiles) == {
+        "default_catalog", "fleet_500_t10", "fleet_5000_t25",
+    }
+    assert profiles["fleet_500_t10"]["expected_physical_container_count"] == 500
+    assert profiles["fleet_5000_t25"]["expected_equivalent_type_count"] == 25
 
 
 def test_streamlit_exposes_same_instance_benchmark_controls(root: Path):

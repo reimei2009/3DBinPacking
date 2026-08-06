@@ -40,10 +40,43 @@ default). `data_pipeline_only` proves only aggregate capacity and always records
 `solver_acceptance_allowed: false`, even if its sampled population happens to
 have a generous margin. Aggregate capacity never proves geometric packability.
 
+## Scale gate inventory-aware Level 1
+
+Hai profile fleet phục vụ nghiệm thu inventory-aware search là `fleet_500_t10`
+và `fleet_5000_t25`: lần lượt 500/10 và 5.000/25 physical-container/type.
+Profile 5.000 dùng variant tái lập từ type nguồn; manifest ghi policy sinh
+variant và checksum. Raw catalog không bị sửa.
+
+Sau khi generate profile, chạy Gate A không gọi solver:
+
+```powershell
+.\.venv\Scripts\python.exe .\scripts\inspect_generated_dataset.py `
+  --manifest data\interim\synthetic\level_01_inventory_fleet_5000_t25_v1\generation_manifest.json `
+  --level level_01 `
+  --intent inventory_scale_gate `
+  --mode stream
+```
+
+Report gồm số physical container, số equivalent type, lower bound, preview lazy
+candidate và peak memory. Gate B chạy riêng qua experiment config sau khi profile
+đã được generate; không commit CSV sinh ra.
+
 Capacity-safe research profiles use fleets dominated by identical C5 physical
 instances: `scale_10k_700`, `scale_100k_7k`, and `scale_1m_70k`. The 100k/7k
 and 1m/70k profiles remain declarative data-generation exercises until the
 solver has an explicit scale gate; neither is solver acceptance evidence.
+
+## Dùng fleet trong Streamlit
+
+Level 1 có registry UI riêng cho `fleet_500_t10` và `fleet_5000_t25`. Các
+catalog này vẫn chỉ là CSV generated trong `data/interim/synthetic/`, vì vậy
+không được commit. Hãy generate profile trước khi chọn nó trên web. Nếu file
+hoặc manifest thiếu, UI sẽ báo trạng thái chưa sẵn sàng và in đúng command
+generate; nó không thay catalog đó bằng C1--C5.
+
+UI chỉ hiển thị bảng gộp theo container type. Số `physical container` là quy
+mô kho, còn `maximum used-container count` là budget để solver chọn tối đa bao
+nhiêu container từ toàn catalog. Đây là hai số khác nhau.
 
 ## Dataset usage guard
 

@@ -1,0 +1,74 @@
+suite_id: level_01_ep_ffd_gap_fill_screening_i20_c5_v1
+level_id: level_01
+description: >
+  Unbiased screening of canonical EP-FFD and the bounded Gap Fill comparator
+  across ten stable-random 20-item selections from the same public source and
+  fixed C1-C5 catalog. This suite does not tune Gap Fill parameters.
+config: config/level_01/experiments/ep_ffd_gap_fill_real_data_ab_local.yaml
+environment: local
+algorithms:
+  - extreme_point_ffd
+  - extreme_point_ffd_gap_fill
+seeds: [42]
+repeats: 1
+scenarios:
+  - scenario_id: stable_random_101_i20_c5
+    item_count: 20
+    container_count: 5
+    item_selection: stable_random
+    selection_seed: 101
+    tags: [real_data, screening, fixed_subset, seeded_subset]
+  - scenario_id: stable_random_102_i20_c5
+    item_count: 20
+    container_count: 5
+    item_selection: stable_random
+    selection_seed: 102
+    tags: [real_data, screening, fixed_subset, seeded_subset]
+  - scenario_id: stable_random_103_i20_c5
+    item_count: 20
+    container_count: 5
+    item_selection: stable_random
+    selection_seed: 103
+    tags: [real_data, screening, fixed_subset, seeded_subset]
+  - scenario_id: stable_random_104_i20_c5
+    item_count: 20
+    container_count: 5
+    item_selection: stable_random
+    selection_seed: 104
+    tags: [real_data, screening, fixed_subset, seeded_subset]
+  - scenario_id: stable_random_105_i20_c5
+    item_count: 20
+    container_count: 5
+    item_selection: stable_random
+    selection_seed: 105
+    tags: [real_data, screening, fixed_subset, seeded_subset]
+  - scenario_id: stable_random_106_i20_c5
+    item_count: 20
+    container_count: 5
+    item_selection: stable_random
+    selection_seed: 106
+    tags: [real_data, screening, fixed_subset, seeded_subset]
+  - scenario_id: stable_random_107_i20_c5
+    item_count: 20
+    container_count: 5
+    item_selection: stable_random
+    selection_seed: 107
+    tags: [real_data, screening, fixed_subset, seeded_subset]
+  - scenario_id: stable_random_108_i20_c5
+    item_count: 20
+    container_count: 5
+    item_selection: stable_random
+    selection_seed: 108
+    tags: [real_data, screening, fixed_subset, seeded_subset]
+  - scenario_id: stable_random_109_i20_c5
+    item_count: 20
+    container_count: 5
+    item_selection: stable_random
+    selection_seed: 109
+    tags: [real_data, screening, fixed_subset, seeded_subset]
+  - scenario_id: stable_random_110_i20_c5
+    item_count: 20
+    container_count: 5
+    item_selection: stable_random
+    selection_seed: 110
+    tags: [real_data, screening, fixed_subset, seeded_subset]

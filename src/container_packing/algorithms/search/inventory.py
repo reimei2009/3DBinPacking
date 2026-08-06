@@ -58,6 +58,21 @@ class ContainerTypeGroup:
     def physical_container_ids(self) -> tuple[str, ...]:
         return tuple(value.container_id for value in self.physical_containers)
 
+    @property
+    def declared_type_ids(self) -> tuple[str, ...]:
+        """Các nhãn loại do nguồn dữ liệu khai báo, nếu có."""
+        return tuple(sorted({
+            str(value.source["container_type_id"])
+            for value in self.physical_containers
+            if value.source.get("container_type_id") not in {None, ""}
+        }))
+
+    @property
+    def display_type_id(self) -> str:
+        """Nhãn dễ đọc cho UI; không thay thế type tương đương canonical."""
+        declared = self.declared_type_ids
+        return " + ".join(declared) if declared else self.type_id
+
 
 @dataclass(frozen=True)
 class NormalizedContainerInventory:
@@ -87,14 +102,37 @@ class NormalizedContainerInventory:
             for container in group.physical_containers
         }
 
+    @property
+    def inventory_fingerprint(self) -> str:
+        """Dấu vết deterministic của inventory physical đang khả dụng."""
+        payload = [
+            {
+                "container_id": value.container_id,
+                "declared_type_id": str(value.source.get("container_type_id", "")),
+                "length_mm": value.length_mm,
+                "width_mm": value.width_mm,
+                "height_mm": value.height_mm,
+                "max_weight_kg": value.max_weight_kg,
+                "cost": value.cost,
+                "constraint_profile": _constraint_profile(value),
+            }
+            for value in self.available_containers
+        ]
+        encoded = json.dumps(payload, separators=(",", ":"), sort_keys=True)
+        return sha256(encoded.encode("utf-8")).hexdigest()
+
     def metadata(self) -> dict[str, object]:
         return {
             "inventory_physical_container_count": self.physical_container_count,
             "inventory_equivalent_type_count": self.equivalent_type_count,
             "inventory_unavailable_container_count": len(self.unavailable_container_ids),
+            "inventory_fingerprint": self.inventory_fingerprint,
             "inventory_container_types": [
                 {
                     "type_id": group.type_id,
+                    "equivalent_type_id": group.type_id,
+                    "declared_type_ids": list(group.declared_type_ids),
+                    "display_type_id": group.display_type_id,
                     "quantity": group.quantity,
                     "representative_container_id": group.representative.container_id,
                     "constraint_profile": group.constraint_profile,

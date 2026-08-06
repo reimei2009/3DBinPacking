@@ -22,6 +22,7 @@ from container_packing.application.service import (
     discover_runs,
     execute_benchmark_comparison,
     execute_experiment,
+    get_container_inventory_summary,
     get_instance_limits,
     resolve_result_run_dir,
 )
@@ -46,6 +47,15 @@ def _level8_web_profiles(root: Path) -> dict[str, dict[str, Any]]:
     profiles = payload.get("profiles")
     if not isinstance(profiles, dict) or not profiles:
         raise ValueError("Level 8 web profile registry is empty")
+    return {str(key): dict(value) for key, value in profiles.items()}
+
+
+def _level1_inventory_web_profiles(root: Path) -> dict[str, dict[str, Any]]:
+    """Load the versioned Level 1 catalog choices exposed by the web UI."""
+    payload = load_config(root / "config/level_01/web_inventory_profiles.yaml")
+    profiles = payload.get("profiles")
+    if not isinstance(profiles, dict) or not profiles:
+        raise ValueError("Level 1 inventory web profile registry is empty")
     return {str(key): dict(value) for key, value in profiles.items()}
 
 
@@ -160,7 +170,8 @@ def _localized_frame(frame: pd.DataFrame, language: str, kind: str) -> pd.DataFr
         return frame
     mappings = {
         "containers": {
-            "container_id": "Mã container", "used": "Đã dùng", "item_count": "Số kiện",
+            "container_id": "Mã container", "container_type_id": "Loại container",
+            "used": "Đã dùng", "item_count": "Số kiện",
             "loaded_weight_kg": "Khối lượng đã xếp (kg)", "max_weight_kg": "Tải trọng tối đa (kg)",
             "weight_utilization_pct": "Sử dụng tải trọng (%)", "loaded_volume_m3": "Thể tích đã xếp (m³)",
             "container_volume_m3": "Thể tích container (m³)", "volume_utilization_pct": "Sử dụng thể tích (%)",
@@ -174,6 +185,26 @@ def _localized_frame(frame: pd.DataFrame, language: str, kind: str) -> pd.DataFr
         },
     }
     return frame.rename(columns=mappings[kind])
+
+
+def _container_type_usage_summary(frame: pd.DataFrame) -> pd.DataFrame:
+    """Tổng hợp container đã dùng theo nhãn type của dữ liệu nguồn."""
+    if frame.empty or "container_type_id" not in frame.columns:
+        return pd.DataFrame()
+    used = frame.loc[frame["used"].astype(bool)].copy()
+    if used.empty:
+        return pd.DataFrame()
+    return (
+        used.groupby("container_type_id", dropna=False, sort=True)
+        .agg(
+            container_count=("container_id", "count"),
+            item_count=("item_count", "sum"),
+            loaded_weight_kg=("loaded_weight_kg", "sum"),
+            loaded_volume_m3=("loaded_volume_m3", "sum"),
+            total_cost=("cost", "sum"),
+        )
+        .reset_index()
+    )
 
 
 def _scene_items(scene: dict[str, Any], container_id: str | None) -> list[tuple[str, dict[str, Any]]]:
@@ -425,7 +456,12 @@ def _render_run(run_dir: Path, language: str) -> None:
     placements_path = run_dir / "solution" / "placements.csv"
     if summary_path.is_file():
         st.markdown(f"**{t('utilization', language)}**")
-        st.dataframe(_localized_frame(pd.read_csv(summary_path), language, "containers"), hide_index=True, width="stretch")
+        container_frame = pd.read_csv(summary_path)
+        st.dataframe(_localized_frame(container_frame, language, "containers"), hide_index=True, width="stretch")
+        by_type = _container_type_usage_summary(container_frame)
+        if not by_type.empty:
+            st.markdown("**Tổng hợp container đã dùng theo loại**" if language == "vi" else "**Used containers by type**")
+            st.dataframe(by_type, hide_index=True, width="stretch")
     if placements_path.is_file():
         with st.expander(t("placements", language)):
             st.dataframe(_localized_frame(pd.read_csv(placements_path), language, "placements"), hide_index=True, width="stretch")
@@ -1195,6 +1231,12 @@ def main() -> None:
 
     level8_profile_id: str | None = None
     level8_profile: dict[str, Any] | None = None
+    level1_inventory_profile_id: str | None = None
+    level1_inventory_profile: dict[str, Any] | None = None
+    level1_inventory_profile_supported = (
+        level_id == "level_01"
+        and algorithm_id in {"extreme_point_best_fit", "extreme_point_ffd"}
+    )
     if level_id == "level_08":
         profiles = _level8_web_profiles(root)
         level8_profile_id = st.sidebar.selectbox(
@@ -1207,15 +1249,57 @@ def main() -> None:
         )
         level8_profile = profiles[level8_profile_id]
         selected_config = Path(str(level8_profile["config_file"]))
+    elif level1_inventory_profile_supported:
+        profiles = _level1_inventory_web_profiles(root)
+        level1_inventory_profile_id = st.sidebar.selectbox(
+            "Nguồn kho container" if language == "vi" else "Container catalog",
+            tuple(profiles),
+            format_func=lambda value: profiles[value][
+                "label_vi" if language == "vi" else "label_en"
+            ],
+            key="level_01_inventory_profile",
+        )
+        level1_inventory_profile = profiles[level1_inventory_profile_id]
+        selected_config = Path(str(level1_inventory_profile["config_file"]))
     else:
         selected_config = level.config_for_algorithm(algorithm_id)
     config_path = root / selected_config
     config = load_config(config_path)
 
+    inventory_summary = None
+    if level1_inventory_profile is not None:
+        inventory_summary = get_container_inventory_summary(config_path, root=root)
+        if not inventory_summary.ready:
+            st.sidebar.error(
+                "Catalog chưa sẵn sàng; không chạy solver với catalog thay thế."
+                if language == "vi" else
+                "The catalog is not ready; the solver will not substitute another catalog."
+            )
+            if level1_inventory_profile.get("generation_command"):
+                st.sidebar.code(str(level1_inventory_profile["generation_command"]), language="powershell")
+            st.sidebar.caption(str(inventory_summary.error or "Unknown catalog error"))
+            st.stop()
+        expected_physical = level1_inventory_profile.get("expected_physical_container_count")
+        expected_types = level1_inventory_profile.get("expected_equivalent_type_count")
+        if (
+            expected_physical is not None
+            and inventory_summary.physical_container_count != int(expected_physical)
+        ) or (
+            expected_types is not None
+            and inventory_summary.equivalent_type_count != int(expected_types)
+        ):
+            st.sidebar.error(
+                "Catalog không khớp profile đã chọn; dừng an toàn."
+                if language == "vi" else
+                "The catalog does not match the selected profile; stopped safely."
+            )
+            st.stop()
+
     limits = get_instance_limits(config_path, root=root)
     instance_defaults = config["instance"]
     instance_scope = (
-        f"{level_id}:{level8_profile_id}" if level8_profile_id else level_id
+        f"{level_id}:{level8_profile_id or level1_inventory_profile_id}"
+        if (level8_profile_id or level1_inventory_profile_id) else level_id
     )
     if st.session_state.get("_instance_level_id") != instance_scope:
         st.session_state["item_count"] = int(instance_defaults["item_count"])
@@ -1224,6 +1308,36 @@ def main() -> None:
         if level_id == "level_08":
             st.session_state["level_08_item_selection"] = "prefix"
             st.session_state["level_08_selection_seed"] = 42
+        if level1_inventory_profile is not None:
+            inventory_defaults = dict(config.get("container_search", {}))
+            st.session_state["level_01_inventory_search_enabled"] = bool(
+                level1_inventory_profile.get(
+                    "inventory_search_default",
+                    inventory_defaults.get("enabled", False),
+                )
+            )
+            st.session_state["level_01_inventory_search_auto_increase"] = bool(
+                inventory_defaults.get("automatically_increase_container_count", False)
+            )
+            st.session_state["level_01_inventory_search_max_count"] = int(
+                inventory_defaults.get(
+                    "max_used_container_count", instance_defaults["container_count"]
+                )
+            )
+            preset_values = [
+                int(value)
+                for value in level1_inventory_profile.get(
+                    "maximum_used_presets", ()
+                )
+            ]
+            configured_maximum = st.session_state[
+                "level_01_inventory_search_max_count"
+            ]
+            st.session_state["level_01_inventory_search_max_preset"] = (
+                str(configured_maximum)
+                if configured_maximum in preset_values
+                else "Tùy chỉnh" if language == "vi" else "Custom"
+            )
     level8_fixed_profile = (
         level8_profile is not None and level8_profile.get("mode") == "fixed"
     )
@@ -1256,23 +1370,31 @@ def main() -> None:
     inventory_search_config = dict(config.get("container_search", {}))
     inventory_search_enabled = False
     if inventory_search_supported:
+        if "level_01_inventory_search_enabled" not in st.session_state:
+            st.session_state["level_01_inventory_search_enabled"] = bool(
+                level1_inventory_profile.get(
+                    "inventory_search_default",
+                    inventory_search_config.get("enabled", False),
+                )
+                if level1_inventory_profile is not None
+                else inventory_search_config.get("enabled", False)
+            )
         inventory_search_enabled = st.sidebar.checkbox(
             (
                 "Tìm container tốt nhất trong toàn bộ kho"
                 if language == "vi"
                 else "Search the full container inventory"
             ),
-            value=bool(inventory_search_config.get("enabled", False)),
             key="level_01_inventory_search_enabled",
             help=(
-                "Số container bên dưới là giới hạn sử dụng ban đầu; hệ thống vẫn đọc toàn bộ catalog."
+                "Số container bên dưới là điểm bắt đầu; hệ thống vẫn đọc toàn bộ catalog."
                 if language == "vi"
                 else "The count below is the initial usage limit; the full catalog remains searchable."
             ),
         )
     container_count = int(st.sidebar.number_input(
         (
-            "Số container sử dụng ban đầu"
+            "Số container bắt đầu tìm"
             if language == "vi" and inventory_search_enabled
             else "Initial used-container count"
             if inventory_search_enabled
@@ -1291,7 +1413,7 @@ def main() -> None:
             if language == "vi" and level8_fixed_profile else
             "Fixed profiles lock the container count; Research demo allows up to 10."
             if level8_fixed_profile else
-            f"Có {limits.configured_containers} container được cấu hình trực tiếp; số lớn hơn sẽ được mở rộng xác định cho Level 1."
+            f"Có {limits.configured_containers} container vật lý trong catalog; giới hạn dưới chỉ là điểm bắt đầu tìm kiếm."
             if language == "vi" else
             f"{limits.configured_containers} are explicitly configured; larger counts are deterministically extended Level 1 containers."
         ),
@@ -1306,18 +1428,27 @@ def main() -> None:
                 else f"The inventory has {limits.configured_containers} physical containers; the solver searches the catalog instead of a prefix."
             )
         )
+        if "level_01_inventory_search_auto_increase" not in st.session_state:
+            st.session_state["level_01_inventory_search_auto_increase"] = bool(
+                inventory_search_config.get(
+                    "automatically_increase_container_count", False
+                )
+            )
         inventory_search_auto_increase = st.sidebar.checkbox(
             (
                 "Tự tăng số container khi chưa có nghiệm"
                 if language == "vi"
                 else "Automatically increase the container count"
             ),
-            value=bool(
-                inventory_search_config.get(
-                    "automatically_increase_container_count", False
-                )
-            ),
             key="level_01_inventory_search_auto_increase",
+        )
+        presets = list(
+            level1_inventory_profile.get("maximum_used_presets", ())
+            if level1_inventory_profile is not None else ()
+        )
+        presets = sorted({int(value) for value in presets if int(value) >= container_count})
+        preset_options: tuple[str, ...] = tuple(str(value) for value in presets) + (
+            "Tùy chỉnh" if language == "vi" else "Custom",
         )
         configured_maximum = max(
             container_count,
@@ -1328,19 +1459,81 @@ def main() -> None:
                 limits.configured_containers,
             ),
         )
-        inventory_search_max_count = int(st.sidebar.number_input(
-            (
-                "Số container sử dụng tối đa"
-                if language == "vi"
-                else "Maximum used-container count"
-            ),
-            min_value=container_count,
-            max_value=limits.configured_containers,
-            value=configured_maximum,
-            step=1,
-            key="level_01_inventory_search_max_count",
+        default_preset = (
+            str(configured_maximum)
+            if str(configured_maximum) in preset_options else preset_options[-1]
+        )
+        if "level_01_inventory_search_max_preset" not in st.session_state:
+            st.session_state["level_01_inventory_search_max_preset"] = default_preset
+        selected_preset = st.sidebar.selectbox(
+            "Số container tối đa được phép dùng" if language == "vi" else "Quick limit",
+            preset_options,
+            key="level_01_inventory_search_max_preset",
             disabled=not inventory_search_auto_increase,
-        ))
+        )
+        if selected_preset != preset_options[-1]:
+            inventory_search_max_count = int(selected_preset)
+            st.sidebar.caption(
+                (
+                    f"Tối đa {inventory_search_max_count} container được phép dùng; actual usage có thể ít hơn."
+                    if language == "vi" else
+                    f"At most {inventory_search_max_count} containers may be used; actual usage can be lower."
+                )
+            )
+        else:
+            if "level_01_inventory_search_max_count" not in st.session_state:
+                st.session_state["level_01_inventory_search_max_count"] = configured_maximum
+            inventory_search_max_count = int(st.sidebar.number_input(
+                (
+                    "Số container sử dụng tối đa"
+                    if language == "vi"
+                    else "Maximum used-container count"
+                ),
+                min_value=container_count,
+                max_value=limits.configured_containers,
+                step=1,
+                key="level_01_inventory_search_max_count",
+                disabled=not inventory_search_auto_increase,
+            ))
+        if inventory_summary is not None:
+            with st.sidebar.expander(
+                "Tổng quan kho container" if language == "vi" else "Container inventory overview"
+            ):
+                st.caption(
+                    (
+                        f"{inventory_summary.available_container_count:,} khả dụng / "
+                        f"{inventory_summary.physical_container_count:,} physical · "
+                        f"{inventory_summary.equivalent_type_count} type tương đương"
+                    )
+                )
+                st.caption(
+                    (
+                        f"Tổng thể tích: {inventory_summary.total_available_volume_m3:,.2f} m³ · "
+                        f"Tổng tải: {inventory_summary.total_available_payload_kg:,.0f} kg"
+                    )
+                )
+                st.caption(
+                    (
+                        "Dấu vết kho: " + str(inventory_summary.inventory_fingerprint)
+                        if language == "vi" else
+                        "Inventory fingerprint: " + str(inventory_summary.inventory_fingerprint)
+                    )
+                )
+                st.dataframe(
+                    pd.DataFrame(inventory_summary.type_rows),
+                    hide_index=True,
+                    width="stretch",
+                )
+    elif inventory_summary is not None:
+        st.sidebar.caption(
+            (
+                f"Catalog: {inventory_summary.available_container_count:,} container khả dụng · "
+                f"{inventory_summary.equivalent_type_count} type tương đương"
+                if language == "vi" else
+                f"Catalog: {inventory_summary.available_container_count:,} available containers · "
+                f"{inventory_summary.equivalent_type_count} equivalent types"
+            )
+        )
     if level_id == "level_08" and level8_profile is not None:
         profile_metadata = _level8_profile_metadata(
             str(level8_profile_id), level8_profile, config

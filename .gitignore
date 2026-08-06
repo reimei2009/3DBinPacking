@@ -43,3 +43,8 @@ data/processed/**
 data/raw/level_08/generated/**
 !data/raw/level_08/generated/
 !data/raw/level_08/generated/.gitkeep
+
+# Ignore exploratory reports folder (local, large, or generated)
+docs/reports/explore/**
+!docs/reports/explore/
+!docs/reports/explore/.gitkeep

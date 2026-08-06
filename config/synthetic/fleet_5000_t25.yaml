@@ -1,0 +1,22 @@
+extends: base_large_instances.yaml
+profile_id: level_01_inventory_fleet_5000_t25_v1
+seed: 95000
+usage_class: solver_research
+item_population:
+  count: 100
+container_type_variants:
+  per_source_type: 5
+  dimension_scale_step: 0.015
+  payload_scale_step: 0.025
+  cost_scale_step: 0.02
+container_fleet:
+  quantities:
+    C1: 1000
+    C2: 1000
+    C3: 1000
+    C4: 1000
+    C5: 1000
+level_08_enrichment:
+  delivery_stop_count: 5
+output:
+  directory: data/interim/synthetic/level_01_inventory_fleet_5000_t25_v1

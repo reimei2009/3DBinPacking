@@ -13,7 +13,7 @@ from ..orientation import OrientationProvider, fixed_orientation_provider
 from .extreme_point_core import constructive_search, pack_order_first_fit, resolved_item_order
 from .first_fit_selection import FirstFitCandidateSelectionPolicy
 from .candidate_points import CandidatePointProvider
-from .container_subset_selection import ContainerSubsetSelectionPolicy
+from .container_subset_selection import ContainerSubsetSelectionPolicy, FixedContainerSubsetSelectionPolicy
 from .container_assignment import ContainerAssignmentPlanner
 from ...schemas import Container, Item, SolveResult
 
@@ -47,10 +47,13 @@ def solve(
             candidate_selection_policy=candidate_selection_policy,
             candidate_point_provider=candidate_point_provider,
         )
+    selected_subset_policy = container_subset_policy
+    if selected_subset_policy is None and bool(settings.get("fixed_subset", False)):
+        selected_subset_policy = FixedContainerSubsetSelectionPolicy()
     search = constructive_search(
         ordered_items, containers, tolerance, subset_limit, pack_order, selected_policy,
         deadline_monotonic=None if deadline is None else float(deadline),
-        container_subset_policy=container_subset_policy,
+        container_subset_policy=selected_subset_policy,
         container_assignment_planner=container_assignment_planner,
     )
 
@@ -100,10 +103,10 @@ def solve(
             **selected_policy.metadata(),
             **({} if candidate_selection_policy is None else candidate_selection_policy.metadata()),
             **({} if candidate_point_provider is None else candidate_point_provider.metadata()),
-            **({} if container_subset_policy is None else container_subset_policy.metadata()),
+            **({} if selected_subset_policy is None else selected_subset_policy.metadata()),
             **(
                 {}
-                if container_subset_policy is None
+                if selected_subset_policy is None
                 else {"container_subset_attempts": search.stats.subset_attempts}
             ),
             "container_assignment_plans_evaluated": search.stats.assignment_plans_evaluated,

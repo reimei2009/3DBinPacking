@@ -50,10 +50,38 @@ class LargeSyntheticProfile:
     minimum_volume_margin_ratio: float
     minimum_payload_margin_ratio: float
     reject_below_minimum: bool
+    container_type_variants_per_source_type: int = 1
+    container_variant_dimension_scale_step: float = 0.0
+    container_variant_payload_scale_step: float = 0.0
+    container_variant_cost_scale_step: float = 0.0
 
     @property
     def container_count(self) -> int:
         return sum(self.container_quantities.values())
+
+    @property
+    def generated_container_type_ids(self) -> tuple[str, ...]:
+        if self.container_type_variants_per_source_type == 1:
+            return self.container_types
+        return tuple(
+            f"{source_type}__V{variant:02d}"
+            for source_type in self.container_types
+            for variant in range(1, self.container_type_variants_per_source_type + 1)
+        )
+
+    @property
+    def generated_container_quantities(self) -> dict[str, int]:
+        """Distribute each declared source-type quantity deterministically over variants."""
+        count = self.container_type_variants_per_source_type
+        if count == 1:
+            return dict(self.container_quantities)
+        result: dict[str, int] = {}
+        for source_type in self.container_types:
+            quantity = self.container_quantities[source_type]
+            quotient, remainder = divmod(quantity, count)
+            for variant in range(1, count + 1):
+                result[f"{source_type}__V{variant:02d}"] = quotient + int(variant <= remainder)
+        return result
 
 
 def load_large_synthetic_profile(
@@ -84,6 +112,22 @@ def load_large_synthetic_profile(
     minimum_payload_margin = _minimum_margin(
         capacity_policy.get("minimum_payload_margin_ratio"),
         "capacity_policy.minimum_payload_margin_ratio",
+    )
+    variants = _mapping(config.get("container_type_variants", {}), "container_type_variants")
+    variants_per_source_type = _positive_int(
+        variants.get("per_source_type", 1), "container_type_variants.per_source_type"
+    )
+    dimension_scale_step = _non_negative_float(
+        variants.get("dimension_scale_step", 0.0),
+        "container_type_variants.dimension_scale_step",
+    )
+    payload_scale_step = _non_negative_float(
+        variants.get("payload_scale_step", 0.0),
+        "container_type_variants.payload_scale_step",
+    )
+    cost_scale_step = _non_negative_float(
+        variants.get("cost_scale_step", 0.0),
+        "container_type_variants.cost_scale_step",
     )
     container_types_raw = source.get("container_types")
     if not isinstance(container_types_raw, list) or not container_types_raw:
@@ -136,6 +180,10 @@ def load_large_synthetic_profile(
         reject_below_minimum=_boolean(
             capacity_policy.get("reject_below_minimum"), "capacity_policy.reject_below_minimum"
         ),
+        container_type_variants_per_source_type=variants_per_source_type,
+        container_variant_dimension_scale_step=dimension_scale_step,
+        container_variant_payload_scale_step=payload_scale_step,
+        container_variant_cost_scale_step=cost_scale_step,
     )
 
 
@@ -146,7 +194,7 @@ def generate_large_synthetic_instances(
     item_source = _read_source(profile.items_file, ITEM_SOURCE_COLUMNS, "item")
     container_source = _read_source(profile.containers_file, CONTAINER_SOURCE_COLUMNS, "container")
     template_catalog = _build_item_template_catalog(item_source)
-    container_catalog = _build_container_type_catalog(container_source, profile.container_types)
+    container_catalog = _build_container_type_catalog(container_source, profile)
     paths = _output_paths(profile.output_dir)
     existing = [str(path) for path in paths.values() if path.exists()]
     if existing and not overwrite:
@@ -268,22 +316,39 @@ def _build_item_template_catalog(source: pd.DataFrame) -> pd.DataFrame:
     return result
 
 
-def _build_container_type_catalog(source: pd.DataFrame, type_ids: tuple[str, ...]) -> pd.DataFrame:
+def _build_container_type_catalog(source: pd.DataFrame, profile: LargeSyntheticProfile) -> pd.DataFrame:
+    type_ids = profile.container_types
     selected = source[source["container_id"].astype(str).isin(type_ids)].copy()
     missing = sorted(set(type_ids) - set(selected["container_id"].astype(str)))
     if missing:
         raise ValueError("Container source is missing requested type(s): " + ", ".join(missing))
     selected = selected.set_index(selected["container_id"].astype(str)).loc[list(type_ids)].reset_index(drop=True)
-    return pd.DataFrame({
-        "container_type_id": selected["container_id"].astype(str),
-        "length_mm": pd.to_numeric(selected["length_mm"], errors="raise"),
-        "width_mm": pd.to_numeric(selected["width_mm"], errors="raise"),
-        "height_mm": pd.to_numeric(selected["height_mm"], errors="raise"),
-        "max_weight_kg": pd.to_numeric(selected["max_weight_kg"], errors="raise"),
-        "cost": pd.to_numeric(selected["cost"], errors="raise"),
-        "volume_m3": pd.to_numeric(selected["volume_m3"], errors="raise"),
-        "source_container_id": selected["container_id"].astype(str),
-    })
+    records: list[dict[str, object]] = []
+    for row in selected.itertuples(index=False):
+        source_type = str(row.container_id)
+        for variant in range(1, profile.container_type_variants_per_source_type + 1):
+            offset = variant - 1
+            dimension_factor = 1.0 + offset * profile.container_variant_dimension_scale_step
+            payload_factor = 1.0 + offset * profile.container_variant_payload_scale_step
+            cost_factor = 1.0 + offset * profile.container_variant_cost_scale_step
+            length = float(row.length_mm) * dimension_factor
+            width = float(row.width_mm) * dimension_factor
+            height = float(row.height_mm) * dimension_factor
+            records.append({
+                "container_type_id": (
+                    source_type if profile.container_type_variants_per_source_type == 1
+                    else f"{source_type}__V{variant:02d}"
+                ),
+                "length_mm": length,
+                "width_mm": width,
+                "height_mm": height,
+                "max_weight_kg": float(row.max_weight_kg) * payload_factor,
+                "cost": float(row.cost) * cost_factor,
+                "volume_m3": length * width * height / 1_000_000_000.0,
+                "source_container_id": source_type,
+                "variant_ordinal": variant,
+            })
+    return pd.DataFrame(records)
 
 
 def _write_container_instances(
@@ -302,9 +367,9 @@ def _write_container_instances(
         solver_writer = csv.DictWriter(solver_handle, fieldnames=fields)
         instance_writer.writeheader()
         solver_writer.writeheader()
-        for type_id in profile.container_types:
+        for type_id in profile.generated_container_type_ids:
             source = type_lookup[type_id]
-            for ordinal in range(1, profile.container_quantities[type_id] + 1):
+            for ordinal in range(1, profile.generated_container_quantities[type_id] + 1):
                 row = {
                     "container_id": f"CONT-{type_id}-{ordinal:06d}", "container_type_id": type_id,
                     "length_mm": source.length_mm, "width_mm": source.width_mm, "height_mm": source.height_mm,
@@ -380,7 +445,13 @@ def _manifest(
         "item_count": profile.item_count,
         "item_template_count": len(templates),
         "container_count": profile.container_count,
-        "container_type_quantities": profile.container_quantities,
+        "container_type_quantities": profile.generated_container_quantities,
+        "container_type_variant_policy": {
+            "per_source_type": profile.container_type_variants_per_source_type,
+            "dimension_scale_step": profile.container_variant_dimension_scale_step,
+            "payload_scale_step": profile.container_variant_payload_scale_step,
+            "cost_scale_step": profile.container_variant_cost_scale_step,
+        },
         "delivery_stop_count": profile.delivery_stop_count,
         "sampling": profile.sampling,
         "weight_noise_percent": profile.weight_noise_percent,
@@ -406,7 +477,7 @@ def _manifest(
     payload["profile_fingerprint"] = hashlib.sha256(
         json.dumps({key: payload[key] for key in (
             "schema_version", "profile_id", "seed", "source_items_sha256", "source_containers_sha256",
-            "item_count", "container_type_quantities", "delivery_stop_count", "sampling",
+            "item_count", "container_type_quantities", "container_type_variant_policy", "delivery_stop_count", "sampling",
             "weight_noise_percent", "usage_class", "capacity_policy",
         )}, sort_keys=True).encode("utf-8")
     ).hexdigest()

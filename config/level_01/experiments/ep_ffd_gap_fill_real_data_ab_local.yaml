@@ -1,0 +1,23 @@
+extends: ../default.yaml
+project:
+  algorithm_id: extreme_point_ffd
+environment: local
+instance:
+  item_count: 20
+  container_count: 5
+  item_selection_strategy: prefix
+  item_selection_seed: null
+algorithms:
+  extreme_point_ffd:
+    subset_enumeration_limit: 1
+    fixed_subset: true
+  extreme_point_ffd_gap_fill:
+    subset_enumeration_limit: 1
+    fixed_subset: true
+    gap_fill:
+      lookahead_window_size: 5
+      max_constrained_points_per_step: 8
+      max_candidates_per_step: 64
+      maximum_reorder_distance: 4
+    gap_fill_time_limit_seconds: 30
+    gap_fill_validation_reserve_seconds: 2

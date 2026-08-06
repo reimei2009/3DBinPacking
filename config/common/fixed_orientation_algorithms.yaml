@@ -5,6 +5,16 @@ algorithms:
     subset_enumeration_limit: 12
   extreme_point_ffd:
     subset_enumeration_limit: 12
+  extreme_point_ffd_gap_fill:
+    fixed_subset: true
+    subset_enumeration_limit: 1
+    gap_fill:
+      lookahead_window_size: 5
+      max_constrained_points_per_step: 8
+      max_candidates_per_step: 64
+      maximum_reorder_distance: 4
+    gap_fill_time_limit_seconds: 30
+    gap_fill_validation_reserve_seconds: 2
   extreme_point_hill_climbing:
     subset_enumeration_limit: 12
     subset_candidate_limit: 48
