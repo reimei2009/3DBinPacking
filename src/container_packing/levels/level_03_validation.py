@@ -1,6 +1,6 @@
 """Planned Level 3 validator: horizontal orientation plus Level 2 support.
 
-This module is intentionally not registered as an executable level yet.  It
+This module provides the independent validator used by the registered Level 3 runtime. It
 exists so a future solver can be checked independently before Level 3 is
 exposed through the CLI or UI.
 """

@@ -1,73 +1,28 @@
 # 3D Container Packing
 
-Large reproducible research populations can be generated from the immutable
-public item source using the template/physical-instance workflow documented in
-`docs/datasets/large_synthetic_instances.md`. Generated CSVs remain untracked
-under `data/interim/synthetic/`.
+Nền tảng nghiên cứu có thể tái lập cho bài toán xếp kiện hộp chữ nhật vào
+nhiều container dị thể. Project tách biệt dữ liệu, cấu hình, output và
+independent validator theo từng level; trạng thái `FEASIBLE` chỉ được chấp
+nhận khi validator tương ứng trả `VALID`.
 
-Inspect a generated population without invoking preprocessing or a packing
-solver (streaming is the bounded-memory default):
+## Trạng thái các level
 
-```powershell
-.\.venv\Scripts\python.exe .\scripts\inspect_generated_dataset.py `
-  --manifest data\interim\synthetic\empirical_scale_1k_100_v1\generation_manifest.json `
-  --mode stream
-```
+| Level | Phần bổ sung chính | Maturity |
+| --- | --- | --- |
+| 1 | Hình học, non-overlap, payload, orientation cố định | Nghiên cứu đã nghiệm thu |
+| 2 | Floor contact, exact support ratio, base-center support | Nghiên cứu đã nghiệm thu |
+| 3 | Xoay ngang `XYZ/YXZ` | Nghiên cứu đã nghiệm thu |
+| 4 | Stackability và giới hạn layer | Nghiên cứu đã nghiệm thu |
+| 5 | Load-bearing và truyền tải trọng đệ quy | Nghiên cứu đã nghiệm thu |
+| 6 | Nesting tường minh theo compound root | Thử nghiệm |
+| 7 | Trọng tâm và cân bằng tải | Thử nghiệm |
+| 8 | Delivery priority, LIFO và replay tuần tự | Thử nghiệm |
 
-The inspection report is isolated under
-`outputs/<level>/runs/<run_id>/reports/dataset_inspection.json` and records
-checksum/schema evidence, throughput, process RSS and Python heap peaks.
-The current validated data-pipeline ceiling is 100k items. One-million-item
-profiles are retained as unvalidated future references and are never generated
-by tests, CI, smoke tests or acceptance (schema parsing only). See the versioned baseline in
-`docs/reports/manual/generated_dataset_scale_baseline_20260803.md`.
+Chi tiết authoritative nằm trong [mục lục tài liệu](docs/index.md). Phân loại
+solver, comparator, fixture và exposure được khóa trong
+`config/common/capability_matrix.yaml`.
 
-Level 8 now includes a separate cross-level comparison profile using the same
-public items and C1-C5 container catalog as Levels 1-7. The existing small
-logistics fixtures remain isolated for LIFO/replay semantics. Offline
-Plotly/Haversine routing needs no API key; Google Routes is optional only when
-a server-side key is configured.
-Level 8 uses exact container-subset enumeration for small catalogs and a
-bounded diverse subset portfolio for larger catalogs; failed smaller subsets
-remain heuristic failures, not proofs of infeasibility.
-
-Level 8 provides an explicit delivery/LIFO data contract, a pure straight-path
-unloadability engine, and experimental delivery-aware Best Fit/FFD solvers.
-Its Streamlit logistics demo provides tracked `6/2`, semantic `20/5`,
-cross-level comparable `20/5`, and custom `1–100 items / 1–10 containers`
-profiles with delivery-stop maps, stop-colored 3D views, and replay controls.
-Frozen validation
-fixtures remain CLI-only regression evidence.
-Sequential loading/unloading replay is optional and disabled by default. When
-enabled for a Level 8 run, it independently revalidates every remaining state,
-acts as a hard final gate, writes seven artifacts below `simulation/`, and can
-be inspected with the read-only Streamlit event slider.
-Synthetic semantic fixtures are tracked under `data/raw/level_08/`; generate
-large reproducible delivery inputs only when needed:
-
-```powershell
-.\.venv\Scripts\python.exe .\scripts\generate_level8_synthetic_data.py `
-  --profile config\level_08\synthetic\scale_1000_c80.yaml
-```
-
-Project thử nghiệm đa level/đa thuật toán. `level_01` chạy MILP, constructive heuristic, local search và metaheuristic với orientation cố định. `level_02` kế thừa Level 1 và thêm floor contact, tỷ lệ hỗ trợ đáy cùng hỗ trợ tâm đáy. Level 2 dùng MILP làm exact reference và dùng chung năm engine heuristic/metaheuristic với exact-support feasibility policy. Level 2 vẫn chưa mô hình hóa rotation, stackability, truyền tải, độ bền chịu tải hoặc ổn định vật lý đầy đủ.
-
-## Web 3D R&D
-
-Ứng dụng Streamlit là một UI mỏng dùng chung pipeline với CLI và notebook. Logic solver, validator và scene generation vẫn nằm trong package Python nên có thể tái sử dụng khi chuyển sang FastAPI/React.
-
-```powershell
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-pip install -e .
-python scripts\run_web_app.py
-```
-
-Mở URL Streamlit in trong terminal, thường là `http://localhost:8501`. UI mặc định dùng tiếng Việt và có thể chuyển sang English. Giao diện cho phép chọn level, thuật toán, số item, số container, seed và tham số thuật toán; đồng thời dùng LaTeX để hiển thị ký hiệu, biến, hàm mục tiêu, ràng buộc, code mapping, validation, utilization và mô hình Plotly 3D. Trình xem 3D có các chế độ Rõ khối/Cân bằng/X-Ray, slider opacity, highlight và ẩn item. Xem [hướng dẫn web](docs/guides/running_web_app.md) và [kiến trúc tái sử dụng](docs/design/visualization_web_architecture.md).
-
-Quy trình branch/worktree của dự án được mô tả tại `docs/design/git_workflow.md`: `main` ổn định, `develop` tích hợp, và branch ngắn hạn theo scope như `experiment/level-01/<task>`.
-
-## Chạy thủ công
+## Cài đặt
 
 ```powershell
 python -m venv .venv
@@ -75,168 +30,78 @@ python -m venv .venv
 python -m pip install --upgrade pip
 pip install -r requirements.txt
 pip install -e .
+```
+
+## Chạy nhanh
+
+Liệt kê capability runtime:
+
+```powershell
 python -m container_packing.cli list
+```
+
+Chạy tương tác:
+
+```powershell
 python scripts\run_experiment.py --interactive
 ```
 
-Lệnh tương tác hỏi level, thuật toán, số item, số container và môi trường. Terminal hiển thị ngay status, validation, container được chọn, tải/thể tích, runtime, tọa độ placement và run directory.
-
-Chạy không tương tác:
+Chạy một experiment Level 1:
 
 ```powershell
-python scripts\run_experiment.py --level level_01 --algorithm milp_big_m --items-count 10 --containers-count 3 --environment local --non-interactive
+python scripts\run_experiment.py `
+  --level level_01 `
+  --algorithm extreme_point_best_fit `
+  --items-count 20 `
+  --containers-count 5 `
+  --environment local `
+  --non-interactive
 ```
 
-Level 5 dùng `extreme_point_best_fit` làm solver mặc định,
-`extreme_point_ffd` làm constructive comparator và Hill Climbing làm
-local-search comparator; Simulated Annealing là quality comparator cho tải tĩnh
-đệ quy. Sức chịu tải mặc định dùng profile nghiên cứu
-`synthetic_weight_factor_v1` (`M_i = 4w_i`), không phải thông số vật liệu thực:
+Kiểm định lại một run:
 
 ```powershell
-python scripts\run_experiment.py --level level_05 --items-count 10 --containers-count 3 --environment local --non-interactive
+python scripts\validate_solution.py `
+  --level level_01 `
+  --run-dir outputs\level_01\runs\<run_id>
 ```
 
-Output riêng nằm dưới `outputs/level_05/runs/<run_id>/`, gồm
-`load_bearing.csv`, `load_transfer.csv` và
-`load_bearing_validation.json`. Level 5 chưa mô hình hóa áp suất, mô-men,
-biến dạng, tải động hoặc ổn định cơ học đầy đủ.
+Mỗi lần chạy tạo thư mục bất biến riêng dưới
+`outputs/<level_id>/runs/<run_id>/`, gồm manifest, resolved config, input
+snapshot, solution, validation, metrics, report và visualization.
 
-Level 5 SA sensitivity sweep là tác vụ dài và chạy thủ công:
+## Streamlit
 
 ```powershell
-python scripts\run_parameter_sweep.py --config config\level_05\sweeps\sa_prefix_i20_c5_local.yaml
-python scripts\run_parameter_sweep.py --config config\level_05\sweeps\sa_stable_random_101_i20_c5_local.yaml
+python scripts\run_web_app.py
 ```
 
-Level 5 quality profile đã chọn SA p006 (`200`, `0.05`, `0.99`). Nghiệm thu
-portfolio Best Fit/Hill/SA chạy thủ công:
+UI là adapter mỏng dùng chung application pipeline với CLI. Solver, validator
+và simulation logic không nằm trong Streamlit. Xem
+[hướng dẫn giao diện](docs/guides/running_web_app.md) và
+[kiến trúc web](docs/design/visualization_web_architecture.md).
 
-```powershell
-python scripts\run_benchmark.py --suite config\level_05\benchmarks\portfolio_local.yaml
-```
+## Dữ liệu và benchmark
 
-Baseline đã nghiệm thu được ghi tại
-`docs/reports/manual/level_05_portfolio_baseline_20260724.md`.
+- Dữ liệu ngoài/raw là bất biến; transformation ghi vào `data/interim` hoặc
+  `data/processed`.
+- Chỉ so sánh hai nghiệm khi input fingerprint, checksum, selection strategy
+  và seed tương thích.
+- Benchmark lớn, MILP dài và synthetic scale profile được chạy thủ công.
+- Trần data-pipeline đã kiểm tra hiện tại là 100.000 items; profile một triệu
+  items chỉ là tham khảo và không thuộc acceptance.
 
-Chạy Level 2 support-only trên instance nhỏ:
+Xem:
 
-```powershell
-python scripts\run_experiment.py --level level_02 --items-count 20 --containers-count 5 --environment local --non-interactive
-```
+- [quy trình chạy và kiểm thử thủ công](docs/guides/manual_test_flow.md);
+- [thiết kế benchmark](docs/design/benchmark_design.md);
+- [dữ liệu synthetic quy mô lớn](docs/datasets/large_synthetic_instances.md);
+- [quy tắc quản trị tài liệu](docs/design/documentation_governance.md).
 
-Level 2 mặc định chạy `extreme_point_ffd` với role `practical_default`. MILP
-được giữ làm exact reference:
+## Giới hạn tuyên bố
 
-```powershell
-python scripts\run_experiment.py --level level_02 --config config\level_02\experiments\milp_big_m_reference.yaml --non-interactive
-```
-
-Level 2 mặc định dùng grid MILP 4×4, threshold 0.80 và validator exact
-union-area. Xem `solution/support.csv`; không hiểu support hình học là bằng
-chứng ổn định cơ học.
-
-Chạy Level 2 thực dụng bằng heuristic support-aware:
-
-```powershell
-python scripts\run_experiment.py --level level_02 --algorithm extreme_point_best_fit --items-count 20 --containers-count 5 --environment local --non-interactive
-```
-
-Các heuristic kiểm tra exact union support khi sinh từng candidate. MILP vẫn là
-phương pháp tham chiếu; `FEASIBLE_TIME_LIMIT` không phải chứng minh tối ưu.
-
-Chạy heuristic nhanh trên local:
-
-```powershell
-python scripts\run_experiment.py --level level_01 --algorithm extreme_point_ffd --items-count 50 --containers-count 8 --environment local --non-interactive
-```
-
-Chạy Best Fit — duyệt toàn bộ extreme point khả thi và chọn ứng viên theo container đang mở, chi phí tăng thêm, dung tích/tải trọng dư và bounding-volume growth:
-
-```powershell
-python scripts\run_experiment.py --level level_01 --algorithm extreme_point_best_fit --items-count 50 --containers-count 8 --environment local --non-interactive
-```
-
-`FEASIBLE` nghĩa là heuristic đã tìm thấy nghiệm qua validator, không phải bằng chứng tối ưu toàn cục.
-
-Chạy Maximal Empty Spaces — biểu diễn phần trống bằng các khối hộp cực đại và chọn vị trí Best Fit:
-
-```powershell
-python scripts\run_experiment.py --level level_01 --algorithm maximal_space_best_fit --items-count 50 --containers-count 8 --environment local --non-interactive
-```
-
-Chạy Hill Climbing:
-
-```powershell
-python scripts\run_experiment.py --level level_01 --algorithm extreme_point_hill_climbing --items-count 50 --containers-count 8 --environment local --non-interactive
-```
-
-Chạy Simulated Annealing có seed, phù hợp local CPU:
-
-```powershell
-python scripts\run_experiment.py --level level_01 --algorithm extreme_point_simulated_annealing --items-count 50 --containers-count 8 --environment local --non-interactive
-```
-
-Override seed cho một run bằng `--seed 7`. Seed thực tế được lưu trong run ID, manifest và resolved config.
-
-Mặc định terminal hiển thị 20 placement đầu. Dùng `--preview-limit 5`, `--preview-limit 0`, hoặc `--json-only`.
-
-Output đầy đủ nằm tại `outputs/<level_id>/runs/<run_id>/`. Xem hướng dẫn chi tiết ở `docs/guides/manual_test_flow.md`.
-
-## Benchmark
-
-Chạy bộ instance Level 1 chuẩn (MILP chỉ chạy case nhỏ; các phương pháp nhẹ
-chạy thêm các profile random, đa dạng thể tích, nặng tải và lớn thể tích):
-
-```powershell
-python scripts\run_benchmark.py --suite config\level_01\benchmarks\core_local.yaml
-```
-
-Mỗi scenario lưu chiến lược chọn item, seed chọn tập, danh sách ID, checksum và
-thống kê profile. Vì vậy chỉ các dòng có cùng `scenario_id` và
-`input_fingerprint` mới được so sánh trực tiếp.
-
-Chạy một ma trận benchmark có thể tái lập:
-
-```powershell
-python scripts\run_benchmark.py --level level_01 --algorithms extreme_point_best_fit extreme_point_ffd maximal_space_best_fit extreme_point_hill_climbing extreme_point_simulated_annealing --item-counts 10 20 --container-counts 3 5 --seeds 7 11 19 23 29 --repeats 2
-```
-
-`--seeds` là các seed thí nghiệm khác nhau; `--repeats` là số lần đo lại cho từng seed. Ví dụ trên chạy `5 thuật toán × 2 item counts × 2 container counts × 5 seeds × 2 repeats = 200` case. Mỗi case tạo experiment run riêng. Bảng tổng hợp được lưu trong một benchmark run riêng dưới `outputs/level_01/runs/<benchmark_id>/benchmark/`.
-
-Sau mỗi benchmark, xem `ranking.csv` (xếp hạng Level 1: hợp lệ → ít
-container → chi phí → runtime), `pairwise_comparison.csv`,
-`pareto_frontier.csv`, và `milp_reference_gaps.csv`. File cuối chỉ có ý nghĩa
-khi MILP đã chứng minh `OPTIMAL` cho toàn bộ lần chạy cùng scenario.
-
-## Parameter sweep
-
-Chạy grid mặc định cho Simulated Annealing:
-
-```powershell
-python scripts\run_parameter_sweep.py --config config/level_01/sweeps/extreme_point_simulated_annealing_local.yaml
-```
-
-Override quy mô và seed mà không sửa YAML:
-
-```powershell
-python scripts\run_parameter_sweep.py --item-counts 20 30 --container-counts 5 --seeds 7 11 19 --repeats 1
-```
-
-Grid YAML hiện so sánh `initial_temperature`, `cooling_rate` và `max_iterations`. Kết quả đầy đủ nằm tại `outputs/level_01/runs/<sweep_id>/sweep/`; xem `ranking.csv` và `best_parameters.json`. Rank 1 chỉ là tốt nhất trong grid/instance/seed đã thử, không phải bằng chứng tối ưu toàn cục.
-
-Level 2 cũng có sweep cấu hình cho ngưỡng support $\alpha$ của FFD. Lệnh này
-chạy thủ công vì tạo chín experiment run:
-
-```powershell
-python scripts\run_parameter_sweep.py --config config\level_02\sweeps\support_threshold_local.yaml
-```
-
-`sweep.config_parameters` dùng đường dẫn config như `support.threshold`; mọi
-giá trị được lưu trong resolved config của từng run.
-
-Config rank 1 đã được lưu riêng, không ghi đè default:
-
-```powershell
-python scripts\run_experiment.py --config config/level_01/experiments/extreme_point_simulated_annealing_tuned_i20_c5_local.yaml --items-count 20 --containers-count 5 --seed 42 --non-interactive
-```
+Đây là nền tảng R&D, không phải hệ thống chứng nhận an toàn vận tải. Mỗi level
+chỉ được tuyên bố hợp lệ theo đúng các ràng buộc đang kích hoạt. Các profile
+load-bearing, COG, delivery và thời gian vận hành hiện có thể là dữ liệu
+synthetic; không được hiểu là thông số vật liệu, phương tiện hoặc quy trình
+khai thác thực tế nếu chưa có provenance tương ứng.

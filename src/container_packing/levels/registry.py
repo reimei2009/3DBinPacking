@@ -21,7 +21,7 @@ _LEVELS = {
         description="Fixed orientation; boundary, pairwise non-overlap, and payload constraints",
         default_config=Path("config/level_01/default.yaml"),
         supported_algorithms=(
-            "milp_big_m", "extreme_point_best_fit", "extreme_point_ffd", "extreme_point_hill_climbing",
+            "milp_big_m", "extreme_point_best_fit", "extreme_point_ffd", "extreme_point_ffd_gap_fill", "extreme_point_hill_climbing",
             "extreme_point_simulated_annealing", "maximal_space_best_fit",
         ),
         run=level_01.run,
@@ -810,20 +810,20 @@ _LEVELS["level_07"] = LevelDefinition(
     contract=replace(
         _LEVELS["level_06"].contract,
         title=LocalizedText(
-            vi="Level 7 â€” Trá»ng tÃ¢m vÃ  cÃ¢n báº±ng (fixture CLI)",
+            vi="Level 7 — Trọng tâm và cân bằng (fixture CLI)",
             en="Level 7 — Center of mass and balance (experimental)",
         ),
         problem=LocalizedText(
-            vi="XÃ¡c minh fixture compound-root Ä‘Ã£ Ä‘Ã³ng theo trá»ng tÃ¢m khÃ‘i lÆ°á»£ng; khÃ´ng tá»‘i Æ°u hÃ³a packing.",
+            vi="Xác minh fixture compound-root đã khóa theo trọng tâm khối lượng; không tối ưu hóa packing.",
             en="Pack compound roots with per-container center-of-mass balance and independently validate every inherited constraint.",
         ),
         notation=_LEVELS["level_06"].contract.notation + (
             MathematicalExpression(
                 "center_of_mass",
-                LocalizedText(vi="Trá»ng tÃ¢m container", en="Container center of mass"),
+                LocalizedText(vi="Trọng tâm container", en="Container center of mass"),
                 r"X_k^{cg}=\frac{\sum_{i\in k}q_i(x_i+\ell_i/2)}{\sum_{i\in k}q_i},\quad Y_k^{cg}=\frac{\sum_{i\in k}q_i(y_i+w_i/2)}{\sum_{i\in k}q_i}",
                 LocalizedText(
-                    vi="TÃ­nh láº¡i Ä‘á»™c láº­p tá»« compound-root placements vÃ  khá»‘i lÆ°á»£ng.",
+                    vi="Tính lại độc lập từ compound-root placements và khối lượng.",
                     en="Recomputed independently from compound-root placements and masses.",
                 ),
                 "src/container_packing/levels/center_of_mass.py::evaluate_center_of_mass",
@@ -831,10 +831,10 @@ _LEVELS["level_07"] = LevelDefinition(
         ),
         objective=MathematicalExpression(
             "validation_only",
-            LocalizedText(vi="KhÃ´ng cÃ³ hÃ m má»¥c tiÃªu solver", en="No solver objective"),
+            LocalizedText(vi="Không có hàm mục tiêu solver", en="No solver objective"),
             r"\text{validation only}",
             LocalizedText(
-                vi="Runtime chá»‰ táº¡o báº±ng chá»©ng fixture, khÃ´ng tÃ¬m phÆ°Æ¡ng Ã¡n xáº¿p.",
+                vi="Runtime chỉ tạo bằng chứng fixture, không tìm phương án xếp.",
                 en="The runtime produces fixture evidence only and does not search for a packing solution.",
             ),
             "src/container_packing/levels/level_07.py::run",
@@ -842,35 +842,35 @@ _LEVELS["level_07"] = LevelDefinition(
         active_constraints=_LEVELS["level_06"].contract.active_constraints + (
             ConstraintDefinition(
                 "compound_root_center_of_mass_balance",
-                LocalizedText(vi="CÃ¢n báº±ng trá»ng tÃ¢m", en="Center-of-mass balance"),
+                LocalizedText(vi="Cân bằng trọng tâm", en="Center-of-mass balance"),
                 r"|X_k^{cg}/L_k-t_k^x|\le\tau_k^x,\quad |Y_k^{cg}/W_k-t_k^y|\le\tau_k^y",
                 LocalizedText(
-                    vi="Kiá»ƒm tra ngÆ°á»¡ng dÃ£i cÃ¢n báº±ng dÃ i vÃ  ngang cho fixture Ä‘Ã£ Ä‘Ã³ng.",
+                    vi="Kiểm tra ngưỡng dải cân bằng dọc và ngang cho fixture đã khóa.",
                     en="Checks longitudinal and lateral balance bands for the frozen fixture.",
                 ),
                 "src/container_packing/levels/level_07_validation.py::validate_container_balance",
             ),
         ),
         inactive_constraints=_LEVELS["level_06"].contract.inactive_constraints + (
-            LocalizedText(vi="solver cÃ¢n báº±ng thá»±c táº¿", en="practical balance-aware solver"),
-            LocalizedText(vi="táº£i theo vÃ¹ng sÃ n", en="floor-zone load limits"),
-            LocalizedText(vi="khoáº£ng trá»‘ng cá»­a", en="door clearance"),
-            LocalizedText(vi="giá»›i háº¡n táº£i trá»¥c", en="axle load limits"),
+            LocalizedText(vi="solver cân bằng thực tế", en="practical balance-aware solver"),
+            LocalizedText(vi="tải theo vùng sàn", en="floor-zone load limits"),
+            LocalizedText(vi="khoảng trống cửa", en="door clearance"),
+            LocalizedText(vi="giới hạn tải trục", en="axle load limits"),
         ),
         assumptions=_LEVELS["level_06"].contract.assumptions + (
             LocalizedText(
-                vi="Chá»‰ chấp nhận fixture prefix 4 kiá»‡n/1 container, hÆ°á»›ng XYZ vÃ  environment local.",
+                vi="Chỉ chấp nhận fixture prefix 4 kiện/1 container, hướng XYZ và môi trường local.",
                 en="Accepts only the prefix 4-item/1-container fixture, XYZ orientation, and local environment.",
             ),
         ),
         limitations=_LEVELS["level_06"].contract.limitations + (
             LocalizedText(
-                vi="VALIDATION_ONLY khÃ´ng pháº£i nghiá»‡m tá»‘i Æ°u hay solver packing thá»±c táº¿.",
+                vi="VALIDATION_ONLY không phải nghiệm tối ưu hay solver packing thực tế.",
                 en="VALIDATION_ONLY is neither an optimal solution nor a practical packing solver.",
             ),
         ),
         solution_claim=LocalizedText(
-            vi="Báº±ng chá»©ng fixture Ä‘Æ°á»£c validation Ä‘á»™c láº­p cho Level 6 vÃ  ngÆ°á»¡ng cÃ¢n báº±ng Level 7.",
+            vi="Bằng chứng fixture được kiểm định độc lập cho Level 6 và ngưỡng cân bằng Level 7.",
             en="Independently validated fixture evidence for Level 6 and Level 7 balance bands.",
         ),
     ),

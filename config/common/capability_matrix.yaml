@@ -1,0 +1,110 @@
+schema_version: "1.0"
+description: >-
+  Ma trận quản trị maturity và exposure. Registry Python vẫn là nguồn sự thật
+  về khả năng thực thi; file này không thay đổi solver hoặc validation.
+
+levels:
+  level_01:
+    maturity: accepted_research
+    evidence:
+      - docs/levels/level_01.md
+      - docs/reports/generated/level1_acceptance_report.md
+    algorithms:
+      milp_big_m: {execution_class: exact_reference, maturity: accepted, role: exact_reference, exposure: [cli, benchmark, streamlit]}
+      extreme_point_best_fit: {execution_class: packing_solver, maturity: accepted, role: practical_candidate, exposure: [cli, benchmark, streamlit]}
+      extreme_point_ffd: {execution_class: packing_solver, maturity: accepted, role: constructive_baseline, exposure: [cli, benchmark, streamlit]}
+      extreme_point_ffd_gap_fill: {execution_class: packing_solver, maturity: experimental, role: research_comparator, exposure: [cli, benchmark]}
+      extreme_point_hill_climbing: {execution_class: packing_solver, maturity: accepted, role: local_search_comparator, exposure: [cli, benchmark, streamlit]}
+      extreme_point_simulated_annealing: {execution_class: packing_solver, maturity: accepted, role: quality_comparator, exposure: [cli, benchmark, streamlit]}
+      maximal_space_best_fit: {execution_class: packing_solver, maturity: accepted, role: geometric_comparator, exposure: [cli, benchmark, streamlit]}
+
+  level_02:
+    maturity: accepted_research
+    evidence:
+      - docs/levels/level_02.md
+      - docs/reports/generated/level2_ffd_baseline.md
+    algorithms:
+      milp_big_m: {execution_class: exact_reference, maturity: accepted, role: exact_reference, exposure: [cli, benchmark, streamlit]}
+      extreme_point_best_fit: {execution_class: packing_solver, maturity: accepted, role: constructive_comparator, exposure: [cli, benchmark, streamlit]}
+      extreme_point_ffd: {execution_class: packing_solver, maturity: accepted, role: practical_default, exposure: [cli, benchmark, streamlit]}
+      extreme_point_hill_climbing: {execution_class: packing_solver, maturity: accepted, role: local_search_comparator, exposure: [cli, benchmark, streamlit]}
+      extreme_point_simulated_annealing: {execution_class: packing_solver, maturity: accepted, role: quality_comparator, exposure: [cli, benchmark, streamlit]}
+      maximal_space_best_fit: {execution_class: packing_solver, maturity: accepted, role: geometric_comparator, exposure: [cli, benchmark, streamlit]}
+
+  level_03:
+    maturity: accepted_research
+    evidence:
+      - docs/levels/level_03.md
+      - docs/reports/manual/level_03_heuristic_acceptance.md
+    algorithms:
+      milp_big_m: {execution_class: exact_reference, maturity: accepted, role: bounded_exact_reference, exposure: [cli, benchmark, streamlit]}
+      extreme_point_ffd: {execution_class: packing_solver, maturity: accepted, role: constructive_baseline, exposure: [cli, benchmark, streamlit]}
+      extreme_point_best_fit: {execution_class: packing_solver, maturity: accepted, role: practical_candidate, exposure: [cli, benchmark, streamlit]}
+      extreme_point_hill_climbing: {execution_class: packing_solver, maturity: accepted, role: local_search_comparator, exposure: [cli, benchmark, streamlit]}
+      extreme_point_simulated_annealing: {execution_class: packing_solver, maturity: accepted, role: quality_comparator, exposure: [cli, benchmark, streamlit]}
+      maximal_space_best_fit: {execution_class: packing_solver, maturity: accepted, role: geometric_comparator, exposure: [cli, benchmark, streamlit]}
+
+  level_04:
+    maturity: accepted_research
+    evidence:
+      - docs/levels/level_04.md
+      - docs/reports/manual/level_04_best_fit_acceptance.md
+    algorithms:
+      extreme_point_ffd: {execution_class: packing_solver, maturity: accepted, role: constructive_comparator, exposure: [cli, benchmark, streamlit]}
+      extreme_point_best_fit: {execution_class: packing_solver, maturity: accepted, role: practical_default, exposure: [cli, benchmark, streamlit]}
+      extreme_point_hill_climbing: {execution_class: packing_solver, maturity: accepted, role: balanced, exposure: [cli, benchmark, streamlit]}
+      extreme_point_simulated_annealing: {execution_class: packing_solver, maturity: accepted, role: quality, exposure: [cli, benchmark, streamlit]}
+      maximal_space_best_fit: {execution_class: packing_solver, maturity: accepted, role: geometric_comparator, exposure: [cli, benchmark, streamlit]}
+
+  level_05:
+    maturity: accepted_research
+    evidence:
+      - docs/levels/level_05.md
+      - docs/reports/manual/level_05_portfolio_baseline_20260724.md
+    algorithms:
+      extreme_point_best_fit: {execution_class: packing_solver, maturity: accepted, role: practical_default, exposure: [cli, benchmark, streamlit]}
+      extreme_point_ffd: {execution_class: packing_solver, maturity: accepted, role: constructive_comparator, exposure: [cli, benchmark, streamlit]}
+      extreme_point_hill_climbing: {execution_class: packing_solver, maturity: accepted, role: balanced, exposure: [cli, benchmark, streamlit]}
+      extreme_point_simulated_annealing: {execution_class: packing_solver, maturity: accepted, role: quality, exposure: [cli, benchmark, streamlit]}
+
+  level_06:
+    maturity: experimental
+    evidence:
+      - docs/levels/level_06.md
+    algorithms:
+      extreme_point_ffd_nesting_fixture: {execution_class: packing_solver, maturity: experimental, role: experimental_default, exposure: [cli, benchmark, streamlit]}
+      extreme_point_best_fit_nesting_fixture: {execution_class: packing_solver, maturity: experimental, role: constructive_comparator, exposure: [cli, benchmark, streamlit]}
+      extreme_point_hill_climbing_nesting_fixture: {execution_class: packing_solver, maturity: experimental, role: balanced_comparator, exposure: [cli, benchmark, streamlit]}
+      extreme_point_simulated_annealing_nesting_fixture: {execution_class: packing_solver, maturity: experimental, role: quality_comparator, exposure: [cli, benchmark, streamlit]}
+
+  level_07:
+    maturity: experimental
+    evidence:
+      - docs/levels/level_07.md
+      - docs/reports/manual/level_07_balance_fixture_baseline.md
+      - docs/reports/manual/level_07_scale_baseline.md
+    algorithms:
+      extreme_point_best_fit_balance: {execution_class: packing_solver, maturity: experimental, role: practical_default, exposure: [cli, benchmark, streamlit]}
+      extreme_point_ffd_balance: {execution_class: packing_solver, maturity: experimental, role: fast_comparator, exposure: [cli, benchmark, streamlit]}
+      level_07_fixture_validation_bundle: {execution_class: validation_fixture, maturity: fixture_only, role: regression_evidence, exposure: [cli, benchmark]}
+      extreme_point_best_fit_balance_fixture: {execution_class: packing_fixture, maturity: fixture_only, role: aware_acceptance, exposure: [cli, benchmark]}
+      extreme_point_best_fit_balance_baseline_fixture: {execution_class: packing_fixture, maturity: fixture_only, role: negative_control, exposure: [cli, benchmark]}
+      extreme_point_ffd_balance_fixture: {execution_class: packing_fixture, maturity: fixture_only, role: aware_acceptance, exposure: [cli, benchmark]}
+      extreme_point_ffd_balance_baseline_fixture: {execution_class: packing_fixture, maturity: fixture_only, role: negative_control, exposure: [cli, benchmark]}
+
+  level_08:
+    maturity: experimental
+    evidence:
+      - docs/levels/level_08.md
+      - docs/reports/manual/level_08_fixture_baseline.md
+      - docs/reports/manual/level_08_sequential_scale_baseline.md
+      - docs/reports/manual/level_08_soft_stop_affinity_gate_20260803.md
+    algorithms:
+      level_08_fixture_validation_bundle: {execution_class: validation_fixture, maturity: fixture_only, role: regression_evidence, exposure: [cli, benchmark]}
+      extreme_point_best_fit_delivery_baseline_fixture: {execution_class: packing_fixture, maturity: fixture_only, role: negative_control, exposure: [cli, benchmark]}
+      extreme_point_best_fit_delivery_aware_fixture: {execution_class: packing_fixture, maturity: fixture_only, role: aware_acceptance, exposure: [cli, benchmark]}
+      extreme_point_ffd_delivery_negative_control_fixture: {execution_class: packing_fixture, maturity: fixture_only, role: negative_control, exposure: [cli, benchmark]}
+      extreme_point_ffd_delivery_aware_fixture: {execution_class: packing_fixture, maturity: fixture_only, role: aware_acceptance, exposure: [cli, benchmark]}
+      level_08_sequential_replay_fixture: {execution_class: replay_fixture, maturity: fixture_only, role: replay_regression, exposure: [cli, benchmark]}
+      extreme_point_best_fit_delivery: {execution_class: packing_solver, maturity: experimental, role: practical_default, exposure: [cli, benchmark, streamlit]}
+      extreme_point_ffd_delivery: {execution_class: packing_solver, maturity: experimental, role: fast_comparator, exposure: [cli, benchmark, streamlit]}

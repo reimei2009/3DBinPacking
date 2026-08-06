@@ -2,7 +2,11 @@
 
 ## Status
 
-Accepted.
+Superseded.
+
+Thay thế bởi `docs/levels/level_07.md`. Fixture validation-only vẫn được giữ
+cho regression và acceptance evidence, nhưng không còn là algorithm Level 7
+duy nhất.
 
 ## Decision
 

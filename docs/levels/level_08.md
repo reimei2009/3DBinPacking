@@ -1,6 +1,11 @@
 # Level 8 — Delivery order, LIFO, and multiple stops
 
-Status: **experimental runtime**. Streamlit exposes only the config-driven
+Trạng thái: **experimental runtime**. Gate sequential replay 100 items đã
+`FEASIBLE + VALID`; quan sát 300 items hiện chỉ chứng minh timeout construction
+an toàn, có giới hạn thời gian. Evidence canonical nằm tại
+`docs/reports/manual/level_08_sequential_scale_baseline.md`.
+
+Streamlit exposes only the config-driven
 delivery-aware Best Fit and FFD solvers against a tracked three-stop demo.
 Frozen fixtures remain CLI-only regression evidence; neither solver is a
 production transport-planning system.
@@ -16,6 +21,14 @@ falls back offline on missing key, timeout, quota, or provider error.
 
 The fixture semantic baseline is recorded in
 `docs/reports/manual/level_08_fixture_baseline.md`.
+
+Ba nhóm evidence canonical có mục đích khác nhau:
+
+- `docs/reports/manual/level_08_fixture_baseline.md`: semantics fixture;
+- `docs/reports/manual/level_08_sequential_scale_baseline.md`: gate replay và
+  bounded runtime;
+- `docs/reports/manual/level_08_soft_stop_affinity_gate_20260803.md`: nghiệm
+  hợp lệ nhưng chưa đạt target chất lượng container của gate `20/5`.
 
 ## Activated semantics
 
@@ -259,7 +272,7 @@ is auditable. This stronger construction is opt-in because older semantic
 fixtures were designed only for final-state balance, not for balance after
 every individual removal.
 
-Scale acceptance is manual:
+Quy trình scale được chạy thủ công:
 
 ```powershell
 .\.venv\Scripts\python.exe .\scripts\generate_level8_synthetic_data.py `
@@ -277,7 +290,9 @@ stable-random profiles are genuinely different. The 100-item gate requires
 `VALID`. The 300-item observation accepts deterministic `VALID`, explicit
 construction `TIME_LIMIT`, or explicit `REPLAY_TIME_LIMIT`. A timeout is not a
 successful packing: it has no objective and no partial solution/simulation
-artifacts.
+artifacts. Kết quả baseline hiện tại phải được đọc từ
+`docs/reports/manual/level_08_sequential_scale_baseline.md`, không suy ra từ
+một output run đơn lẻ.
 
 ## Data and provenance
 
@@ -301,6 +316,11 @@ C3+C4 candidate is retained as a repair target rather than discarded, but its
 R&D heuristic result, not proof that two or three containers are infeasible.
 The 50/8 comparable profile remains outside the web acceptance gate because it
 did not yet produce a final Level 8-valid solution.
+
+Kết quả soft stop-affinity chi tiết nằm tại
+`docs/reports/manual/level_08_soft_stop_affinity_gate_20260803.md`. Việc giữ
+report thất bại quality gate giúp phân biệt rõ `VALID` về constraint với đạt
+target tối ưu thực nghiệm; không được dùng report này để tuyên bố infeasible.
 
 Routing defaults to the deterministic offline provider. It follows declared
 priority and reports Haversine distance with a 35 km/h duration estimate;

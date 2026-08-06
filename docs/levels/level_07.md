@@ -1,5 +1,11 @@
 # Level 7 — Center of mass and balance
 
+Trạng thái: **baseline R&D quy mô đã PASS**. `extreme_point_best_fit_balance`
+là practical default; `extreme_point_ffd_balance` là fast comparator. Kết quả
+nghiệm thu được ghi bất biến tại
+`docs/reports/manual/level_07_scale_baseline.md`; profile COG synthetic không
+phải chứng nhận an toàn phương tiện.
+
 Level 7 is an experimental, compound-aware packing runtime. It inherits Level
 6 geometry, nesting, support, stackability, and static load-transfer validation,
 then independently validates the mass-weighted center of mass of every used
@@ -109,14 +115,21 @@ They use fixed semantic inputs; a baseline can intentionally finish as
 `INVALID_SOLUTION` to prove that COG guidance, rather than geometry alone,
 causes the balanced placement.
 
+Chứng cứ A/B fixture được lưu tại
+`docs/reports/manual/level_07_balance_fixture_baseline.md`. Báo cáo này kiểm
+chứng semantics scoring trên input nhỏ; scale/practical evidence được lưu riêng
+tại `docs/reports/manual/level_07_scale_baseline.md`.
+
 ## Limits
 
 The synthetic center-band profile is research provenance, not vehicle
 certification. Level 7 does not model axle loads, floor-zone loads, door
 clearance, moments, dynamic transport load, rollover, or suspension.
 
-The current code is **ready for manual scale acceptance**, not closed as a
-production level. See `docs/reports/manual/level_07_scale_acceptance_template.md`.
+Level 7 đã đóng baseline R&D sau nghiệm thu scale; vẫn không phải production
+level hoặc chứng nhận vận tải. Xem
+`docs/reports/manual/level_07_scale_baseline.md` để biết input fingerprint,
+repeat deterministic, runtime và outcome class.
 
 ## Diagnosing an invalid scale benchmark
 

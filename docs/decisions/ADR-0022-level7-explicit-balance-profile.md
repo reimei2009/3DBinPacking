@@ -4,6 +4,10 @@
 
 Accepted.
 
+Ghi chú lịch sử: quyết định về profile cân bằng vẫn đang có hiệu lực. Câu mô tả
+Level 7 chưa được đăng ký bên dưới phản ánh thời điểm ADR được chấp nhận; runtime
+hiện hành được mô tả tại `docs/levels/level_07.md`.
+
 ## Decision
 
 Level 7 will express horizontal center-of-mass targets and tolerances through

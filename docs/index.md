@@ -1,26 +1,60 @@
-# Documentation index
+# Mục lục tài liệu
 
-- `specs/level1`: problem, mathematical model, data, acceptance criteria, implementation spec.
-- `levels/level_02.md` and `specs/level2`: geometric-support contract, model, data, and acceptance criteria.
-- `reports/generated/level2_ffd_baseline.md`: practical-default FFD promotion evidence.
-- `design`: architecture, folder structure, solver and data flow.
-- `guides`: setup, running and debugging.
-- `decisions`: Level 1 architecture decision records.
-- `reports/generated`: generated acceptance evidence.
-- `guides/manual_test_flow.md`: single-run and benchmark commands.
-- `design/benchmark_design.md`: benchmark isolation and aggregation contract.
-- `design/parameter_sweep_design.md`: parameter grids, source runs, statistics, and ranking contract.
-- `design/git_workflow.md`: protected branches, short-lived scope branches, and worktree lifecycle.
-- `design/visualization_web_architecture.md`: reusable scene contract, application boundary, and UI adapters.
-- `guides/running_web_app.md`: launching and using the local Streamlit 3D app.
-- `algorithms/extreme_point_ffd.md`: first local heuristic baseline and limitations.
-- `algorithms/extreme_point_best_fit.md`: objective-aware Best-Fit candidate scoring and limitations.
-- `algorithms/extreme_point_hill_climbing.md`: deterministic local-search neighborhoods and acceptance.
-- `algorithms/extreme_point_simulated_annealing.md`: seeded Metropolis search, cooling, and limitations.
-- `algorithms/maximal_space_best_fit.md`: maximal-empty-space representation, splitting, pruning, and scoring.
-- `decisions/ADR-0007-add-benchmark-seed-sweeps.md`: seed propagation and cross-seed statistics.
-- `decisions/ADR-0008-add-config-driven-parameter-sweeps.md`: persisted overrides and reusable sweep architecture.
-- `decisions/ADR-0009-thin-streamlit-plotly-adapter.md`: why the R&D UI remains replaceable.
-- `decisions/ADR-0010-add-extreme-point-best-fit.md`: why Best Fit is the next constructive baseline.
-- `decisions/ADR-0011-add-maximal-empty-spaces.md`: why EMS is the next geometric heuristic family.
-- `decisions/ADR-0013-level2-geometric-support.md`: support-only scope, exact validation, and reusable composition.
+Đây là điểm bắt đầu canonical cho tài liệu dự án. Runtime registry quyết định
+khả năng thực thi; `config/common/capability_matrix.yaml` quyết định cách phân
+loại maturity, vai trò và exposure.
+
+## Contract theo level
+
+| Level | Contract canonical | Trạng thái |
+| --- | --- | --- |
+| 1 | [Hình học và tải trọng](levels/level_01.md) | Nghiên cứu đã nghiệm thu |
+| 2 | [Geometric support](levels/level_02.md) | Nghiên cứu đã nghiệm thu |
+| 3 | [Xoay ngang](levels/level_03.md) | Nghiên cứu đã nghiệm thu |
+| 4 | [Stackability](levels/level_04.md) | Nghiên cứu đã nghiệm thu |
+| 5 | [Load-bearing](levels/level_05.md) | Nghiên cứu đã nghiệm thu |
+| 6 | [Nesting tường minh](levels/level_06.md) | Thử nghiệm |
+| 7 | [Trọng tâm và cân bằng](levels/level_07.md) | Thử nghiệm |
+| 8 | [Delivery/LIFO/replay](levels/level_08.md) | Thử nghiệm |
+
+## Kiến trúc và quy trình
+
+- [Quản trị tài liệu](design/documentation_governance.md)
+- [Cấu trúc project](design/folder_structure.md)
+- [Luồng solver và dữ liệu](design/solver_design.md)
+- [Thiết kế benchmark](design/benchmark_design.md)
+- [Parameter sweep](design/parameter_sweep_design.md)
+- [Kiến trúc Streamlit/Plotly](design/visualization_web_architecture.md)
+- [Git workflow](design/git_workflow.md)
+
+## Hướng dẫn vận hành
+
+- [Chạy và kiểm thử thủ công](guides/manual_test_flow.md)
+- [Chạy Streamlit](guides/running_web_app.md)
+- [Deploy Render](guides/deploy_render.md)
+- [Cài đặt Windows](guides/setup_windows.md)
+- [Cài đặt Linux](guides/setup_linux.md)
+- [Xử lý lỗi](guides/debugging.md)
+
+## Đặc tả chi tiết
+
+Các thư mục `specs/level1` đến `specs/level7` chứa data contract, mô hình toán
+hoặc acceptance chi tiết. Nếu trạng thái trong spec mâu thuẫn với tài liệu
+`levels/level_XX.md`, tài liệu level và runtime registry là nguồn ưu tiên.
+
+## Quyết định và bằng chứng
+
+- `decisions/`: ADR — lịch sử quyết định, không xóa chỉ vì đã cũ; dùng
+  `superseded_by` khi bị thay thế.
+- `reports/generated/`: evidence được sinh từ acceptance pipeline.
+- `reports/manual/`: baseline/milestone đã tổng hợp từ tác vụ chạy thủ công.
+- `algorithms/`: mô tả thuật toán và giới hạn, không phải nguồn maturity.
+- `datasets/`: nguồn dữ liệu, transformation và provenance.
+
+Không dùng output lịch sử trong `outputs/` làm tài liệu canonical hoặc hidden
+input cho experiment mới.
+
+Baseline R&D đang hiệu lực:
+
+- [Level 7 — scale/balance](reports/manual/level_07_scale_baseline.md)
+- [Level 8 — sequential replay scale](reports/manual/level_08_sequential_scale_baseline.md)
