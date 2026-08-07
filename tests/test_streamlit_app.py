@@ -5,9 +5,20 @@ from container_packing.web.i18n import text as t
 from container_packing.web.streamlit_app import (
     _configured_container_preview,
     _level1_inventory_web_profiles,
+    _inventory_search_overrides,
     _level8_profile_metadata,
     _routing_provider_options,
+    _unbounded_inventory_search_allowed,
 )
+
+
+def test_unbounded_inventory_ui_is_guarded_on_deployment(monkeypatch) -> None:
+    monkeypatch.setenv("RENDER", "true")
+    monkeypatch.delenv("ALLOW_UNBOUNDED_INVENTORY_SEARCH", raising=False)
+    assert not _unbounded_inventory_search_allowed()
+
+    monkeypatch.setenv("ALLOW_UNBOUNDED_INVENTORY_SEARCH", "true")
+    assert _unbounded_inventory_search_allowed()
 
 
 def test_level8_web_metadata_and_container_preview_support_comparable_data(
@@ -94,7 +105,7 @@ def test_streamlit_app_runs_valid_experiment_and_renders_3d(root: Path):
     assert selects["Chế độ xem 3D"].value == "C3"
     assert selects["Chế độ hiển thị"].options == ["Rõ khối", "Cân bằng", "X-Ray"]
     sliders = {value.label: value for value in page.slider}
-    assert sliders["Độ đục của kiện"].value == 0.92
+    assert sliders["Độ đục của kiện"].value == 1.0
     assert not any(value.key == "level_02_support_threshold" for value in page.number_input)
     assert {value.label for value in page.multiselect} >= {"Ẩn các kiện"}
     item_selector = next(value for value in page.selectbox if "I0006" in value.options)
@@ -146,6 +157,18 @@ def test_level1_inventory_search_controls_are_explicit_and_opt_in(root: Path) ->
         "solver sẽ xét catalog thay vì lấy prefix" in value.value
         for value in page.caption
     )
+    runtime = next(
+        value for value in page.selectbox
+        if value.key == "level_01_inventory_runtime_mode"
+    )
+    assert runtime.options == [
+        "Nhanh — 15 giây",
+        "Tiêu chuẩn — 30 giây",
+        "Chuyên sâu — 60 giây",
+        "Nghiên cứu — 120 giây",
+        "Tùy chỉnh",
+        "Không giới hạn — nghiên cứu cục bộ",
+    ]
 
     auto = next(
         value for value in page.checkbox
@@ -168,6 +191,50 @@ def test_level1_inventory_web_profiles_are_versioned(root: Path) -> None:
     }
     assert profiles["fleet_500_t10"]["expected_physical_container_count"] == 500
     assert profiles["fleet_5000_t25"]["expected_equivalent_type_count"] == 25
+
+
+def test_inventory_search_ui_overlay_preserves_exact_maximum() -> None:
+    resolved = _inventory_search_overrides(
+        {"time_limit_seconds": 30, "max_used_container_count": 10},
+        enabled=True,
+        initial_count=1,
+        maximum_count=5,
+        automatically_increase=True,
+    )
+
+    assert resolved["initial_used_container_count"] == 1
+    assert resolved["max_used_container_count"] == 5
+    assert resolved["automatically_increase_container_count"] is True
+
+    unlimited = _inventory_search_overrides(
+        resolved,
+        enabled=True,
+        initial_count=1,
+        maximum_count=5,
+        automatically_increase=True,
+        time_limit_seconds=None,
+    )
+    assert unlimited["time_limit_seconds"] is None
+
+
+def test_level2_research_inventory_profile_exposes_one_thousand_items(root: Path) -> None:
+    app = root / "src/container_packing/web/streamlit_app.py"
+    page = AppTest.from_file(str(app), default_timeout=30).run()
+    next(value for value in page.selectbox if value.key == "level_id").set_value(
+        "level_02"
+    ).run()
+    profile = next(
+        value for value in page.selectbox if value.key == "level_02_inventory_profile"
+    )
+    profile.set_value("items_1000_fleet_500_t10").run()
+
+    item_count = next(value for value in page.number_input if value.key == "item_count")
+    assert item_count.max == 1000
+    item_count.set_value(450).run()
+    assert not page.exception
+    assert next(
+        value for value in page.number_input if value.key == "item_count"
+    ).value == 450
 
 
 def test_streamlit_exposes_same_instance_benchmark_controls(root: Path):
@@ -293,6 +360,22 @@ def test_streamlit_exposes_level2_support_contract(root: Path):
     latex_values = [value.value for value in page.latex]
     assert any(r"Gf_{ik}+\sum_{j\ne i,p,q}s_{ijkpq}" in value for value in latex_values)
     assert page.info
+
+
+def test_streamlit_exposes_level2_inventory_profiles_only_for_supported_algorithms(root: Path):
+    app = root / "src/container_packing/web/streamlit_app.py"
+    page = AppTest.from_file(str(app), default_timeout=30).run()
+    next(value for value in page.selectbox if value.key == "level_id").set_value("level_02").run()
+
+    catalogs = [value for value in page.selectbox if value.key == "level_02_inventory_profile"]
+    assert len(catalogs) == 1
+    assert any("500 container" in str(value) for value in catalogs[0].options)
+    assert any("1.000 kiện" in str(value) for value in catalogs[0].options)
+    assert any(value.key == "level_02_inventory_search_enabled" for value in page.checkbox)
+
+    next(value for value in page.selectbox if value.key == "algorithm_id").set_value("milp_big_m").run()
+    assert not any(value.key == "level_02_inventory_profile" for value in page.selectbox)
+    assert not any(value.key == "level_02_inventory_search_enabled" for value in page.checkbox)
 
 
 def test_streamlit_exposes_level3_solvers_and_orientation_contract(root: Path):

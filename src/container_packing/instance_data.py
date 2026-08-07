@@ -325,9 +325,10 @@ def prepare_instance(
     items["source_url"] = SOURCE_URL
 
     container_search = dict(config.get("container_search", {}))
-    inventory_search_enabled = (
-        level_id == "level_01" and container_search.get("enabled", False) is True
-    )
+    # Inventory semantics belong to the shared preparation contract.  A level
+    # opts in only through its own dispatcher and config; preparation must not
+    # silently reduce a declared catalog to its legacy prefix first.
+    inventory_search_enabled = container_search.get("enabled", False) is True
     containers, raw_containers_path = _container_frame(
         root,
         config,

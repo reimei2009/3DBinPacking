@@ -36,6 +36,44 @@ support:
   dense_grid_x: 16
   dense_grid_y: 16
   epsilon_mm: 0.0001
+container_search:
+  enabled: false
+  initial_used_container_count: 1
+  max_used_container_count: 3
+  automatically_increase_container_count: false
+  exhaustive_max_containers: 10
+  max_candidates_per_count: 48
+  neighborhood_width: 16
+  composition_beam_width: 64
+  soft_volume_buffer_ratio: 0.10
+  time_limit_seconds: 30
+  validation_reserve_seconds: 2
+  construction_item_order_variants:
+    - current
+    - decreasing_weight
+    - support_difficulty
+  consolidation:
+    enabled: false
+    time_limit_seconds: 10
+    max_candidates: 128
+    item_order_variants:
+      - current
+      - decreasing_volume
+      - decreasing_weight
+      - support_difficulty
+    container_elimination:
+      enabled: false
+      maximum_target_containers: 8
+      maximum_candidates: 1024
+      phase_time_fractions: [0.35, 0.25, 0.40]
+      adaptive_cluster_elimination:
+        enabled: false
+        maximum_destination_containers: 3
+        neighborhood_sizes: [4, 8, 16, 24]
+        beam_width: 8
+        maximum_candidates: 256
+        maximum_target_containers: 8
+        minimum_validation_reserve_seconds: 2
 solver:
   backend: scipy_highs
   time_limit_seconds: 120

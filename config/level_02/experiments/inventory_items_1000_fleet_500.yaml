@@ -1,0 +1,13 @@
+extends: inventory_fleet_500.yaml
+instance:
+  item_count: 100
+  container_count: 1
+paths:
+  raw_items_csv: data/interim/synthetic/level_02_inventory_items_1000_fleet_500_t10_v1/solver_items.csv
+  raw_containers_csv: data/interim/synthetic/level_02_inventory_items_1000_fleet_500_t10_v1/solver_containers.csv
+  items_source_mapping: config/common/data_sources/empirical_template_level_08.yaml
+  processed_dir: data/processed/level_02/inventory_items_1000_fleet_500
+  manifest_json: data/processed/level_02/inventory_items_1000_fleet_500/latest_manifest.json
+dataset_policy:
+  generation_manifest: data/interim/synthetic/level_02_inventory_items_1000_fleet_500_t10_v1/generation_manifest.json
+  expected_usage_class: solver_research

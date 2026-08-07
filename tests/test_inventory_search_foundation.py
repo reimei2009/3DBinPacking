@@ -7,6 +7,7 @@ import pytest
 from container_packing.algorithms.orientation import horizontal_orientation_provider
 from container_packing.algorithms.heuristics.extreme_point_best_fit import solve
 from container_packing.algorithms.search import (
+    assess_capacity_within_container_limit,
     InventorySearchLimits,
     LazyRankedContainerSubsetPolicy,
     estimate_container_lower_bound,
@@ -122,6 +123,40 @@ def test_lower_bound_uses_finite_heterogeneous_inventory_capacities() -> None:
     assert estimate.attainable_by_aggregate_capacity
 
 
+def test_capacity_limit_precheck_rejects_request_even_when_full_inventory_is_enough() -> None:
+    inventory = normalize_container_inventory([
+        _container("C1", side=10, payload=10),
+        _container("C2", side=10, payload=10),
+        _container("C3", side=10, payload=10),
+    ])
+    items = [Item("A", 10, 10, 10, 9), Item("B", 10, 10, 10, 9)]
+
+    assessment = assess_capacity_within_container_limit(items, inventory, 1)
+
+    assert not assessment.valid
+    assert {value.code for value in assessment.issues} == {
+        "INSUFFICIENT_VOLUME_WITHIN_CONTAINER_LIMIT",
+        "INSUFFICIENT_PAYLOAD_WITHIN_CONTAINER_LIMIT",
+    }
+    assert assessment.aggregate_lower_bound == 2
+    assert assessment.volume_deficit_m3 > 0
+    assert assessment.payload_deficit_kg == 8
+
+
+def test_capacity_limit_precheck_pass_is_only_aggregate_evidence() -> None:
+    inventory = normalize_container_inventory([
+        _container("C1", side=10, payload=10),
+        _container("C2", side=10, payload=10),
+    ])
+    items = [Item("A", 8, 8, 8, 5), Item("B", 8, 8, 8, 5)]
+
+    assessment = assess_capacity_within_container_limit(items, inventory, 2)
+
+    assert assessment.valid
+    assert assessment.issues == ()
+    assert assessment.metadata()["capacity_limit_precheck_valid"] is True
+
+
 def test_strict_one_container_search_checks_catalog_not_input_prefix() -> None:
     containers = [
         _container("C_PREFIX_TOO_SMALL", side=5, cost=1),
@@ -152,6 +187,46 @@ def test_large_equivalent_inventory_yields_one_singleton_type_candidate() -> Non
     assert len(candidates) == 1
     assert candidates[0][0].container_id == "C000"
     assert policy.metadata()["inventory_equivalent_type_count"] == 1
+
+
+def test_large_equivalent_inventory_deduplicates_physical_subsets_by_type_composition() -> None:
+    containers = [_container(f"C{index:03d}") for index in range(500)]
+    policy = LazyRankedContainerSubsetPolicy(
+        InventorySearchLimits(9, 10, True),
+        exhaustive_max_containers=10,
+        max_candidates_per_count=64,
+    )
+
+    candidates = list(policy.candidates(
+        containers,
+        [Item("I1", 1, 1, 1, 1)],
+    ))
+
+    assert len(candidates) == 2
+    assert [len(value) for value in candidates] == [9, 10]
+    assert candidates[0][0].container_id == "C000"
+    metadata = policy.metadata()
+    assert metadata["container_type_compositions_generated"] == 2
+    assert metadata["duplicate_physical_subsets_avoided"] > 0
+    assert metadata["container_type_compositions_by_cardinality"] == {9: 1, 10: 1}
+
+
+def test_large_inventory_schedules_one_capacity_anchor_for_each_cardinality_first() -> None:
+    containers = [_container(f"C{index:03d}") for index in range(500)]
+    policy = LazyRankedContainerSubsetPolicy(
+        InventorySearchLimits(9, 15, True),
+        exhaustive_max_containers=10,
+    )
+
+    candidates = list(policy.candidates(
+        containers,
+        [Item("I1", 1, 1, 1, 1)],
+    ))
+
+    assert [len(value) for value in candidates[:7]] == list(range(9, 16))
+    assert policy.metadata()["container_subset_scheduling"] == (
+        "capacity_anchor_each_cardinality_then_cost_portfolio"
+    )
 
 
 def test_soft_volume_buffer_ranks_but_does_not_prune_tight_valid_subset() -> None:

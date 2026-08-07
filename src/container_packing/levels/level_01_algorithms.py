@@ -18,6 +18,7 @@ from ..algorithms.heuristics.extreme_point_hill_climbing import solve as solve_e
 from ..algorithms.heuristics.maximal_space_best_fit import solve as solve_maximal_space_best_fit
 from ..algorithms.metaheuristics.extreme_point_simulated_annealing import solve as solve_extreme_point_simulated_annealing
 from ..schemas import Container, Item
+from .level_01_validation import validate_solution
 
 Level01Executor = Callable[[list[Item], list[Container], dict[str, Any] | None], AlgorithmOutcome]
 
@@ -50,6 +51,16 @@ def execute_level_01(
     )
     if not search.enabled:
         return executor(items, containers, settings)
+    validation = settings.get("validation", {})
+    candidate_validator = lambda placements: validate_solution(
+        items,
+        containers,
+        placements,
+        coordinate_tolerance=float(
+            validation.get("coordinate_tolerance_mm", 1e-4)
+        ),
+        weight_tolerance=float(validation.get("weight_tolerance_kg", 1e-6)),
+    ).valid
     return _INVENTORY_SEARCH_ORCHESTRATOR.execute(
         InventorySearchRequest(
             algorithm_id=algorithm_id,
@@ -60,6 +71,7 @@ def execute_level_01(
             supported_algorithm_ids=_INVENTORY_SEARCH_ALGORITHMS,
             precheck_backend="inventory-aware-level-01-precheck",
             precheck_failure_context="Level 1 instance",
+            candidate_validator=candidate_validator,
         ),
         executor,
     )

@@ -9,6 +9,7 @@ from container_packing.application.service import (
     discover_benchmark_runs,
     discover_runs,
     execute_benchmark_comparison,
+    get_inventory_request_preview,
     get_instance_limits,
 )
 from container_packing.data_loader import load_config
@@ -45,6 +46,45 @@ def test_application_boundary_rejects_unavailable_item_count(root):
             item_count=502, container_count=5,
             config_path=root / "config/level_01/default.yaml", root=root,
         )
+
+
+def test_inventory_request_preview_is_read_only_and_reports_lower_bounds(root):
+    preview = get_inventory_request_preview(
+        root / "config/level_01/default.yaml",
+        item_count=20,
+        initial_used_container_count=1,
+        max_used_container_count=5,
+        root=root,
+    )
+
+    assert preview.item_count == 20
+    assert len(preview.selected_item_ids_checksum) == 64
+    assert preview.total_item_volume_m3 > 0
+    assert preview.total_item_weight_kg > 0
+    assert preview.physical_container_count == 5
+    assert preview.equivalent_type_count == 5
+    assert preview.aggregate_lower_bound == max(
+        preview.volume_lower_bound, preview.payload_lower_bound,
+    )
+    assert preview.recommended_max_used_container_count >= preview.aggregate_lower_bound
+    assert preview.estimated_unique_composition_count > 0
+    assert preview.capacity_limit_valid
+    assert preview.volume_deficit_m3 == 0
+    assert preview.payload_deficit_kg == 0
+
+
+def test_inventory_request_preview_reports_proven_container_limit_deficit(root):
+    preview = get_inventory_request_preview(
+        root / "config/level_01/default.yaml",
+        item_count=100,
+        initial_used_container_count=1,
+        max_used_container_count=1,
+        root=root,
+    )
+
+    assert not preview.capacity_limit_valid
+    assert preview.aggregate_lower_bound > 1
+    assert preview.volume_deficit_m3 > 0 or preview.payload_deficit_kg > 0
 
 
 def test_run_discovery_is_level_isolated(tmp_path):

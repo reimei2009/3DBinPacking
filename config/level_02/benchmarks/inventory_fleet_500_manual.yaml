@@ -1,0 +1,23 @@
+suite_id: level_02_inventory_fleet_500_gate_v1
+level_id: level_02
+description: >
+  Gate A for Level 2 inventory-aware search. Every completed result must pass
+  independent exact-support validation over the full 500-container catalog.
+config: config/level_02/experiments/inventory_fleet_500.yaml
+environment: local
+algorithms: [extreme_point_best_fit, extreme_point_ffd]
+seeds: [42]
+repeats: 2
+scenarios:
+  - scenario_id: inventory_support_smoke_i20_f500
+    description: "Twenty generated items against the full 500-container inventory."
+    item_count: 20
+    container_count: 1
+    item_selection: prefix
+    tags: [inventory_gate, fleet_500, support, smoke]
+  - scenario_id: inventory_support_practical_i50_f500
+    description: "Fifty generated items against the full 500-container inventory."
+    item_count: 50
+    container_count: 1
+    item_selection: prefix
+    tags: [inventory_gate, fleet_500, support, practical]

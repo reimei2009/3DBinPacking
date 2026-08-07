@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- Thêm container elimination có giới hạn bằng seeded relocation, support closure
+  và partial repack cho inventory-aware Level 1–2.
+- Thay selector partial-repack toàn cục bằng adaptive failure-guided destination
+  cluster, neighborhood tăng dần và duplicate-signature cache.
+- Thêm capacity precheck theo số container tối đa của request inventory.
+- Dành budget riêng để cải thiện incumbent tới capacity lower bound.
+- Chuẩn hóa failure diagnostics dùng chung cho CLI và Streamlit.
+- Đổi opacity mặc định của item 3D thành `1.00`.
+
 ## Unreleased — Level 8 soft stop affinity
 
 - Replaced hard aggregate item-to-container assignment with a fixed-subset

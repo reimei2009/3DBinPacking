@@ -1,0 +1,24 @@
+extends: base_large_instances.yaml
+profile_id: level_02_inventory_items_1000_fleet_500_t10_v1
+seed: 92500
+usage_class: solver_research
+source:
+  container_types: [C1, C2, C3, C4, C5, C6, C7, C8, C9, C10]
+item_population:
+  count: 1000
+container_fleet:
+  quantities:
+    C1: 50
+    C2: 50
+    C3: 50
+    C4: 50
+    C5: 50
+    C6: 50
+    C7: 50
+    C8: 50
+    C9: 50
+    C10: 50
+level_08_enrichment:
+  delivery_stop_count: 5
+output:
+  directory: data/interim/synthetic/level_02_inventory_items_1000_fleet_500_t10_v1

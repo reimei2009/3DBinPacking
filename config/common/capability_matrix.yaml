@@ -23,6 +23,7 @@ levels:
     evidence:
       - docs/levels/level_02.md
       - docs/reports/generated/level2_ffd_baseline.md
+      - docs/reports/generated/level2_inventory_acceptance_report.md
     algorithms:
       milp_big_m: {execution_class: exact_reference, maturity: accepted, role: exact_reference, exposure: [cli, benchmark, streamlit]}
       extreme_point_best_fit: {execution_class: packing_solver, maturity: accepted, role: constructive_comparator, exposure: [cli, benchmark, streamlit]}

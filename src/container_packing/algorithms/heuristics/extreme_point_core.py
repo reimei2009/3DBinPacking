@@ -167,6 +167,42 @@ def place_candidate(state: ContainerState, placement: Placement, tolerance: floa
     return placement
 
 
+def initialized_container_states(
+    containers: tuple[Container, ...],
+    initial_placements: tuple[Placement, ...] = (),
+    *,
+    tolerance: float,
+) -> list[ContainerState]:
+    """Khởi tạo EP state từ phần nghiệm được giữ cố định khi partial repack.
+
+    Seed chỉ đến từ incumbent đã hợp lệ. Hàm vẫn kiểm tra container và item ID
+    để lỗi orchestration không âm thầm tạo một state không nhất quán.
+    """
+    states = [ContainerState(container) for container in containers]
+    by_container = {state.container.container_id: state for state in states}
+    seen_items: set[str] = set()
+    for placement in sorted(
+        initial_placements,
+        key=lambda value: (
+            value.container_id, value.z_mm, value.y_mm, value.x_mm, value.item_id,
+        ),
+    ):
+        if placement.item_id in seen_items:
+            raise ValueError(
+                f"construction_initial_placements duplicates item {placement.item_id}"
+            )
+        try:
+            state = by_container[placement.container_id]
+        except KeyError as exc:
+            raise ValueError(
+                "construction_initial_placements references container outside "
+                f"the fixed subset: {placement.container_id}"
+            ) from exc
+        seen_items.add(placement.item_id)
+        place_candidate(state, placement, tolerance)
+    return states
+
+
 def _flatten_placements(states: list[ContainerState]) -> tuple[Placement, ...]:
     return tuple(placement for state in states for placement in state.placements)
 
@@ -240,10 +276,13 @@ def pack_order_first_fit(
     policy: PlacementFeasibilityPolicy, *, orientation_provider: OrientationProvider | None = None,
     candidate_selection_policy: FirstFitCandidateSelectionPolicy | None = None,
     candidate_point_provider: CandidatePointProvider | None = None,
+    initial_placements: tuple[Placement, ...] = (),
 ) -> ConstructionAttemptResult:
     """Place the first feasible extreme-point/orientation candidate in order."""
     selected_provider = orientation_provider or fixed_orientation_provider()
-    states = [ContainerState(container) for container in containers]
+    states = initialized_container_states(
+        containers, initial_placements, tolerance=tolerance,
+    )
     start_candidates = stats.extreme_points_evaluated
     start_orientations = stats.orientation_candidates_evaluated
     attempt_containers_tested = 0

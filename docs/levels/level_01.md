@@ -27,6 +27,8 @@ Khi bật:
 - `max_used_container_count` là giới hạn cardinality;
 - chỉ tăng cardinality khi `automatically_increase_container_count=true`;
 - hard precheck và lower bound volume/payload được tính trước construction;
+- request dừng trước solver nếu tối đa `N` container chắc chắn thiếu aggregate
+  volume hoặc payload;
 - subset được duyệt theo cardinality, sau đó ưu tiên chi phí thấp;
 - catalog lớn dùng candidate portfolio có giới hạn và deadline.
 
@@ -52,6 +54,23 @@ subset/budget đã cấp; nó không chứng minh bài toán vô nghiệm.
 Official objective chỉ có ý nghĩa khi construction complete và independent
 validator trả `VALID`. Diagnostic gồm lower bound, subset đã xét, candidate bị
 loại, best partial và `unpacked_items` khi có.
+
+Nghiệm complete đầu tiên được giữ làm incumbent. Nếu cấu hình bật incumbent
+improvement, pipeline dành budget riêng để thử các cardinality thấp hơn tới
+capacity lower bound. Nghiệm timeout/incomplete không được thay thế incumbent
+hợp lệ. Utilization và capacity slack chỉ là evidence tìm kiếm; objective chính
+thức vẫn là số container rồi chi phí.
+
+Khi bật `container_search.consolidation.container_elimination`, Level 1 thử
+đóng container sử dụng thấp bằng relocation và partial repack có seed. Vì
+Level 1 không có support graph, closure của mỗi item chỉ gồm chính item đó.
+Candidate chỉ thay incumbent sau independent geometry/payload validation.
+Adaptive cluster dùng failed item để chọn destination/blocker và không mở thêm
+container ngoài fixed subset đang cải thiện.
+
+CLI và Streamlit dùng chung các nhóm chẩn đoán: input sai, item không tương
+thích, giới hạn capacity chắc chắn thiếu, timeout, hết candidate budget,
+heuristic search thất bại và independent validation thất bại.
 
 ## Comparator EP–FFD Gap Fill
 
@@ -91,6 +110,24 @@ ghi vào metadata/manifest để đối chiếu đúng kho physical giữa các 
 - MILP, EMS, Hill Climbing và Simulated Annealing chưa dùng contract này.
 - Nhánh catalog lớn là bounded heuristic, không chứng minh đã duyệt toàn bộ subset.
 - Không được gọi nghiệm Level 1 là phương án ổn định vật lý.
+
+## Runtime inventory và composition search
+
+Với catalog lớn, solver tìm trên **thành phần loại container** thay vì lặp các
+subset chỉ khác physical ID. Mỗi composition được materialize thành physical ID
+theo thứ tự deterministic trước khi gọi FFD/Best Fit. Search thử capacity anchor
+của các cardinality trước, sau đó mới duyệt portfolio cost-ranked và các item
+order bounded.
+
+`container_search.time_limit_seconds: null` có nghĩa không đặt deadline thời
+gian, nhưng không bỏ giới hạn composition, candidate, item order hoặc số
+container tối đa. Đây không phải exhaustive search. `INFEASIBLE_HEURISTIC` chỉ
+là thất bại của phạm vi heuristic; `TIME_LIMIT` là hết deadline; cả hai đều có
+objective bằng `null`.
+
+UI cung cấp preset 15/30/60/120 giây, custom 5–300 giây và unlimited cho nghiên
+cứu local. Preview hiển thị checksum item, tổng volume/payload, lower bound và
+giới hạn container được khuyến nghị trước khi chạy.
 
 ## Scale gate inventory-aware
 

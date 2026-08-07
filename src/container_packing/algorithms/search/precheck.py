@@ -58,6 +58,54 @@ class LowerBoundEstimate:
         }
 
 
+@dataclass(frozen=True)
+class CapacityLimitAssessment:
+    """Điều kiện cần theo số physical container tối đa của request.
+
+    Volume và payload được đánh giá độc lập bằng các capacity lớn nhất trong
+    inventory. Vì vậy một kết quả không hợp lệ là chứng minh chắc chắn; kết quả
+    hợp lệ chỉ là precheck aggregate, không chứng minh khả thi hình học.
+    """
+
+    valid: bool
+    max_used_container_count: int
+    required_volume_m3: float
+    attainable_volume_m3: float
+    volume_deficit_m3: float
+    required_payload_kg: float
+    attainable_payload_kg: float
+    payload_deficit_kg: float
+    volume_lower_bound: int
+    payload_lower_bound: int
+    aggregate_lower_bound: int
+    issues: tuple[HardPrecheckIssue, ...]
+
+    def metadata(self) -> dict[str, object]:
+        return {
+            "capacity_limit_precheck_valid": self.valid,
+            "capacity_limit_max_used_container_count": self.max_used_container_count,
+            "capacity_limit_required_volume_m3": self.required_volume_m3,
+            "capacity_limit_attainable_volume_m3": self.attainable_volume_m3,
+            "capacity_limit_volume_deficit_m3": self.volume_deficit_m3,
+            "capacity_limit_required_payload_kg": self.required_payload_kg,
+            "capacity_limit_attainable_payload_kg": self.attainable_payload_kg,
+            "capacity_limit_payload_deficit_kg": self.payload_deficit_kg,
+            "capacity_limit_volume_lower_bound": self.volume_lower_bound,
+            "capacity_limit_payload_lower_bound": self.payload_lower_bound,
+            "capacity_limit_aggregate_lower_bound": self.aggregate_lower_bound,
+            "capacity_limit_issue_count": len(self.issues),
+            "capacity_limit_issues": [
+                {
+                    "code": issue.code,
+                    "message": issue.message,
+                    "item_ids": list(issue.item_ids),
+                    "container_ids": list(issue.container_ids),
+                }
+                for issue in self.issues
+            ],
+        }
+
+
 def _dimensions_fit(item: Item, container: Container, provider: OrientationProvider) -> bool:
     return any(
         value.length_mm <= container.length_mm
@@ -200,4 +248,63 @@ def estimate_container_lower_bound(
         attainable_by_aggregate_capacity=(
             aggregate <= inventory.physical_container_count
         ),
+    )
+
+
+def assess_capacity_within_container_limit(
+    items: list[Item],
+    inventory: NormalizedContainerInventory,
+    max_used_container_count: int,
+) -> CapacityLimitAssessment:
+    """Chứng minh sớm request không đủ aggregate capacity trong giới hạn N."""
+    if max_used_container_count <= 0:
+        raise ValueError("max_used_container_count must be positive")
+    if max_used_container_count > inventory.physical_container_count:
+        raise ValueError(
+            "max_used_container_count cannot exceed available physical inventory"
+        )
+
+    required_volume = sum(value.volume_m3 for value in items)
+    required_payload = sum(value.weight_kg for value in items)
+    volumes = sorted(
+        (container_volume_m3(value) for value in inventory.available_containers),
+        reverse=True,
+    )
+    payloads = sorted(
+        (value.max_weight_kg for value in inventory.available_containers),
+        reverse=True,
+    )
+    attainable_volume = sum(volumes[:max_used_container_count])
+    attainable_payload = sum(payloads[:max_used_container_count])
+    volume_deficit = max(0.0, required_volume - attainable_volume)
+    payload_deficit = max(0.0, required_payload - attainable_payload)
+    lower_bound = estimate_container_lower_bound(items, inventory)
+    issues: list[HardPrecheckIssue] = []
+    if volume_deficit > 1e-12:
+        issues.append(HardPrecheckIssue(
+            "INSUFFICIENT_VOLUME_WITHIN_CONTAINER_LIMIT",
+            "Tổng thể tích của tối đa "
+            f"{max_used_container_count} container lớn nhất vẫn thiếu "
+            f"{volume_deficit:.6f} m³.",
+        ))
+    if payload_deficit > 1e-9:
+        issues.append(HardPrecheckIssue(
+            "INSUFFICIENT_PAYLOAD_WITHIN_CONTAINER_LIMIT",
+            "Tổng tải trọng của tối đa "
+            f"{max_used_container_count} container lớn nhất vẫn thiếu "
+            f"{payload_deficit:.6f} kg.",
+        ))
+    return CapacityLimitAssessment(
+        valid=not issues,
+        max_used_container_count=max_used_container_count,
+        required_volume_m3=required_volume,
+        attainable_volume_m3=attainable_volume,
+        volume_deficit_m3=volume_deficit,
+        required_payload_kg=required_payload,
+        attainable_payload_kg=attainable_payload,
+        payload_deficit_kg=payload_deficit,
+        volume_lower_bound=lower_bound.volume_lower_bound,
+        payload_lower_bound=lower_bound.payload_lower_bound,
+        aggregate_lower_bound=lower_bound.aggregate_lower_bound,
+        issues=tuple(issues),
     )

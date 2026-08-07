@@ -93,6 +93,27 @@ def test_level1_policy_does_not_activate_support_checks():
     assert "support_rejected_candidates" not in policy.metadata()
 
 
+def test_level1_policy_reports_granular_geometry_rejections():
+    policy = FixedOrientationFeasibilityPolicy()
+    existing = placement("EXISTING", 0, 0, 0, 2, 2, 2)
+    assert not policy.allows(
+        container(), [], placement("BOUNDARY", 9, 0, 0, 2, 2, 2),
+        loaded_weight_kg=0, tolerance=1e-6,
+    )
+    assert not policy.allows(
+        container(), [existing], placement("OVERLAP", 1, 0, 0, 2, 2, 2),
+        loaded_weight_kg=existing.weight_kg, tolerance=1e-6,
+    )
+    heavy = Placement("PAYLOAD", "C", 3, 0, 0, 1, 1, 1, 101)
+    assert not policy.allows(
+        container(), [], heavy, loaded_weight_kg=0, tolerance=1e-6,
+    )
+    metadata = policy.metadata()
+    assert metadata["boundary_rejected_candidates"] == 1
+    assert metadata["overlap_rejected_candidates"] == 1
+    assert metadata["payload_rejected_candidates"] == 1
+
+
 def test_level2_ffd_failure_does_not_fallback_to_another_algorithm():
     oversized = Item("TOO_LARGE", 11, 11, 11, 1)
     outcome = execute_level_02(

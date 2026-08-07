@@ -22,6 +22,7 @@ from .extreme_point_core import (
     candidate_placement,
     constructive_search,
     item_sort_key,
+    initialized_container_states,
     place_candidate,
     resolved_item_order,
     selected_policy_allows,
@@ -82,10 +83,13 @@ def pack_order_best_fit(
     candidate_scoring_policy: CandidateScoringPolicy | None = None,
     candidate_point_provider: CandidatePointProvider | None = None,
     container_preference_policy: ContainerPreferencePolicy | None = None,
+    initial_placements: tuple[Placement, ...] = (),
 ) -> ConstructionAttemptResult:
     """Place each item at the best feasible container/extreme-point candidate."""
     selected_provider = orientation_provider or fixed_orientation_provider()
-    states = [ContainerState(container) for container in containers]
+    states = initialized_container_states(
+        containers, initial_placements, tolerance=tolerance,
+    )
     start_candidates = stats.extreme_points_evaluated
     start_orientations = stats.orientation_candidates_evaluated
     attempt_containers_tested = 0
@@ -210,6 +214,17 @@ def solve(
     if deadline is not None and (not isinstance(deadline, (int, float)) or not isfinite(float(deadline))):
         raise ValueError("constructive_deadline_monotonic must be a finite monotonic timestamp")
     ordered_items = resolved_item_order(items, settings)
+    initial_raw = settings.get("construction_initial_placements", ())
+    if not isinstance(initial_raw, list | tuple) or not all(
+        isinstance(value, Placement) for value in initial_raw
+    ):
+        raise ValueError("construction_initial_placements must contain Placement values")
+    initial_placements = tuple(initial_raw)
+    seeded_ids = {value.item_id for value in initial_placements}
+    if seeded_ids & {value.item_id for value in ordered_items}:
+        raise ValueError(
+            "construction_initial_placements and repack items must be disjoint"
+        )
     def pack_order(items, containers, tolerance, stats, policy, preference_policy):
         return pack_order_best_fit(
             items, containers, tolerance, stats, policy,
@@ -217,6 +232,7 @@ def solve(
             candidate_scoring_policy=candidate_scoring_policy,
             candidate_point_provider=candidate_point_provider,
             container_preference_policy=preference_policy,
+            initial_placements=initial_placements,
         )
     search = constructive_search(
         ordered_items, containers, tolerance, subset_limit, pack_order, selected_policy,
@@ -269,6 +285,7 @@ def solve(
             "candidate_container_ids": [value.container_id for value in search.chosen_containers],
             "n_items": len(items),
             "n_containers": len(containers),
+            "construction_initial_placement_count": len(initial_placements),
             "construction_time_limit_reached": search.time_limit_reached,
             **({} if search.attempt is None else search.attempt.metadata()),
             **selected_orientation_provider.metadata(),

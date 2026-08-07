@@ -23,9 +23,11 @@ from container_packing.application.service import (
     execute_benchmark_comparison,
     execute_experiment,
     get_container_inventory_summary,
+    get_inventory_request_preview,
     get_instance_limits,
     resolve_result_run_dir,
 )
+from container_packing.application.failure_explanation import explain_failure
 from container_packing.data_loader import load_config
 from container_packing.levels.registry import get_level, list_levels
 from container_packing.levels.level_08_routing import load_delivery_stops
@@ -40,6 +42,7 @@ from container_packing.visualization.scene_schema import load_scene
 from container_packing.web.i18n import algorithm_family, text as t
 
 OPACITY_PRESETS = {"solid": DEFAULT_ITEM_OPACITY, "balanced": 0.75, "xray": 0.30}
+_RUNTIME_UNSET = object()
 
 
 def _level8_web_profiles(root: Path) -> dict[str, dict[str, Any]]:
@@ -50,13 +53,48 @@ def _level8_web_profiles(root: Path) -> dict[str, dict[str, Any]]:
     return {str(key): dict(value) for key, value in profiles.items()}
 
 
-def _level1_inventory_web_profiles(root: Path) -> dict[str, dict[str, Any]]:
-    """Load the versioned Level 1 catalog choices exposed by the web UI."""
-    payload = load_config(root / "config/level_01/web_inventory_profiles.yaml")
+def _inventory_web_profiles(root: Path, level_id: str) -> dict[str, dict[str, Any]]:
+    """Load versioned catalog choices for a level promoted to inventory search."""
+    payload = load_config(root / "config" / level_id / "web_inventory_profiles.yaml")
     profiles = payload.get("profiles")
     if not isinstance(profiles, dict) or not profiles:
-        raise ValueError("Level 1 inventory web profile registry is empty")
+        raise ValueError(f"{level_id} inventory web profile registry is empty")
     return {str(key): dict(value) for key, value in profiles.items()}
+
+
+def _level1_inventory_web_profiles(root: Path) -> dict[str, dict[str, Any]]:
+    """Compatibility wrapper for existing Level 1 UI consumers and tests."""
+    return _inventory_web_profiles(root, "level_01")
+
+
+def _inventory_search_overrides(
+    base: dict[str, Any], *, enabled: bool, initial_count: int,
+    maximum_count: int, automatically_increase: bool,
+    time_limit_seconds: float | None | object = _RUNTIME_UNSET,
+) -> dict[str, Any]:
+    """Build the exact request overlay used by the inventory controls."""
+    if initial_count <= 0 or maximum_count <= 0:
+        raise ValueError("Inventory container counts must be positive")
+    if initial_count > maximum_count:
+        raise ValueError("Initial container count cannot exceed the maximum")
+    resolved = {
+        **base,
+        "enabled": enabled,
+        "initial_used_container_count": initial_count,
+        "max_used_container_count": maximum_count,
+        "automatically_increase_container_count": automatically_increase,
+    }
+    if time_limit_seconds is not _RUNTIME_UNSET:
+        resolved["time_limit_seconds"] = time_limit_seconds
+    return resolved
+
+
+def _unbounded_inventory_search_allowed() -> bool:
+    """Unlimited chỉ mặc định khả dụng trên máy local, không trên web deploy."""
+    configured = os.environ.get("ALLOW_UNBOUNDED_INVENTORY_SEARCH")
+    if configured is not None:
+        return configured.strip().lower() in {"1", "true", "yes", "on"}
+    return not bool(os.environ.get("RENDER") or os.environ.get("STREAMLIT_SHARING_MODE"))
 
 
 def _level8_profile_metadata(
@@ -341,18 +379,86 @@ def _render_run(run_dir: Path, language: str) -> None:
     manifest = _read_json(manifest_path)
     metrics_path = run_dir / "metrics" / "metrics.json"
     metrics = _read_json(metrics_path) if metrics_path.is_file() else {}
+    solver_path = run_dir / "solver" / "solver_summary.json"
+    solver = _read_json(solver_path) if solver_path.is_file() else {}
+    diagnostics_metadata = {**solver, **metrics}
     st.caption(str(run_dir))
-    columns = st.columns(6)
+    columns = st.columns(7)
     values = (
         (t("status", language), manifest.get("status", "unknown")),
         (t("validation", language), manifest.get("validation_status", "unknown")),
         (t("items_metric", language), metrics.get("n_items", "—")),
         (t("containers_used", language), metrics.get("container_count", "—")),
-        (t("objective_metric", language), metrics.get("objective_value", "—")),
+        (
+            "Chi phí container" if language == "vi" else "Container cost",
+            metrics.get("total_container_cost", "—"),
+        ),
+        (
+            "Objective mã hóa" if language == "vi" else "Encoded objective",
+            metrics.get("objective_value", "—"),
+        ),
         (t("runtime", language), f"{float(metrics.get('algorithm_runtime_seconds', 0)):.3f}"),
     )
     for column, (label, value) in zip(columns, values):
         column.metric(label, value)
+    failure = explain_failure(diagnostics_metadata, language=language)
+    if failure is not None:
+        st.error(f"{failure.title}: {failure.summary}")
+        if failure.suggestions:
+            st.info(" ".join(failure.suggestions))
+        with st.expander(
+            "Chẩn đoán kỹ thuật" if language == "vi" else "Technical diagnostics",
+        ):
+            st.code(failure.failure_class)
+            for value in failure.evidence:
+                st.write(f"- {value}")
+    if diagnostics_metadata.get("container_elimination_enabled"):
+        initial_count = diagnostics_metadata.get("container_elimination_initial_count", 0)
+        final_count = diagnostics_metadata.get("container_elimination_final_count", 0)
+        candidates = diagnostics_metadata.get(
+            "container_elimination_candidates_evaluated", 0,
+        )
+        reason = diagnostics_metadata.get(
+            "container_elimination_termination_reason", "unknown",
+        )
+        overall_initial = diagnostics_metadata.get(
+            "incumbent_initial_container_count", initial_count,
+        )
+        overall_final = diagnostics_metadata.get(
+            "incumbent_final_container_count", final_count,
+        )
+        lower_bound = diagnostics_metadata.get(
+            "container_consolidation_aggregate_lower_bound", "—",
+        )
+        message = (
+            f"Loại bớt container: {initial_count} → {final_count}; "
+            f"đã xét {candidates} candidate; kết thúc: {reason}. "
+            f"Toàn bộ improvement: {overall_initial} → {overall_final}; "
+            f"cận tổng hợp: {lower_bound}."
+            if language == "vi" else
+            f"Container elimination: {initial_count} → {final_count}; "
+            f"{candidates} candidates; stop: {reason}. "
+            f"Overall improvement: {overall_initial} → {overall_final}; "
+            f"aggregate lower bound: {lower_bound}."
+        )
+        if diagnostics_metadata.get("adaptive_cluster_elimination_enabled"):
+            sizes = diagnostics_metadata.get(
+                "adaptive_cluster_neighborhood_sizes_attempted", [],
+            )
+            failed_targets = len(diagnostics_metadata.get(
+                "adaptive_cluster_failed_items_by_target", {},
+            ))
+            message += (
+                f" Neighborhood đã thử: {sizes}; target có failed-item evidence: "
+                f"{failed_targets}."
+                if language == "vi" else
+                f" Neighborhoods tried: {sizes}; targets with failed-item evidence: "
+                f"{failed_targets}."
+            )
+        if int(final_count or 0) < int(initial_count or 0):
+            st.success(message)
+        else:
+            st.info(message)
     replay_status = metrics.get("sequential_simulation_status")
     if replay_status and replay_status != "DISABLED":
         replay_runtime = metrics.get("sequential_replay_total_runtime_seconds")
@@ -1231,10 +1337,10 @@ def main() -> None:
 
     level8_profile_id: str | None = None
     level8_profile: dict[str, Any] | None = None
-    level1_inventory_profile_id: str | None = None
-    level1_inventory_profile: dict[str, Any] | None = None
-    level1_inventory_profile_supported = (
-        level_id == "level_01"
+    inventory_profile_id: str | None = None
+    inventory_profile: dict[str, Any] | None = None
+    inventory_profile_supported = (
+        level_id in {"level_01", "level_02"}
         and algorithm_id in {"extreme_point_best_fit", "extreme_point_ffd"}
     )
     if level_id == "level_08":
@@ -1249,25 +1355,25 @@ def main() -> None:
         )
         level8_profile = profiles[level8_profile_id]
         selected_config = Path(str(level8_profile["config_file"]))
-    elif level1_inventory_profile_supported:
-        profiles = _level1_inventory_web_profiles(root)
-        level1_inventory_profile_id = st.sidebar.selectbox(
+    elif inventory_profile_supported:
+        profiles = _inventory_web_profiles(root, level_id)
+        inventory_profile_id = st.sidebar.selectbox(
             "Nguồn kho container" if language == "vi" else "Container catalog",
             tuple(profiles),
             format_func=lambda value: profiles[value][
                 "label_vi" if language == "vi" else "label_en"
             ],
-            key="level_01_inventory_profile",
+            key=f"{level_id}_inventory_profile",
         )
-        level1_inventory_profile = profiles[level1_inventory_profile_id]
-        selected_config = Path(str(level1_inventory_profile["config_file"]))
+        inventory_profile = profiles[inventory_profile_id]
+        selected_config = Path(str(inventory_profile["config_file"]))
     else:
         selected_config = level.config_for_algorithm(algorithm_id)
     config_path = root / selected_config
     config = load_config(config_path)
 
     inventory_summary = None
-    if level1_inventory_profile is not None:
+    if inventory_profile is not None:
         inventory_summary = get_container_inventory_summary(config_path, root=root)
         if not inventory_summary.ready:
             st.sidebar.error(
@@ -1275,12 +1381,12 @@ def main() -> None:
                 if language == "vi" else
                 "The catalog is not ready; the solver will not substitute another catalog."
             )
-            if level1_inventory_profile.get("generation_command"):
-                st.sidebar.code(str(level1_inventory_profile["generation_command"]), language="powershell")
+            if inventory_profile.get("generation_command"):
+                st.sidebar.code(str(inventory_profile["generation_command"]), language="powershell")
             st.sidebar.caption(str(inventory_summary.error or "Unknown catalog error"))
             st.stop()
-        expected_physical = level1_inventory_profile.get("expected_physical_container_count")
-        expected_types = level1_inventory_profile.get("expected_equivalent_type_count")
+        expected_physical = inventory_profile.get("expected_physical_container_count")
+        expected_types = inventory_profile.get("expected_equivalent_type_count")
         if (
             expected_physical is not None
             and inventory_summary.physical_container_count != int(expected_physical)
@@ -1296,10 +1402,21 @@ def main() -> None:
             st.stop()
 
     limits = get_instance_limits(config_path, root=root)
+    if (
+        inventory_profile is not None
+        and inventory_profile.get("expected_item_count") is not None
+        and limits.available_items != int(inventory_profile["expected_item_count"])
+    ):
+        st.sidebar.error(
+            "Nguồn item không khớp profile đã chọn; hãy sinh lại dataset theo lệnh bên trên."
+            if language == "vi" else
+            "The item source does not match the selected profile; regenerate the dataset."
+        )
+        st.stop()
     instance_defaults = config["instance"]
     instance_scope = (
-        f"{level_id}:{level8_profile_id or level1_inventory_profile_id}"
-        if (level8_profile_id or level1_inventory_profile_id) else level_id
+        f"{level_id}:{level8_profile_id or inventory_profile_id}"
+        if (level8_profile_id or inventory_profile_id) else level_id
     )
     if st.session_state.get("_instance_level_id") != instance_scope:
         st.session_state["item_count"] = int(instance_defaults["item_count"])
@@ -1308,32 +1425,32 @@ def main() -> None:
         if level_id == "level_08":
             st.session_state["level_08_item_selection"] = "prefix"
             st.session_state["level_08_selection_seed"] = 42
-        if level1_inventory_profile is not None:
+        if inventory_profile is not None:
             inventory_defaults = dict(config.get("container_search", {}))
-            st.session_state["level_01_inventory_search_enabled"] = bool(
-                level1_inventory_profile.get(
+            st.session_state[f"{level_id}_inventory_search_enabled"] = bool(
+                inventory_profile.get(
                     "inventory_search_default",
                     inventory_defaults.get("enabled", False),
                 )
             )
-            st.session_state["level_01_inventory_search_auto_increase"] = bool(
+            st.session_state[f"{level_id}_inventory_search_auto_increase"] = bool(
                 inventory_defaults.get("automatically_increase_container_count", False)
             )
-            st.session_state["level_01_inventory_search_max_count"] = int(
+            st.session_state[f"{level_id}_inventory_search_max_count"] = int(
                 inventory_defaults.get(
                     "max_used_container_count", instance_defaults["container_count"]
                 )
             )
             preset_values = [
                 int(value)
-                for value in level1_inventory_profile.get(
+                for value in inventory_profile.get(
                     "maximum_used_presets", ()
                 )
             ]
             configured_maximum = st.session_state[
-                "level_01_inventory_search_max_count"
+                f"{level_id}_inventory_search_max_count"
             ]
-            st.session_state["level_01_inventory_search_max_preset"] = (
+            st.session_state[f"{level_id}_inventory_search_max_preset"] = (
                 str(configured_maximum)
                 if configured_maximum in preset_values
                 else "Tùy chỉnh" if language == "vi" else "Custom"
@@ -1347,6 +1464,12 @@ def main() -> None:
         if level8_profile is not None
         else limits.available_items,
     )
+    # Streamlit can retain a value created by the previous profile. Clamp it
+    # before constructing the widget so the visible value can never exceed the
+    # source that will actually be prepared.
+    retained_item_count = int(st.session_state.get("item_count", instance_defaults["item_count"]))
+    if retained_item_count < 1 or retained_item_count > item_max:
+        st.session_state["item_count"] = min(max(retained_item_count, 1), item_max)
     item_count = int(st.sidebar.number_input(
         t("items", language), min_value=1, max_value=item_max,
         step=1, key="item_count",
@@ -1364,19 +1487,20 @@ def main() -> None:
         else max(limits.configured_containers, 1)
     )
     inventory_search_supported = (
-        level_id == "level_01"
+        level_id in {"level_01", "level_02"}
         and algorithm_id in {"extreme_point_best_fit", "extreme_point_ffd"}
     )
     inventory_search_config = dict(config.get("container_search", {}))
     inventory_search_enabled = False
     if inventory_search_supported:
-        if "level_01_inventory_search_enabled" not in st.session_state:
-            st.session_state["level_01_inventory_search_enabled"] = bool(
-                level1_inventory_profile.get(
+        enabled_key = f"{level_id}_inventory_search_enabled"
+        if enabled_key not in st.session_state:
+            st.session_state[enabled_key] = bool(
+                inventory_profile.get(
                     "inventory_search_default",
                     inventory_search_config.get("enabled", False),
                 )
-                if level1_inventory_profile is not None
+                if inventory_profile is not None
                 else inventory_search_config.get("enabled", False)
             )
         inventory_search_enabled = st.sidebar.checkbox(
@@ -1385,7 +1509,7 @@ def main() -> None:
                 if language == "vi"
                 else "Search the full container inventory"
             ),
-            key="level_01_inventory_search_enabled",
+            key=enabled_key,
             help=(
                 "Số container bên dưới là điểm bắt đầu; hệ thống vẫn đọc toàn bộ catalog."
                 if language == "vi"
@@ -1420,6 +1544,11 @@ def main() -> None:
     ))
     inventory_search_auto_increase = False
     inventory_search_max_count = container_count
+    inventory_search_time_limit: float | None = (
+        None
+        if inventory_search_config.get("time_limit_seconds") is None
+        else float(inventory_search_config["time_limit_seconds"])
+    )
     if inventory_search_enabled:
         st.sidebar.caption(
             (
@@ -1428,8 +1557,9 @@ def main() -> None:
                 else f"The inventory has {limits.configured_containers} physical containers; the solver searches the catalog instead of a prefix."
             )
         )
-        if "level_01_inventory_search_auto_increase" not in st.session_state:
-            st.session_state["level_01_inventory_search_auto_increase"] = bool(
+        auto_increase_key = f"{level_id}_inventory_search_auto_increase"
+        if auto_increase_key not in st.session_state:
+            st.session_state[auto_increase_key] = bool(
                 inventory_search_config.get(
                     "automatically_increase_container_count", False
                 )
@@ -1440,11 +1570,11 @@ def main() -> None:
                 if language == "vi"
                 else "Automatically increase the container count"
             ),
-            key="level_01_inventory_search_auto_increase",
+            key=auto_increase_key,
         )
         presets = list(
-            level1_inventory_profile.get("maximum_used_presets", ())
-            if level1_inventory_profile is not None else ()
+            inventory_profile.get("maximum_used_presets", ())
+            if inventory_profile is not None else ()
         )
         presets = sorted({int(value) for value in presets if int(value) >= container_count})
         preset_options: tuple[str, ...] = tuple(str(value) for value in presets) + (
@@ -1463,12 +1593,13 @@ def main() -> None:
             str(configured_maximum)
             if str(configured_maximum) in preset_options else preset_options[-1]
         )
-        if "level_01_inventory_search_max_preset" not in st.session_state:
-            st.session_state["level_01_inventory_search_max_preset"] = default_preset
+        max_preset_key = f"{level_id}_inventory_search_max_preset"
+        if max_preset_key not in st.session_state:
+            st.session_state[max_preset_key] = default_preset
         selected_preset = st.sidebar.selectbox(
             "Số container tối đa được phép dùng" if language == "vi" else "Quick limit",
             preset_options,
-            key="level_01_inventory_search_max_preset",
+            key=max_preset_key,
             disabled=not inventory_search_auto_increase,
         )
         if selected_preset != preset_options[-1]:
@@ -1481,8 +1612,9 @@ def main() -> None:
                 )
             )
         else:
-            if "level_01_inventory_search_max_count" not in st.session_state:
-                st.session_state["level_01_inventory_search_max_count"] = configured_maximum
+            max_count_key = f"{level_id}_inventory_search_max_count"
+            if max_count_key not in st.session_state:
+                st.session_state[max_count_key] = configured_maximum
             inventory_search_max_count = int(st.sidebar.number_input(
                 (
                     "Số container sử dụng tối đa"
@@ -1492,9 +1624,67 @@ def main() -> None:
                 min_value=container_count,
                 max_value=limits.configured_containers,
                 step=1,
-                key="level_01_inventory_search_max_count",
+                key=max_count_key,
                 disabled=not inventory_search_auto_increase,
             ))
+        runtime_values = {
+            "Nhanh — 15 giây": 15.0,
+            "Tiêu chuẩn — 30 giây": 30.0,
+            "Chuyên sâu — 60 giây": 60.0,
+            "Nghiên cứu — 120 giây": 120.0,
+            "Tùy chỉnh": "custom",
+        }
+        if _unbounded_inventory_search_allowed():
+            runtime_values["Không giới hạn — nghiên cứu cục bộ"] = None
+        configured_runtime = inventory_search_config.get("time_limit_seconds", 30)
+        default_runtime_label = next(
+            (
+                label for label, value in runtime_values.items()
+                if value == configured_runtime
+            ),
+            "Không giới hạn — nghiên cứu cục bộ"
+            if configured_runtime is None and "Không giới hạn — nghiên cứu cục bộ" in runtime_values
+            else "Tùy chỉnh",
+        )
+        runtime_key = f"{level_id}_inventory_runtime_mode"
+        if runtime_key not in st.session_state:
+            st.session_state[runtime_key] = default_runtime_label
+        runtime_mode = st.sidebar.selectbox(
+            "Giới hạn thời gian xử lý" if language == "vi" else "Search time budget",
+            tuple(runtime_values),
+            key=runtime_key,
+            help=(
+                "Deadline dùng chung cho inventory search, construction và consolidation."
+                if language == "vi"
+                else "One deadline covers inventory search, construction, and consolidation."
+            ),
+        )
+        runtime_value = runtime_values[runtime_mode]
+        if runtime_value == "custom":
+            custom_key = f"{level_id}_inventory_runtime_custom_seconds"
+            if custom_key not in st.session_state:
+                st.session_state[custom_key] = int(configured_runtime or 60)
+            inventory_search_time_limit = float(st.sidebar.number_input(
+                "Thời gian tối đa (giây)" if language == "vi" else "Maximum runtime (seconds)",
+                min_value=5,
+                max_value=300,
+                step=5,
+                key=custom_key,
+            ))
+            if inventory_search_time_limit > 120:
+                st.sidebar.warning(
+                    "Thời gian xử lý trên 120 giây phù hợp chạy nghiên cứu cục bộ; web deploy có thể giới hạn worker."
+                    if language == "vi"
+                    else "Budgets above 120 seconds are intended for local research; web deployments may limit workers."
+                )
+        else:
+            inventory_search_time_limit = runtime_value
+        if inventory_search_time_limit is None:
+            st.sidebar.warning(
+                "Không giới hạn chỉ bỏ deadline thời gian. Giới hạn composition, candidate, item order và số container tối đa vẫn được giữ."
+                if language == "vi"
+                else "Unlimited removes only the time deadline. Composition, candidate, item-order, and maximum-container guards remain active."
+            )
         if inventory_summary is not None:
             with st.sidebar.expander(
                 "Tổng quan kho container" if language == "vi" else "Container inventory overview"
@@ -1509,7 +1699,7 @@ def main() -> None:
                 st.caption(
                     (
                         f"Tổng thể tích: {inventory_summary.total_available_volume_m3:,.2f} m³ · "
-                        f"Tổng tải: {inventory_summary.total_available_payload_kg:,.0f} kg"
+                        f"Tổng tải trọng: {inventory_summary.total_available_payload_kg:,.0f} kg"
                     )
                 )
                 st.caption(
@@ -1587,18 +1777,26 @@ def main() -> None:
 
     item_selection_strategy = "prefix"
     item_selection_seed: int | None = None
-    if level_id == "level_08":
+    if level_id == "level_08" or inventory_profile is not None:
+        selection_key = (
+            "level_08_item_selection" if level_id == "level_08"
+            else f"{level_id}_inventory_item_selection"
+        )
+        seed_key = (
+            "level_08_selection_seed" if level_id == "level_08"
+            else f"{level_id}_inventory_selection_seed"
+        )
         item_selection_strategy = st.sidebar.selectbox(
             "Cách chọn items" if language == "vi" else "Item selection",
             ("prefix", "stable_random"),
-            key="level_08_item_selection",
+            key=selection_key,
         )
         item_selection_seed = int(
             st.sidebar.number_input(
                 "Seed chọn tập" if language == "vi" else "Selection seed",
                 min_value=0,
                 step=1,
-                key="level_08_selection_seed",
+                key=seed_key,
                 disabled=item_selection_strategy != "stable_random",
             )
         )
@@ -1614,13 +1812,14 @@ def main() -> None:
         config_overrides = {
             **config_overrides,
             "container_search": {
-                **inventory_search_config,
-                "enabled": inventory_search_enabled,
-                "initial_used_container_count": container_count,
-                "max_used_container_count": inventory_search_max_count,
-                "automatically_increase_container_count": (
-                    inventory_search_auto_increase
-                ),
+                **_inventory_search_overrides(
+                    inventory_search_config,
+                    enabled=inventory_search_enabled,
+                    initial_count=container_count,
+                    maximum_count=inventory_search_max_count,
+                    automatically_increase=inventory_search_auto_increase,
+                    time_limit_seconds=inventory_search_time_limit,
+                )
             },
         }
     route_input_blocked = False
@@ -1727,12 +1926,99 @@ def main() -> None:
     )
     if exact_reference_blocked:
         st.sidebar.warning(t("exact_reference_limit", language).format(limit=exact_reference_limit))
+    if inventory_profile is not None:
+        inventory_preview = None
+        try:
+            inventory_preview = get_inventory_request_preview(
+                config_path,
+                item_count=item_count,
+                initial_used_container_count=container_count,
+                max_used_container_count=inventory_search_max_count,
+                item_selection_strategy=item_selection_strategy,
+                item_selection_seed=(
+                    item_selection_seed
+                    if item_selection_strategy == "stable_random"
+                    else None
+                ),
+                root=root,
+            )
+        except (OSError, ValueError) as exc:
+            st.sidebar.warning(
+                ("Không thể tính preview inventory: " if language == "vi" else "Cannot compute inventory preview: ")
+                + str(exc)
+            )
+        st.sidebar.markdown(
+            "**Yêu cầu sẽ thực thi**" if language == "vi" else "**Resolved request preview**"
+        )
+        st.sidebar.caption(
+            (
+                f"{item_count:,}/{limits.available_items:,} kiện khả dụng · "
+                f"kho {limits.configured_containers:,} container · "
+                f"bắt đầu {container_count} · tối đa {inventory_search_max_count} · "
+                f"selection `{item_selection_strategy}`"
+                f" · runtime `{'không giới hạn' if inventory_search_time_limit is None else f'{inventory_search_time_limit:g}s'}`"
+            )
+            if language == "vi" else
+            (
+                f"{item_count:,}/{limits.available_items:,} available items · "
+                f"{limits.configured_containers:,}-container inventory · "
+                f"start {container_count} · maximum {inventory_search_max_count} · "
+                f"selection `{item_selection_strategy}`"
+                f" · runtime `{'unlimited' if inventory_search_time_limit is None else f'{inventory_search_time_limit:g}s'}`"
+            )
+        )
+        if inventory_preview is not None:
+            st.sidebar.caption(
+                (
+                    f"Lower bound: volume {inventory_preview.volume_lower_bound} · "
+                    f"payload {inventory_preview.payload_lower_bound} · "
+                    f"tổng hợp **{inventory_preview.aggregate_lower_bound}** · "
+                    f"khuyến nghị max khoảng **{inventory_preview.recommended_max_used_container_count}**"
+                )
+                if language == "vi" else
+                (
+                    f"Lower bound: volume {inventory_preview.volume_lower_bound} · "
+                    f"payload {inventory_preview.payload_lower_bound} · "
+                    f"aggregate **{inventory_preview.aggregate_lower_bound}** · "
+                    f"recommended max about **{inventory_preview.recommended_max_used_container_count}**"
+                )
+            )
+            st.sidebar.caption(
+                f"{inventory_preview.total_item_volume_m3:,.2f} m³ · "
+                f"{inventory_preview.total_item_weight_kg:,.1f} kg · "
+                f"checksum `{inventory_preview.selected_item_ids_checksum[:12]}…` · "
+                f"composition khả dĩ {inventory_preview.estimated_unique_composition_count:,}"
+            )
+            if inventory_search_max_count < inventory_preview.recommended_max_used_container_count:
+                st.sidebar.warning(
+                    "Giới hạn container hiện tại khá sát lower bound; heuristic có thể không tìm được nghiệm dù tổng capacity đủ."
+                    if language == "vi"
+                    else "The current container limit is close to the lower bound; the heuristic may fail even when aggregate capacity is sufficient."
+                )
+            if not inventory_preview.capacity_limit_valid:
+                st.sidebar.error(
+                    (
+                        "Giới hạn hiện tại chắc chắn không đủ aggregate capacity: "
+                        f"thiếu {inventory_preview.volume_deficit_m3:,.3f} m³ và "
+                        f"{inventory_preview.payload_deficit_kg:,.1f} kg. "
+                        f"Hãy tăng tối đa lên ít nhất {inventory_preview.aggregate_lower_bound}."
+                    )
+                    if language == "vi" else
+                    (
+                        "The current limit is provably short of aggregate capacity: "
+                        f"{inventory_preview.volume_deficit_m3:,.3f} m³ volume and "
+                        f"{inventory_preview.payload_deficit_kg:,.1f} kg payload deficit. "
+                        f"Raise the maximum to at least {inventory_preview.aggregate_lower_bound}."
+                    )
+                )
     run_clicked = st.sidebar.button(
         t("run", language), type="primary", width="stretch", key="run_experiment",
         disabled=exact_reference_blocked or route_input_blocked,
     )
 
     if run_clicked:
+        # A failed request must not leave a previous successful run on screen.
+        st.session_state.pop("selected_run_dir", None)
         try:
             request = build_experiment_request(
                 level_id=level_id, algorithm_id=algorithm_id,

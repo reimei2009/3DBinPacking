@@ -1,0 +1,47 @@
+extends: ../default.yaml
+project:
+  algorithm_id: extreme_point_best_fit
+instance:
+  item_count: 20
+  container_count: 1
+paths:
+  raw_items_csv: data/interim/synthetic/level_01_inventory_fleet_500_t10_v1/solver_items.csv
+  raw_containers_csv: data/interim/synthetic/level_01_inventory_fleet_500_t10_v1/solver_containers.csv
+  items_source_mapping: config/common/data_sources/empirical_template_level_08.yaml
+  processed_dir: data/processed/level_02/inventory_fleet_500
+  manifest_json: data/processed/level_02/inventory_fleet_500/latest_manifest.json
+container_search:
+  enabled: true
+  initial_used_container_count: 1
+  max_used_container_count: 10
+  automatically_increase_container_count: true
+  exhaustive_max_containers: 10
+  max_candidates_per_count: 64
+  neighborhood_width: 16
+  soft_volume_buffer_ratio: 0.10
+  time_limit_seconds: 30
+  consolidation:
+    enabled: true
+    time_limit_seconds: 10
+    max_candidates: 128
+    item_order_variants:
+      - current
+      - decreasing_volume
+      - decreasing_weight
+      - support_difficulty
+    container_elimination:
+      enabled: true
+      maximum_target_containers: 8
+      maximum_candidates: 1024
+      phase_time_fractions: [0.35, 0.25, 0.40]
+      adaptive_cluster_elimination:
+        enabled: true
+        maximum_destination_containers: 3
+        neighborhood_sizes: [4, 8, 16, 24]
+        beam_width: 8
+        maximum_candidates: 256
+        maximum_target_containers: 8
+        minimum_validation_reserve_seconds: 2
+dataset_policy:
+  generation_manifest: data/interim/synthetic/level_01_inventory_fleet_500_t10_v1/generation_manifest.json
+  expected_usage_class: solver_research

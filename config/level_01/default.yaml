@@ -17,8 +17,32 @@ container_search:
   exhaustive_max_containers: 10
   max_candidates_per_count: 32
   neighborhood_width: 8
+  composition_beam_width: 64
   soft_volume_buffer_ratio: 0.10
   time_limit_seconds: 30
+  validation_reserve_seconds: 2
+  construction_item_order_variants:
+    - current
+    - decreasing_weight
+    - support_difficulty
+  consolidation:
+    enabled: false
+    time_limit_seconds: 10
+    max_candidates: 128
+    item_order_variants: [current, decreasing_volume, decreasing_weight, support_difficulty]
+    container_elimination:
+      enabled: false
+      maximum_target_containers: 8
+      maximum_candidates: 1024
+      phase_time_fractions: [0.35, 0.25, 0.40]
+      adaptive_cluster_elimination:
+        enabled: false
+        maximum_destination_containers: 3
+        neighborhood_sizes: [4, 8, 16, 24]
+        beam_width: 8
+        maximum_candidates: 256
+        maximum_target_containers: 8
+        minimum_validation_reserve_seconds: 2
 paths:
   raw_items_csv: data/raw/dataset_small_items_original.csv
   items_source_mapping: config/common/data_sources/3dbppsi_dataset_small.yaml

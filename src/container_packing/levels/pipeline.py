@@ -239,6 +239,7 @@ def run_configured_level(
     }
     if not bundle.result.valid:
         metadata["status"] = "INVALID_SOLUTION"
+        metadata["failure_class"] = "VALIDATION_FAILED"
         returned_solve = solve
         if (
             outcome.metadata.get("hide_objective_when_invalid")

@@ -9,6 +9,7 @@ from pathlib import Path
 import sys
 
 from .algorithms.registry import list_algorithms
+from .application.failure_explanation import explain_failure
 from .data_loader import DataValidationError, load_config
 from .experiments.contracts import ExperimentRequest
 from .experiments.runner import prepare_experiment, run_experiment
@@ -217,6 +218,17 @@ def terminal_preview(result: RunResult, *, placement_limit: int = 20) -> str:
         f"Algorithm time: {float(metadata.get('algorithm_runtime_seconds', 0.0)):.3f} s",
         f"Run directory: {metadata.get('run_dir')}",
     ]
+    failure = explain_failure(metadata, language="vi")
+    if failure is not None:
+        lines.extend([
+            "",
+            "FAILURE DIAGNOSTICS",
+            f"Class        : {failure.failure_class}",
+            f"Reason       : {failure.title}",
+            f"Explanation  : {failure.summary}",
+        ])
+        lines.extend(f"Evidence     : {value}" for value in failure.evidence)
+        lines.extend(f"Suggestion   : {value}" for value in failure.suggestions)
     if metadata.get("mip_gap") is not None:
         lines.append(f"MIP gap      : {100 * float(metadata['mip_gap']):.3f}%")
     if metadata.get("mip_dual_bound") is not None:
@@ -229,6 +241,31 @@ def terminal_preview(result: RunResult, *, placement_limit: int = 20) -> str:
             f"Minimum exact support ratio: {metadata.get('minimum_exact_support_ratio')}",
             f"All centers supported: {metadata.get('all_centers_supported')}",
         ])
+    if metadata.get("container_elimination_enabled"):
+        lines.append(
+            "Container elimination: "
+            f"{metadata.get('container_elimination_initial_count', 0)} -> "
+            f"{metadata.get('container_elimination_final_count', 0)}, "
+            f"{metadata.get('container_elimination_candidates_evaluated', 0)} candidate(s), "
+            f"stop={metadata.get('container_elimination_termination_reason', 'unknown')}"
+        )
+        if metadata.get("adaptive_cluster_elimination_enabled"):
+            lines.append(
+                "Adaptive cluster: neighborhoods="
+                f"{metadata.get('adaptive_cluster_neighborhood_sizes_attempted', [])}, "
+                "failed_targets="
+                f"{len(metadata.get('adaptive_cluster_failed_items_by_target', {}))}, "
+                "duplicate_skipped="
+                f"{metadata.get('adaptive_cluster_duplicate_candidates_skipped', 0)}"
+            )
+    if metadata.get("container_consolidation_enabled"):
+        lines.append(
+            "Incumbent improvement: "
+            f"{metadata.get('incumbent_initial_container_count', 0)} -> "
+            f"{metadata.get('incumbent_final_container_count', 0)}, "
+            f"lower_bound={metadata.get('container_consolidation_aggregate_lower_bound')}, "
+            f"stop={metadata.get('container_consolidation_termination_reason', 'unknown')}"
+        )
     if metadata.get("load_bearing_enabled"):
         lines.extend([
             f"Load capacity profile: {metadata.get('load_bearing_capacity_profile')}",

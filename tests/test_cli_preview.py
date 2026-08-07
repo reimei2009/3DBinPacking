@@ -34,6 +34,39 @@ def test_terminal_preview_contains_summary_and_limits_placements():
     assert "MIP nodes    : 42" in preview
 
 
+def test_terminal_preview_explains_capacity_limit_failure() -> None:
+    result = RunResult(
+        solve=SolveResult("PRECHECK_FAILED", "capacity", None, None, OptimizeResult()),
+        placements=[], validation=None,
+        metadata={
+            "status": "PRECHECK_FAILED",
+            "failure_class": "CAPACITY_LIMIT_PROVEN",
+            "level_id": "level_02",
+            "algorithm_id": "extreme_point_ffd",
+            "n_items": 300,
+            "n_containers": 500,
+            "container_count": 0,
+            "objective_value": None,
+            "algorithm_runtime_seconds": 0.01,
+            "run_dir": "outputs/level_02/runs/example",
+            "container_count_lower_bound": 12,
+            "max_used_container_count": 10,
+            "capacity_limit_required_payload_kg": 72_500,
+            "capacity_limit_attainable_payload_kg": 61_000,
+            "capacity_limit_required_volume_m3": 100,
+            "capacity_limit_attainable_volume_m3": 120,
+            "construction_termination_reason": "hard_precheck_failed",
+        },
+    )
+
+    preview = terminal_preview(result)
+
+    assert "Class        : CAPACITY_LIMIT_PROVEN" in preview
+    assert "Giới hạn container chắc chắn không đủ" in preview
+    assert "Lower bound container: 12" in preview
+    assert "Giới hạn container: 10" in preview
+
+
 def test_validate_cli_rejects_level_mismatch(root, tmp_path):
     import json
     from container_packing.cli import main

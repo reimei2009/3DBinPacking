@@ -1,0 +1,48 @@
+schema_version: "1.0"
+level_id: level_02
+profiles:
+  default_catalog:
+    label_vi: "Catalog cơ bản — 5 container"
+    label_en: "Base catalog — 5 containers"
+    config_file: config/level_02/default.yaml
+    generated: false
+    inventory_search_default: false
+    maximum_used_presets: [1, 2, 3, 5]
+  fleet_500_t10:
+    label_vi: "Kho smoke — 100 kiện / 500 container / 10 loại"
+    label_en: "Smoke fleet — 100 items / 500 containers / 10 types"
+    config_file: config/level_02/experiments/inventory_fleet_500.yaml
+    generated: true
+    expected_physical_container_count: 500
+    expected_equivalent_type_count: 10
+    inventory_search_default: true
+    maximum_used_presets: [1, 2, 3, 5, 10, 20, 50, 100]
+    generation_command: >-
+      .\.venv\Scripts\python.exe .\scripts\generate_synthetic_instances.py
+      --profile config\synthetic\fleet_500_t10.yaml
+  items_1000_fleet_500_t10:
+    label_vi: "Kho nghiên cứu — 1.000 kiện / 500 container / 10 loại"
+    label_en: "Research fleet — 1,000 items / 500 containers / 10 types"
+    config_file: config/level_02/experiments/inventory_items_1000_fleet_500.yaml
+    generated: true
+    expected_item_count: 1000
+    expected_physical_container_count: 500
+    expected_equivalent_type_count: 10
+    inventory_search_default: true
+    item_count_presets: [20, 50, 100, 300, 450, 500, 1000]
+    maximum_used_presets: [1, 2, 3, 5, 10, 20, 50, 100]
+    generation_command: >-
+      .\.venv\Scripts\python.exe .\scripts\generate_synthetic_instances.py
+      --profile config\synthetic\fleet_500_t10_i1000.yaml
+  fleet_5000_t25:
+    label_vi: "Kho thử nghiệm — 5.000 container / 25 loại"
+    label_en: "Research fleet — 5,000 containers / 25 types"
+    config_file: config/level_02/experiments/inventory_fleet_5000.yaml
+    generated: true
+    expected_physical_container_count: 5000
+    expected_equivalent_type_count: 25
+    inventory_search_default: true
+    maximum_used_presets: [1, 2, 3, 5, 10, 20, 50, 100, 500]
+    generation_command: >-
+      .\.venv\Scripts\python.exe .\scripts\generate_synthetic_instances.py
+      --profile config\synthetic\fleet_5000_t25.yaml

@@ -1,4 +1,19 @@
-# Running the Streamlit 3D research app
+# Chạy ứng dụng nghiên cứu Streamlit 3D
+
+## Tìm kiếm trên kho container và cải thiện incumbent
+
+Khi bật tìm container tốt nhất trong toàn bộ kho, số container trên UI là giới
+hạn được phép sử dụng, không phải prefix của catalog. Pipeline chạy capacity
+precheck, dựng incumbent rồi thử đóng các container sử dụng thấp trong budget.
+
+Kết quả UI hiển thị số container trước/sau elimination, số candidate và lý do
+dừng. `NO_VALID_CLUSTER_REPACK` hoặc `heuristic_consolidation_failed` chỉ có
+nghĩa heuristic chưa cải thiện được incumbent; không phải chứng minh không tồn
+tại nghiệm dùng ít container hơn.
+
+Với adaptive cluster, UI còn hiển thị các neighborhood đã thử và số target có
+failed-item evidence. Các reason này là kết quả tìm kiếm bounded, không phải
+chứng minh bất khả thi.
 
 ## Windows
 
@@ -44,7 +59,7 @@ python scripts/run_web_app.py
 ## 3D display controls
 
 - The default view opens the first used container rather than the combined scene.
-- **Rõ khối / Solid** uses opacity `0.92` and is the default.
+- **Rõ khối / Solid** dùng opacity `1.00` và là chế độ mặc định.
 - **Cân bằng / Balanced** uses opacity `0.75`.
 - **X-Ray** uses opacity `0.30`.
 - The opacity slider supports manual values from `0.20` to `1.00`.

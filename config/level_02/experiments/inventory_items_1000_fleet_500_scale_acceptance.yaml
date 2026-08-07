@@ -1,0 +1,13 @@
+extends: inventory_items_1000_fleet_500.yaml
+instance:
+  item_count: 300
+  container_count: 1
+container_search:
+  enabled: true
+  initial_used_container_count: 1
+  max_used_container_count: 15
+  automatically_increase_container_count: true
+  composition_beam_width: 96
+  max_candidates_per_count: 64
+  time_limit_seconds: 60
+  validation_reserve_seconds: 2

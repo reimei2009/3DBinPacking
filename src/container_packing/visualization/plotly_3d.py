@@ -10,7 +10,7 @@ import plotly.graph_objects as go
 
 from .scene_schema import validate_scene
 
-DEFAULT_ITEM_OPACITY = 0.92
+DEFAULT_ITEM_OPACITY = 1.00
 DEFAULT_DIMMED_OPACITY = 0.20
 
 _TRIANGLE_I = (0, 1, 4, 5, 0, 1, 2, 3, 0, 2, 1, 3)

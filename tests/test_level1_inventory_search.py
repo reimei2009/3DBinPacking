@@ -61,6 +61,38 @@ def test_container_search_configuration_rejects_invalid_values() -> None:
         })
     with pytest.raises(ValueError, match="must be true or false"):
         ContainerSearchConfiguration.from_mapping({"enabled": "true"})
+    with pytest.raises(ValueError, match="validation_reserve_seconds"):
+        ContainerSearchConfiguration.from_mapping({
+            "enabled": True,
+            "time_limit_seconds": 5,
+            "validation_reserve_seconds": 5,
+        })
+    with pytest.raises(ValueError, match="Legacy container-elimination"):
+        ContainerSearchConfiguration.from_mapping({
+            "consolidation": {
+                "container_elimination": {"maximum_partial_repack_items": 8},
+            },
+        })
+    with pytest.raises(ValueError, match="must not exceed"):
+        ContainerSearchConfiguration.from_mapping({
+            "validation_reserve_seconds": 1,
+            "consolidation": {
+                "container_elimination": {
+                    "adaptive_cluster_elimination": {
+                        "enabled": True,
+                        "minimum_validation_reserve_seconds": 2,
+                    },
+                },
+            },
+        })
+
+    unlimited = ContainerSearchConfiguration.from_mapping({
+        "enabled": True,
+        "time_limit_seconds": None,
+        "validation_reserve_seconds": 2,
+    })
+    assert unlimited.time_limit_seconds is None
+    assert unlimited.metadata()["container_search_unlimited_time"] is True
 
 
 def test_prepare_instance_reads_full_catalog_only_when_feature_is_enabled(

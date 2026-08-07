@@ -41,6 +41,9 @@ class FixedOrientationFeasibilityPolicy:
     policy_id: str = "fixed_orientation_geometry_payload"
     candidates_evaluated: int = 0
     geometry_rejected_candidates: int = 0
+    boundary_rejected_candidates: int = 0
+    overlap_rejected_candidates: int = 0
+    payload_rejected_candidates: int = 0
 
     def allows(
         self,
@@ -52,18 +55,27 @@ class FixedOrientationFeasibilityPolicy:
         tolerance: float,
     ) -> bool:
         self.candidates_evaluated += 1
-        valid = not (
-            loaded_weight_kg + candidate.weight_kg > container.max_weight_kg + tolerance
-            or candidate.x_mm < -tolerance
+        payload_invalid = (
+            loaded_weight_kg + candidate.weight_kg
+            > container.max_weight_kg + tolerance
+        )
+        boundary_invalid = (
+            candidate.x_mm < -tolerance
             or candidate.y_mm < -tolerance
             or candidate.z_mm < -tolerance
             or candidate.x_mm + candidate.length_mm > container.length_mm + tolerance
             or candidate.y_mm + candidate.width_mm > container.width_mm + tolerance
             or candidate.z_mm + candidate.height_mm > container.height_mm + tolerance
-            or any(placements_overlap(candidate, placed, tolerance) for placed in existing)
         )
+        overlap_invalid = any(
+            placements_overlap(candidate, placed, tolerance) for placed in existing
+        )
+        valid = not (payload_invalid or boundary_invalid or overlap_invalid)
         if not valid:
             self.geometry_rejected_candidates += 1
+            self.payload_rejected_candidates += int(payload_invalid)
+            self.boundary_rejected_candidates += int(boundary_invalid)
+            self.overlap_rejected_candidates += int(overlap_invalid)
         return valid
 
     def metadata(self) -> dict[str, Any]:
@@ -71,6 +83,9 @@ class FixedOrientationFeasibilityPolicy:
             "feasibility_policy": self.policy_id,
             "candidate_feasibility_checks": self.candidates_evaluated,
             "geometry_rejected_candidates": self.geometry_rejected_candidates,
+            "boundary_rejected_candidates": self.boundary_rejected_candidates,
+            "overlap_rejected_candidates": self.overlap_rejected_candidates,
+            "payload_rejected_candidates": self.payload_rejected_candidates,
         }
 
 

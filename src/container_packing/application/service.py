@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from math import ceil
+from hashlib import sha256
 import json
 from pathlib import Path
 from typing import Any
@@ -14,11 +16,20 @@ from ..benchmarks import BenchmarkResult, BenchmarkScenario, run_benchmark
 from ..data_loader import load_config
 from ..experiments.contracts import ExperimentRequest
 from ..experiments.runner import run_experiment
-from ..instance_data import ITEM_SELECTION_STRATEGIES, load_configured_container_catalog
+from ..instance_data import (
+    ITEM_SELECTION_STRATEGIES,
+    load_configured_container_catalog,
+    select_item_rows,
+)
 from ..levels.registry import get_level
 from ..runtime.project import find_project_root
 from ..algorithms.search.inventory import normalize_container_inventory
-from ..schemas import Container
+from ..algorithms.search.precheck import (
+    assess_capacity_within_container_limit,
+    estimate_container_lower_bound,
+    run_hard_precheck,
+)
+from ..schemas import Container, Item
 from ..source_adapter import SourceAdapterError, load_csv_source
 from ..schemas import RunResult
 
@@ -43,6 +54,32 @@ class ContainerInventorySummary:
     type_rows: tuple[dict[str, object], ...]
     inventory_fingerprint: str | None = None
     error: str | None = None
+
+
+@dataclass(frozen=True)
+class InventoryRequestPreview:
+    """Evidence chỉ đọc cho request inventory trước khi chạy solver."""
+
+    item_count: int
+    selected_item_ids_checksum: str
+    total_item_volume_m3: float
+    total_item_weight_kg: float
+    physical_container_count: int
+    equivalent_type_count: int
+    volume_lower_bound: int
+    payload_lower_bound: int
+    aggregate_lower_bound: int
+    initial_used_container_count: int
+    max_used_container_count: int
+    recommended_max_used_container_count: int
+    estimated_unique_composition_count: int
+    precheck_valid: bool
+    precheck_issue_count: int
+    capacity_limit_valid: bool
+    attainable_volume_m3: float
+    attainable_payload_kg: float
+    volume_deficit_m3: float
+    payload_deficit_kg: float
 
 
 @dataclass(frozen=True)
@@ -182,6 +219,126 @@ def get_container_inventory_summary(
         type_rows=type_rows,
         inventory_fingerprint=inventory.inventory_fingerprint,
     )
+
+
+def get_inventory_request_preview(
+    config_path: str | Path,
+    *,
+    item_count: int,
+    initial_used_container_count: int,
+    max_used_container_count: int,
+    item_selection_strategy: str = "prefix",
+    item_selection_seed: int | None = None,
+    root: str | Path | None = None,
+) -> InventoryRequestPreview:
+    """Tính lower bound/checksum từ source mà không ghi processed data hay gọi solver."""
+    if initial_used_container_count <= 0 or max_used_container_count <= 0:
+        raise ValueError("Inventory preview container counts must be positive")
+    if initial_used_container_count > max_used_container_count:
+        raise ValueError("Initial container count cannot exceed maximum container count")
+    project_root = _root(root)
+    config = load_config(_resolve(project_root, config_path))
+    raw_items = _resolve(project_root, config["paths"]["raw_items_csv"])
+    mapping_value = config["paths"].get("items_source_mapping")
+    mapping = _resolve(project_root, mapping_value) if mapping_value else None
+    source = load_csv_source(raw_items, mapping).frame
+    selected = select_item_rows(
+        source,
+        item_count,
+        strategy=item_selection_strategy,
+        seed=item_selection_seed,
+    )
+    items = [
+        Item(
+            item_id=str(row.id_item),
+            length_mm=float(row.length),
+            width_mm=float(row.width),
+            height_mm=float(row.height),
+            weight_kg=float(row.weight),
+            level1_order=index,
+            source=row._asdict(),
+        )
+        for index, row in enumerate(selected.itertuples(index=False), start=1)
+    ]
+    frame, _ = load_configured_container_catalog(
+        project_root,
+        config,
+        level_id=str(config.get("project", {}).get("level_id", "level_01")),
+    )
+    containers = [
+        Container(
+            container_id=str(row.container_id),
+            length_mm=float(row.length_mm),
+            width_mm=float(row.width_mm),
+            height_mm=float(row.height_mm),
+            max_weight_kg=float(row.max_weight_kg),
+            cost=float(row.cost),
+            availability=int(row.availability),
+            volume_m3=float(row.volume_m3),
+            source=row._asdict(),
+        )
+        for row in frame.itertuples(index=False)
+    ]
+    inventory = normalize_container_inventory(containers)
+    lower_bound = estimate_container_lower_bound(items, inventory)
+    precheck = run_hard_precheck(items, inventory)
+    capacity_limit = assess_capacity_within_container_limit(
+        items, inventory, max_used_container_count,
+    )
+    item_ids = [item.item_id for item in items]
+    checksum = sha256(json.dumps(
+        item_ids, ensure_ascii=True, separators=(",", ":"),
+    ).encode("utf-8")).hexdigest()
+    recommended = min(
+        inventory.physical_container_count,
+        max(
+            lower_bound.aggregate_lower_bound + 2,
+            ceil(lower_bound.aggregate_lower_bound * 1.25),
+        ),
+    )
+    return InventoryRequestPreview(
+        item_count=len(items),
+        selected_item_ids_checksum=checksum,
+        total_item_volume_m3=sum(item.volume_m3 for item in items),
+        total_item_weight_kg=sum(item.weight_kg for item in items),
+        physical_container_count=inventory.physical_container_count,
+        equivalent_type_count=inventory.equivalent_type_count,
+        volume_lower_bound=lower_bound.volume_lower_bound,
+        payload_lower_bound=lower_bound.payload_lower_bound,
+        aggregate_lower_bound=lower_bound.aggregate_lower_bound,
+        initial_used_container_count=initial_used_container_count,
+        max_used_container_count=max_used_container_count,
+        recommended_max_used_container_count=recommended,
+        estimated_unique_composition_count=_composition_count(
+            tuple(group.quantity for group in inventory.groups),
+            initial_used_container_count,
+            max_used_container_count,
+        ),
+        precheck_valid=precheck.valid,
+        precheck_issue_count=len(precheck.issues),
+        capacity_limit_valid=capacity_limit.valid,
+        attainable_volume_m3=capacity_limit.attainable_volume_m3,
+        attainable_payload_kg=capacity_limit.attainable_payload_kg,
+        volume_deficit_m3=capacity_limit.volume_deficit_m3,
+        payload_deficit_kg=capacity_limit.payload_deficit_kg,
+    )
+
+
+def _composition_count(
+    quantities: tuple[int, ...], minimum: int, maximum: int,
+) -> int:
+    """Đếm composition bounded theo type bằng dynamic programming."""
+    ways = [0] * (maximum + 1)
+    ways[0] = 1
+    for quantity in quantities:
+        updated = [0] * (maximum + 1)
+        for used, count in enumerate(ways):
+            if not count:
+                continue
+            for take in range(min(quantity, maximum - used) + 1):
+                updated[used + take] += count
+        ways = updated
+    return sum(ways[minimum:maximum + 1])
 
 
 def build_experiment_request(

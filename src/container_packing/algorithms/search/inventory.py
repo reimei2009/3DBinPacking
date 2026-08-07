@@ -75,6 +75,43 @@ class ContainerTypeGroup:
 
 
 @dataclass(frozen=True)
+class ContainerTypeComposition:
+    """Một phương án số lượng theo loại, độc lập với physical container ID.
+
+    Hai subset chỉ khác ID của các container tương đương vật lý phải có cùng
+    signature. Physical IDs chỉ được materialize deterministic ngay trước khi
+    constructive solver chạy.
+    """
+
+    quantities: tuple[tuple[str, int], ...]
+
+    def __post_init__(self) -> None:
+        if not self.quantities:
+            raise ValueError("Container type composition cannot be empty")
+        type_ids = [type_id for type_id, _ in self.quantities]
+        if type_ids != sorted(type_ids) or len(type_ids) != len(set(type_ids)):
+            raise ValueError("Container type composition must use unique sorted type IDs")
+        if any(quantity <= 0 for _, quantity in self.quantities):
+            raise ValueError("Container type composition quantities must be positive")
+
+    @property
+    def container_count(self) -> int:
+        return sum(quantity for _, quantity in self.quantities)
+
+    @property
+    def signature(self) -> tuple[tuple[str, int], ...]:
+        return self.quantities
+
+    @classmethod
+    def from_counts(cls, counts: dict[str, int]) -> "ContainerTypeComposition":
+        return cls(tuple(sorted(
+            (str(type_id), int(quantity))
+            for type_id, quantity in counts.items()
+            if int(quantity) > 0
+        )))
+
+
+@dataclass(frozen=True)
 class NormalizedContainerInventory:
     """Inventory khả dụng đã được kiểm tra ID và nhóm type deterministic."""
 
@@ -101,6 +138,28 @@ class NormalizedContainerInventory:
             for group in self.groups
             for container in group.physical_containers
         }
+
+    @property
+    def groups_by_type_id(self) -> dict[str, ContainerTypeGroup]:
+        return {group.type_id: group for group in self.groups}
+
+    def materialize(
+        self, composition: ContainerTypeComposition,
+    ) -> tuple[Container, ...]:
+        """Chọn physical IDs đầu tiên theo ID cho một composition hợp lệ."""
+        groups = self.groups_by_type_id
+        selected: list[Container] = []
+        for type_id, quantity in composition.quantities:
+            group = groups.get(type_id)
+            if group is None:
+                raise ValueError(f"Unknown container type in composition: {type_id}")
+            if quantity > group.quantity:
+                raise ValueError(
+                    f"Composition requests {quantity} containers of {type_id}, "
+                    f"but inventory contains only {group.quantity}"
+                )
+            selected.extend(group.physical_containers[:quantity])
+        return tuple(sorted(selected, key=lambda value: value.container_id))
 
     @property
     def inventory_fingerprint(self) -> str:
