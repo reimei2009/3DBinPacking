@@ -23,7 +23,9 @@ loại maturity, vai trò và exposure.
 - [Cấu trúc project](design/folder_structure.md)
 - [Luồng solver và dữ liệu](design/solver_design.md)
 - [Thiết kế benchmark](design/benchmark_design.md)
+- [Benchmark chuẩn Level 2](benchmarks/level_02_benchmark_v2.md)
 - [Corpus nghiên cứu Level 1](benchmarks/level1_research_corpus.md)
+- [Corpus MPV fixed-orientation Level 2](datasets/mpv_fixed_orientation_level2.md)
 - [Parameter sweep](design/parameter_sweep_design.md)
 - [Kiến trúc Streamlit/Plotly](design/visualization_web_architecture.md)
 - [Git workflow](design/git_workflow.md)
@@ -57,5 +59,7 @@ input cho experiment mới.
 
 Baseline R&D đang hiệu lực:
 
+- [Level 2 — nghiệm thu 2026-08-12](reports/manual/level_02_acceptance_20260812.md)
+- [Level 2 — acceptance hardening 2026-08-10 (lịch sử)](reports/manual/level_02_acceptance_20260810.md)
 - [Level 7 — scale/balance](reports/manual/level_07_scale_baseline.md)
 - [Level 8 — sequential replay scale](reports/manual/level_08_sequential_scale_baseline.md)

@@ -12,6 +12,8 @@ from .configuration import (
     ConsolidationConfiguration,
     ContainerEliminationConfiguration,
     ContainerSearchConfiguration,
+    IncumbentAcquisitionConfiguration,
+    SecondarySearchScoreConfiguration,
 )
 from .inventory_consolidation import (
     BoundedInventoryConsolidator,
@@ -19,6 +21,12 @@ from .inventory_consolidation import (
     exact_support_closures,
     singleton_support_closures,
 )
+from .incumbent import (
+    CandidateValidator,
+    ValidatedIncumbentStore,
+)
+from ..contracts import OfficialObjective, SecondarySearchScore
+from .secondary_score import calculate_secondary_search_score
 from .precheck import (
     CapacityLimitAssessment,
     assess_capacity_within_container_limit,
@@ -28,7 +36,10 @@ from .precheck import (
     estimate_container_lower_bound,
     run_hard_precheck,
 )
-from .subset_generation import LazyRankedContainerSubsetPolicy
+from .subset_generation import (
+    LazyRankedContainerSubsetPolicy,
+    midpoint_cardinality_ladder,
+)
 from .inventory_orchestration import (
     InventoryConstructiveExecutor,
     InventorySearchOrchestrator,
@@ -42,8 +53,15 @@ __all__ = [
     "ContainerSearchConfiguration",
     "ConsolidationConfiguration",
     "ContainerEliminationConfiguration",
+    "IncumbentAcquisitionConfiguration",
+    "SecondarySearchScoreConfiguration",
     "BoundedInventoryConsolidator",
     "ConsolidationResult",
+    "CandidateValidator",
+    "OfficialObjective",
+    "SecondarySearchScore",
+    "calculate_secondary_search_score",
+    "ValidatedIncumbentStore",
     "exact_support_closures",
     "singleton_support_closures",
     "HardPrecheckIssue",
@@ -53,6 +71,7 @@ __all__ = [
     "InventorySearchOrchestrator",
     "InventorySearchRequest",
     "LazyRankedContainerSubsetPolicy",
+    "midpoint_cardinality_ladder",
     "LowerBoundEstimate",
     "NormalizedContainerInventory",
     "estimate_container_lower_bound",

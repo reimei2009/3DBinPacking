@@ -1,0 +1,19 @@
+adapter_id: mpv_fixed_orientation_capture_v1
+source_id: martello_pisinger_vigo_fixed_orientation_capture_v1
+columns:
+  id_item: [id_item]
+  length: [length]
+  width: [width]
+  height: [height]
+  weight: [weight]
+  nesting_height: null
+  stackability_code: null
+  forced_orientation: null
+  max_stackability: null
+nesting:
+  semantics: undeclared
+  data_source: undeclared
+delivery:
+  semantics: undeclared
+  data_source: undeclared
+extra_columns: preserve

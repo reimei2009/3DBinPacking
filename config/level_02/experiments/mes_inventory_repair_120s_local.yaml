@@ -1,0 +1,20 @@
+extends: mes_inventory_gate_500_local.yaml
+container_search:
+  consolidation:
+    enabled: true
+    time_limit_seconds: 60
+    max_candidates: 512
+    improvement_phase_time_fractions: [0.60, 0.40]
+    container_elimination:
+      enabled: true
+      maximum_target_containers: 8
+      maximum_candidates: 1024
+      phase_time_fractions: [0.35, 0.25, 0.40]
+      adaptive_cluster_elimination:
+        enabled: true
+        maximum_destination_containers: 3
+        neighborhood_sizes: [4, 8, 16, 24]
+        beam_width: 8
+        maximum_candidates: 256
+        maximum_target_containers: 8
+        minimum_validation_reserve_seconds: 2

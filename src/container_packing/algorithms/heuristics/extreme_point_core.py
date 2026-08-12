@@ -41,12 +41,24 @@ class ContainerState:
     placements: list[Placement] = field(default_factory=list)
     extreme_points: set[Point] = field(default_factory=lambda: {(0.0, 0.0, 0.0)})
     loaded_weight_kg: float = 0.0
+    _loaded_volume_mm3: float = 0.0
+    max_x_mm: float = 0.0
+    max_y_mm: float = 0.0
+    max_z_mm: float = 0.0
 
     @property
     def loaded_volume_mm3(self) -> float:
-        return sum(
-            value.length_mm * value.width_mm * value.height_mm
-            for value in self.placements
+        return self._loaded_volume_mm3
+
+    @property
+    def bounding_volume_mm3(self) -> float:
+        return self.max_x_mm * self.max_y_mm * self.max_z_mm
+
+    def bounding_volume_with(self, placement: Placement) -> float:
+        return (
+            max(self.max_x_mm, placement.x_mm + placement.length_mm)
+            * max(self.max_y_mm, placement.y_mm + placement.width_mm)
+            * max(self.max_z_mm, placement.z_mm + placement.height_mm)
         )
 
 
@@ -163,6 +175,18 @@ def place_candidate(state: ContainerState, placement: Placement, tolerance: floa
     """Commit an already feasibility-checked candidate to its container state."""
     state.placements.append(placement)
     state.loaded_weight_kg += placement.weight_kg
+    state._loaded_volume_mm3 += (
+        placement.length_mm * placement.width_mm * placement.height_mm
+    )
+    state.max_x_mm = max(
+        state.max_x_mm, placement.x_mm + placement.length_mm,
+    )
+    state.max_y_mm = max(
+        state.max_y_mm, placement.y_mm + placement.width_mm,
+    )
+    state.max_z_mm = max(
+        state.max_z_mm, placement.z_mm + placement.height_mm,
+    )
     update_extreme_points(state, placement, tolerance)
     return placement
 

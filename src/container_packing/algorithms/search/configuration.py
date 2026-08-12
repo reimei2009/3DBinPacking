@@ -157,6 +157,7 @@ class ConsolidationConfiguration:
     enabled: bool = False
     time_limit_seconds: float = 10.0
     max_candidates: int = 128
+    improvement_phase_time_fractions: tuple[float, float] = (0.60, 0.40)
     item_order_variants: tuple[str, ...] = (
         "current", "decreasing_volume", "decreasing_weight", "support_difficulty",
     )
@@ -176,6 +177,31 @@ class ConsolidationConfiguration:
         max_candidates = _positive_int(
             raw.get("max_candidates", 128), "consolidation.max_candidates",
         )
+        phase_fractions_raw = raw.get(
+            "improvement_phase_time_fractions", [0.60, 0.40],
+        )
+        if (
+            not isinstance(phase_fractions_raw, list | tuple)
+            or len(phase_fractions_raw) != 2
+        ):
+            raise ValueError(
+                "container_search.consolidation.improvement_phase_time_fractions "
+                "must contain exactly two values for local repair and rebuild"
+            )
+        phase_fractions = tuple(
+            _finite_float(
+                item, "consolidation.improvement_phase_time_fractions",
+            )
+            for item in phase_fractions_raw
+        )
+        if (
+            any(item <= 0 for item in phase_fractions)
+            or abs(sum(phase_fractions) - 1.0) > 1e-9
+        ):
+            raise ValueError(
+                "container_search.consolidation.improvement_phase_time_fractions "
+                "must be positive and sum to 1"
+            )
         variants_raw = raw.get("item_order_variants", cls.item_order_variants)
         if not isinstance(variants_raw, list | tuple) or not variants_raw:
             raise ValueError(
@@ -199,16 +225,88 @@ class ConsolidationConfiguration:
         elimination = ContainerEliminationConfiguration.from_mapping(
             raw.get("container_elimination")
         )
-        return cls(enabled, time_limit, max_candidates, variants, elimination)
+        return cls(
+            enabled, time_limit, max_candidates,
+            phase_fractions, variants, elimination,
+        )
 
     def metadata(self) -> dict[str, object]:
         return {
             "container_consolidation_enabled": self.enabled,
             "container_consolidation_time_limit_seconds": self.time_limit_seconds,
             "container_consolidation_max_candidates": self.max_candidates,
+            "container_consolidation_improvement_phase_time_fractions": list(
+                self.improvement_phase_time_fractions
+            ),
             "container_consolidation_target_mode": "capacity_lower_bound",
             "container_consolidation_item_order_variants": list(self.item_order_variants),
             **self.container_elimination.metadata(),
+        }
+
+
+@dataclass(frozen=True)
+class IncumbentAcquisitionConfiguration:
+    """Pha bounded ưu tiên lấy một incumbent hợp lệ trước khi tối ưu."""
+
+    enabled: bool = True
+    max_subsets_per_cardinality: int = 2
+
+    @classmethod
+    def from_mapping(
+        cls, value: dict[str, Any] | None,
+    ) -> "IncumbentAcquisitionConfiguration":
+        raw = dict(value or {})
+        return cls(
+            enabled=_strict_bool(
+                raw.get("enabled", True), "incumbent_acquisition.enabled",
+            ),
+            max_subsets_per_cardinality=_positive_int(
+                raw.get("max_subsets_per_cardinality", 2),
+                "incumbent_acquisition.max_subsets_per_cardinality",
+            ),
+        )
+
+    def metadata(self) -> dict[str, object]:
+        return {
+            "incumbent_acquisition_enabled": self.enabled,
+            "incumbent_acquisition_schedule": "midpoint_to_max_v1",
+            "incumbent_acquisition_max_subsets_per_cardinality": (
+                self.max_subsets_per_cardinality
+            ),
+        }
+
+
+@dataclass(frozen=True)
+class SecondarySearchScoreConfiguration:
+    """KPI phụ chỉ phân xử candidate có cùng official objective."""
+
+    enabled: bool = False
+    complete_first_cardinality_portfolio: bool = True
+
+    @classmethod
+    def from_mapping(
+        cls, value: dict[str, Any] | None,
+    ) -> "SecondarySearchScoreConfiguration":
+        raw = dict(value or {})
+        return cls(
+            enabled=_strict_bool(
+                raw.get("enabled", False), "secondary_search_score.enabled",
+            ),
+            complete_first_cardinality_portfolio=_strict_bool(
+                raw.get("complete_first_cardinality_portfolio", True),
+                "secondary_search_score.complete_first_cardinality_portfolio",
+            ),
+        )
+
+    def metadata(self) -> dict[str, object]:
+        return {
+            "secondary_search_score_enabled": self.enabled,
+            "secondary_search_score_policy": (
+                "utilization_void_support_margin_v1" if self.enabled else "disabled"
+            ),
+            "secondary_search_score_complete_first_cardinality_portfolio": (
+                self.complete_first_cardinality_portfolio
+            ),
         }
 
 
@@ -227,6 +325,12 @@ class ContainerSearchConfiguration:
     validation_reserve_seconds: float = 2.0
     construction_item_order_variants: tuple[str, ...] = (
         "current", "decreasing_weight", "support_difficulty",
+    )
+    incumbent_acquisition: IncumbentAcquisitionConfiguration = (
+        IncumbentAcquisitionConfiguration()
+    )
+    secondary_search_score: SecondarySearchScoreConfiguration = (
+        SecondarySearchScoreConfiguration()
     )
     consolidation: ConsolidationConfiguration = ConsolidationConfiguration()
 
@@ -289,6 +393,12 @@ class ContainerSearchConfiguration:
                 cls.construction_item_order_variants,
             )
         )
+        acquisition = IncumbentAcquisitionConfiguration.from_mapping(
+            raw.get("incumbent_acquisition")
+        )
+        secondary_score = SecondarySearchScoreConfiguration.from_mapping(
+            raw.get("secondary_search_score")
+        )
         consolidation = ConsolidationConfiguration.from_mapping(raw.get("consolidation"))
         adaptive = consolidation.container_elimination.adaptive_cluster_elimination
         if (
@@ -319,6 +429,8 @@ class ContainerSearchConfiguration:
             time_limit_seconds=time_limit,
             validation_reserve_seconds=validation_reserve,
             construction_item_order_variants=variants,
+            incumbent_acquisition=acquisition,
+            secondary_search_score=secondary_score,
             consolidation=consolidation,
         )
 
@@ -340,6 +452,8 @@ class ContainerSearchConfiguration:
             "container_search_construction_item_order_variants": list(
                 self.construction_item_order_variants
             ),
+            **self.incumbent_acquisition.metadata(),
+            **self.secondary_search_score.metadata(),
             **self.consolidation.metadata(),
         }
 

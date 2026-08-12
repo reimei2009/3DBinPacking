@@ -1,0 +1,548 @@
+schema_version: "1.0"
+corpus_id: level_02_mpv_fixed_orientation_acceptance_v1
+level_id: level_02
+environment: local
+seeds: [42]
+repeats: 2
+default_config: config/level_02/experiments/mpv_fixed_orientation_acceptance.yaml
+cases:
+  - case_id: mpv_c01_n020_i01
+    group: mpv_class_01
+    difficulty: small
+    item_count: 20
+    container_count: 20
+    expected_outcome: feasible
+    description: "MPV class 1, 20 items, native instance 01; fixed orientation + exact support."
+    algorithms: [extreme_point_best_fit, extreme_point_ffd]
+    dataset_family: mpv_fixed_orientation_exact_support
+    scale_bucket: 20
+    config_overrides:
+      paths:
+        raw_items_csv: data/interim/mpv_3dbpp/normalized/mpv-c01-n020-v1/solver_items.csv
+        raw_containers_csv: data/interim/mpv_3dbpp/normalized/mpv-c01-n020-v1/solver_containers.csv
+        processed_dir: data/processed/level_02/mpv_fixed_orientation/mpv-c01-n020-v1
+        manifest_json: data/processed/level_02/mpv_fixed_orientation/mpv-c01-n020-v1/latest_manifest.json
+      container_search:
+        max_used_container_count: 20
+      academic_corpus:
+        normalization_manifest_path: data/interim/mpv_3dbpp/normalized/mpv-c01-n020-v1/generation_manifest.json
+  - case_id: mpv_c01_n050_i01
+    group: mpv_class_01
+    difficulty: medium
+    item_count: 50
+    container_count: 50
+    expected_outcome: feasible
+    description: "MPV class 1, 50 items, native instance 01; fixed orientation + exact support."
+    algorithms: [extreme_point_best_fit, extreme_point_ffd]
+    dataset_family: mpv_fixed_orientation_exact_support
+    scale_bucket: 50
+    config_overrides:
+      paths:
+        raw_items_csv: data/interim/mpv_3dbpp/normalized/mpv-c01-n050-v1/solver_items.csv
+        raw_containers_csv: data/interim/mpv_3dbpp/normalized/mpv-c01-n050-v1/solver_containers.csv
+        processed_dir: data/processed/level_02/mpv_fixed_orientation/mpv-c01-n050-v1
+        manifest_json: data/processed/level_02/mpv_fixed_orientation/mpv-c01-n050-v1/latest_manifest.json
+      container_search:
+        max_used_container_count: 50
+      academic_corpus:
+        normalization_manifest_path: data/interim/mpv_3dbpp/normalized/mpv-c01-n050-v1/generation_manifest.json
+  - case_id: mpv_c01_n100_i01
+    group: mpv_class_01
+    difficulty: candidate_heavy
+    item_count: 100
+    container_count: 100
+    expected_outcome: feasible
+    description: "MPV class 1, 100 items, native instance 01; fixed orientation + exact support."
+    algorithms: [extreme_point_best_fit, extreme_point_ffd]
+    dataset_family: mpv_fixed_orientation_exact_support
+    scale_bucket: 100
+    config_overrides:
+      paths:
+        raw_items_csv: data/interim/mpv_3dbpp/normalized/mpv-c01-n100-v1/solver_items.csv
+        raw_containers_csv: data/interim/mpv_3dbpp/normalized/mpv-c01-n100-v1/solver_containers.csv
+        processed_dir: data/processed/level_02/mpv_fixed_orientation/mpv-c01-n100-v1
+        manifest_json: data/processed/level_02/mpv_fixed_orientation/mpv-c01-n100-v1/latest_manifest.json
+      container_search:
+        max_used_container_count: 100
+      academic_corpus:
+        normalization_manifest_path: data/interim/mpv_3dbpp/normalized/mpv-c01-n100-v1/generation_manifest.json
+  - case_id: mpv_c02_n020_i01
+    group: mpv_class_02
+    difficulty: small
+    item_count: 20
+    container_count: 20
+    expected_outcome: feasible
+    description: "MPV class 2, 20 items, native instance 01; fixed orientation + exact support."
+    algorithms: [extreme_point_best_fit, extreme_point_ffd]
+    dataset_family: mpv_fixed_orientation_exact_support
+    scale_bucket: 20
+    config_overrides:
+      paths:
+        raw_items_csv: data/interim/mpv_3dbpp/normalized/mpv-c02-n020-v1/solver_items.csv
+        raw_containers_csv: data/interim/mpv_3dbpp/normalized/mpv-c02-n020-v1/solver_containers.csv
+        processed_dir: data/processed/level_02/mpv_fixed_orientation/mpv-c02-n020-v1
+        manifest_json: data/processed/level_02/mpv_fixed_orientation/mpv-c02-n020-v1/latest_manifest.json
+      container_search:
+        max_used_container_count: 20
+      academic_corpus:
+        normalization_manifest_path: data/interim/mpv_3dbpp/normalized/mpv-c02-n020-v1/generation_manifest.json
+  - case_id: mpv_c02_n050_i01
+    group: mpv_class_02
+    difficulty: medium
+    item_count: 50
+    container_count: 50
+    expected_outcome: feasible
+    description: "MPV class 2, 50 items, native instance 01; fixed orientation + exact support."
+    algorithms: [extreme_point_best_fit, extreme_point_ffd]
+    dataset_family: mpv_fixed_orientation_exact_support
+    scale_bucket: 50
+    config_overrides:
+      paths:
+        raw_items_csv: data/interim/mpv_3dbpp/normalized/mpv-c02-n050-v1/solver_items.csv
+        raw_containers_csv: data/interim/mpv_3dbpp/normalized/mpv-c02-n050-v1/solver_containers.csv
+        processed_dir: data/processed/level_02/mpv_fixed_orientation/mpv-c02-n050-v1
+        manifest_json: data/processed/level_02/mpv_fixed_orientation/mpv-c02-n050-v1/latest_manifest.json
+      container_search:
+        max_used_container_count: 50
+      academic_corpus:
+        normalization_manifest_path: data/interim/mpv_3dbpp/normalized/mpv-c02-n050-v1/generation_manifest.json
+  - case_id: mpv_c02_n100_i01
+    group: mpv_class_02
+    difficulty: candidate_heavy
+    item_count: 100
+    container_count: 100
+    expected_outcome: feasible
+    description: "MPV class 2, 100 items, native instance 01; fixed orientation + exact support."
+    algorithms: [extreme_point_best_fit, extreme_point_ffd]
+    dataset_family: mpv_fixed_orientation_exact_support
+    scale_bucket: 100
+    config_overrides:
+      paths:
+        raw_items_csv: data/interim/mpv_3dbpp/normalized/mpv-c02-n100-v1/solver_items.csv
+        raw_containers_csv: data/interim/mpv_3dbpp/normalized/mpv-c02-n100-v1/solver_containers.csv
+        processed_dir: data/processed/level_02/mpv_fixed_orientation/mpv-c02-n100-v1
+        manifest_json: data/processed/level_02/mpv_fixed_orientation/mpv-c02-n100-v1/latest_manifest.json
+      container_search:
+        max_used_container_count: 100
+      academic_corpus:
+        normalization_manifest_path: data/interim/mpv_3dbpp/normalized/mpv-c02-n100-v1/generation_manifest.json
+  - case_id: mpv_c03_n020_i01
+    group: mpv_class_03
+    difficulty: small
+    item_count: 20
+    container_count: 20
+    expected_outcome: feasible
+    description: "MPV class 3, 20 items, native instance 01; fixed orientation + exact support."
+    algorithms: [extreme_point_best_fit, extreme_point_ffd]
+    dataset_family: mpv_fixed_orientation_exact_support
+    scale_bucket: 20
+    config_overrides:
+      paths:
+        raw_items_csv: data/interim/mpv_3dbpp/normalized/mpv-c03-n020-v1/solver_items.csv
+        raw_containers_csv: data/interim/mpv_3dbpp/normalized/mpv-c03-n020-v1/solver_containers.csv
+        processed_dir: data/processed/level_02/mpv_fixed_orientation/mpv-c03-n020-v1
+        manifest_json: data/processed/level_02/mpv_fixed_orientation/mpv-c03-n020-v1/latest_manifest.json
+      container_search:
+        max_used_container_count: 20
+      academic_corpus:
+        normalization_manifest_path: data/interim/mpv_3dbpp/normalized/mpv-c03-n020-v1/generation_manifest.json
+  - case_id: mpv_c03_n050_i01
+    group: mpv_class_03
+    difficulty: medium
+    item_count: 50
+    container_count: 50
+    expected_outcome: feasible
+    description: "MPV class 3, 50 items, native instance 01; fixed orientation + exact support."
+    algorithms: [extreme_point_best_fit, extreme_point_ffd]
+    dataset_family: mpv_fixed_orientation_exact_support
+    scale_bucket: 50
+    config_overrides:
+      paths:
+        raw_items_csv: data/interim/mpv_3dbpp/normalized/mpv-c03-n050-v1/solver_items.csv
+        raw_containers_csv: data/interim/mpv_3dbpp/normalized/mpv-c03-n050-v1/solver_containers.csv
+        processed_dir: data/processed/level_02/mpv_fixed_orientation/mpv-c03-n050-v1
+        manifest_json: data/processed/level_02/mpv_fixed_orientation/mpv-c03-n050-v1/latest_manifest.json
+      container_search:
+        max_used_container_count: 50
+      academic_corpus:
+        normalization_manifest_path: data/interim/mpv_3dbpp/normalized/mpv-c03-n050-v1/generation_manifest.json
+  - case_id: mpv_c03_n100_i01
+    group: mpv_class_03
+    difficulty: candidate_heavy
+    item_count: 100
+    container_count: 100
+    expected_outcome: feasible
+    description: "MPV class 3, 100 items, native instance 01; fixed orientation + exact support."
+    algorithms: [extreme_point_best_fit, extreme_point_ffd]
+    dataset_family: mpv_fixed_orientation_exact_support
+    scale_bucket: 100
+    config_overrides:
+      paths:
+        raw_items_csv: data/interim/mpv_3dbpp/normalized/mpv-c03-n100-v1/solver_items.csv
+        raw_containers_csv: data/interim/mpv_3dbpp/normalized/mpv-c03-n100-v1/solver_containers.csv
+        processed_dir: data/processed/level_02/mpv_fixed_orientation/mpv-c03-n100-v1
+        manifest_json: data/processed/level_02/mpv_fixed_orientation/mpv-c03-n100-v1/latest_manifest.json
+      container_search:
+        max_used_container_count: 100
+      academic_corpus:
+        normalization_manifest_path: data/interim/mpv_3dbpp/normalized/mpv-c03-n100-v1/generation_manifest.json
+  - case_id: mpv_c04_n020_i01
+    group: mpv_class_04
+    difficulty: small
+    item_count: 20
+    container_count: 20
+    expected_outcome: feasible
+    description: "MPV class 4, 20 items, native instance 01; fixed orientation + exact support."
+    algorithms: [extreme_point_best_fit, extreme_point_ffd]
+    dataset_family: mpv_fixed_orientation_exact_support
+    scale_bucket: 20
+    config_overrides:
+      paths:
+        raw_items_csv: data/interim/mpv_3dbpp/normalized/mpv-c04-n020-v1/solver_items.csv
+        raw_containers_csv: data/interim/mpv_3dbpp/normalized/mpv-c04-n020-v1/solver_containers.csv
+        processed_dir: data/processed/level_02/mpv_fixed_orientation/mpv-c04-n020-v1
+        manifest_json: data/processed/level_02/mpv_fixed_orientation/mpv-c04-n020-v1/latest_manifest.json
+      container_search:
+        max_used_container_count: 20
+      academic_corpus:
+        normalization_manifest_path: data/interim/mpv_3dbpp/normalized/mpv-c04-n020-v1/generation_manifest.json
+  - case_id: mpv_c04_n050_i01
+    group: mpv_class_04
+    difficulty: medium
+    item_count: 50
+    container_count: 50
+    expected_outcome: feasible
+    description: "MPV class 4, 50 items, native instance 01; fixed orientation + exact support."
+    algorithms: [extreme_point_best_fit, extreme_point_ffd]
+    dataset_family: mpv_fixed_orientation_exact_support
+    scale_bucket: 50
+    config_overrides:
+      paths:
+        raw_items_csv: data/interim/mpv_3dbpp/normalized/mpv-c04-n050-v1/solver_items.csv
+        raw_containers_csv: data/interim/mpv_3dbpp/normalized/mpv-c04-n050-v1/solver_containers.csv
+        processed_dir: data/processed/level_02/mpv_fixed_orientation/mpv-c04-n050-v1
+        manifest_json: data/processed/level_02/mpv_fixed_orientation/mpv-c04-n050-v1/latest_manifest.json
+      container_search:
+        max_used_container_count: 50
+      academic_corpus:
+        normalization_manifest_path: data/interim/mpv_3dbpp/normalized/mpv-c04-n050-v1/generation_manifest.json
+  - case_id: mpv_c04_n100_i01
+    group: mpv_class_04
+    difficulty: candidate_heavy
+    item_count: 100
+    container_count: 100
+    expected_outcome: feasible
+    description: "MPV class 4, 100 items, native instance 01; fixed orientation + exact support."
+    algorithms: [extreme_point_best_fit, extreme_point_ffd]
+    dataset_family: mpv_fixed_orientation_exact_support
+    scale_bucket: 100
+    config_overrides:
+      paths:
+        raw_items_csv: data/interim/mpv_3dbpp/normalized/mpv-c04-n100-v1/solver_items.csv
+        raw_containers_csv: data/interim/mpv_3dbpp/normalized/mpv-c04-n100-v1/solver_containers.csv
+        processed_dir: data/processed/level_02/mpv_fixed_orientation/mpv-c04-n100-v1
+        manifest_json: data/processed/level_02/mpv_fixed_orientation/mpv-c04-n100-v1/latest_manifest.json
+      container_search:
+        max_used_container_count: 100
+      academic_corpus:
+        normalization_manifest_path: data/interim/mpv_3dbpp/normalized/mpv-c04-n100-v1/generation_manifest.json
+  - case_id: mpv_c05_n020_i01
+    group: mpv_class_05
+    difficulty: small
+    item_count: 20
+    container_count: 20
+    expected_outcome: feasible
+    description: "MPV class 5, 20 items, native instance 01; fixed orientation + exact support."
+    algorithms: [extreme_point_best_fit, extreme_point_ffd]
+    dataset_family: mpv_fixed_orientation_exact_support
+    scale_bucket: 20
+    config_overrides:
+      paths:
+        raw_items_csv: data/interim/mpv_3dbpp/normalized/mpv-c05-n020-v1/solver_items.csv
+        raw_containers_csv: data/interim/mpv_3dbpp/normalized/mpv-c05-n020-v1/solver_containers.csv
+        processed_dir: data/processed/level_02/mpv_fixed_orientation/mpv-c05-n020-v1
+        manifest_json: data/processed/level_02/mpv_fixed_orientation/mpv-c05-n020-v1/latest_manifest.json
+      container_search:
+        max_used_container_count: 20
+      academic_corpus:
+        normalization_manifest_path: data/interim/mpv_3dbpp/normalized/mpv-c05-n020-v1/generation_manifest.json
+  - case_id: mpv_c05_n050_i01
+    group: mpv_class_05
+    difficulty: medium
+    item_count: 50
+    container_count: 50
+    expected_outcome: feasible
+    description: "MPV class 5, 50 items, native instance 01; fixed orientation + exact support."
+    algorithms: [extreme_point_best_fit, extreme_point_ffd]
+    dataset_family: mpv_fixed_orientation_exact_support
+    scale_bucket: 50
+    config_overrides:
+      paths:
+        raw_items_csv: data/interim/mpv_3dbpp/normalized/mpv-c05-n050-v1/solver_items.csv
+        raw_containers_csv: data/interim/mpv_3dbpp/normalized/mpv-c05-n050-v1/solver_containers.csv
+        processed_dir: data/processed/level_02/mpv_fixed_orientation/mpv-c05-n050-v1
+        manifest_json: data/processed/level_02/mpv_fixed_orientation/mpv-c05-n050-v1/latest_manifest.json
+      container_search:
+        max_used_container_count: 50
+      academic_corpus:
+        normalization_manifest_path: data/interim/mpv_3dbpp/normalized/mpv-c05-n050-v1/generation_manifest.json
+  - case_id: mpv_c05_n100_i01
+    group: mpv_class_05
+    difficulty: candidate_heavy
+    item_count: 100
+    container_count: 100
+    expected_outcome: feasible
+    description: "MPV class 5, 100 items, native instance 01; fixed orientation + exact support."
+    algorithms: [extreme_point_best_fit, extreme_point_ffd]
+    dataset_family: mpv_fixed_orientation_exact_support
+    scale_bucket: 100
+    config_overrides:
+      paths:
+        raw_items_csv: data/interim/mpv_3dbpp/normalized/mpv-c05-n100-v1/solver_items.csv
+        raw_containers_csv: data/interim/mpv_3dbpp/normalized/mpv-c05-n100-v1/solver_containers.csv
+        processed_dir: data/processed/level_02/mpv_fixed_orientation/mpv-c05-n100-v1
+        manifest_json: data/processed/level_02/mpv_fixed_orientation/mpv-c05-n100-v1/latest_manifest.json
+      container_search:
+        max_used_container_count: 100
+      academic_corpus:
+        normalization_manifest_path: data/interim/mpv_3dbpp/normalized/mpv-c05-n100-v1/generation_manifest.json
+  - case_id: mpv_c06_n020_i01
+    group: mpv_class_06
+    difficulty: small
+    item_count: 20
+    container_count: 20
+    expected_outcome: feasible
+    description: "MPV class 6, 20 items, native instance 01; fixed orientation + exact support."
+    algorithms: [extreme_point_best_fit, extreme_point_ffd]
+    dataset_family: mpv_fixed_orientation_exact_support
+    scale_bucket: 20
+    config_overrides:
+      paths:
+        raw_items_csv: data/interim/mpv_3dbpp/normalized/mpv-c06-n020-v1/solver_items.csv
+        raw_containers_csv: data/interim/mpv_3dbpp/normalized/mpv-c06-n020-v1/solver_containers.csv
+        processed_dir: data/processed/level_02/mpv_fixed_orientation/mpv-c06-n020-v1
+        manifest_json: data/processed/level_02/mpv_fixed_orientation/mpv-c06-n020-v1/latest_manifest.json
+      container_search:
+        max_used_container_count: 20
+      academic_corpus:
+        normalization_manifest_path: data/interim/mpv_3dbpp/normalized/mpv-c06-n020-v1/generation_manifest.json
+  - case_id: mpv_c06_n050_i01
+    group: mpv_class_06
+    difficulty: medium
+    item_count: 50
+    container_count: 50
+    expected_outcome: feasible
+    description: "MPV class 6, 50 items, native instance 01; fixed orientation + exact support."
+    algorithms: [extreme_point_best_fit, extreme_point_ffd]
+    dataset_family: mpv_fixed_orientation_exact_support
+    scale_bucket: 50
+    config_overrides:
+      paths:
+        raw_items_csv: data/interim/mpv_3dbpp/normalized/mpv-c06-n050-v1/solver_items.csv
+        raw_containers_csv: data/interim/mpv_3dbpp/normalized/mpv-c06-n050-v1/solver_containers.csv
+        processed_dir: data/processed/level_02/mpv_fixed_orientation/mpv-c06-n050-v1
+        manifest_json: data/processed/level_02/mpv_fixed_orientation/mpv-c06-n050-v1/latest_manifest.json
+      container_search:
+        max_used_container_count: 50
+      academic_corpus:
+        normalization_manifest_path: data/interim/mpv_3dbpp/normalized/mpv-c06-n050-v1/generation_manifest.json
+  - case_id: mpv_c06_n100_i01
+    group: mpv_class_06
+    difficulty: candidate_heavy
+    item_count: 100
+    container_count: 100
+    expected_outcome: feasible
+    description: "MPV class 6, 100 items, native instance 01; fixed orientation + exact support."
+    algorithms: [extreme_point_best_fit, extreme_point_ffd]
+    dataset_family: mpv_fixed_orientation_exact_support
+    scale_bucket: 100
+    config_overrides:
+      paths:
+        raw_items_csv: data/interim/mpv_3dbpp/normalized/mpv-c06-n100-v1/solver_items.csv
+        raw_containers_csv: data/interim/mpv_3dbpp/normalized/mpv-c06-n100-v1/solver_containers.csv
+        processed_dir: data/processed/level_02/mpv_fixed_orientation/mpv-c06-n100-v1
+        manifest_json: data/processed/level_02/mpv_fixed_orientation/mpv-c06-n100-v1/latest_manifest.json
+      container_search:
+        max_used_container_count: 100
+      academic_corpus:
+        normalization_manifest_path: data/interim/mpv_3dbpp/normalized/mpv-c06-n100-v1/generation_manifest.json
+  - case_id: mpv_c07_n020_i01
+    group: mpv_class_07
+    difficulty: small
+    item_count: 20
+    container_count: 20
+    expected_outcome: feasible
+    description: "MPV class 7, 20 items, native instance 01; fixed orientation + exact support."
+    algorithms: [extreme_point_best_fit, extreme_point_ffd]
+    dataset_family: mpv_fixed_orientation_exact_support
+    scale_bucket: 20
+    config_overrides:
+      paths:
+        raw_items_csv: data/interim/mpv_3dbpp/normalized/mpv-c07-n020-v1/solver_items.csv
+        raw_containers_csv: data/interim/mpv_3dbpp/normalized/mpv-c07-n020-v1/solver_containers.csv
+        processed_dir: data/processed/level_02/mpv_fixed_orientation/mpv-c07-n020-v1
+        manifest_json: data/processed/level_02/mpv_fixed_orientation/mpv-c07-n020-v1/latest_manifest.json
+      container_search:
+        max_used_container_count: 20
+      academic_corpus:
+        normalization_manifest_path: data/interim/mpv_3dbpp/normalized/mpv-c07-n020-v1/generation_manifest.json
+  - case_id: mpv_c07_n050_i01
+    group: mpv_class_07
+    difficulty: medium
+    item_count: 50
+    container_count: 50
+    expected_outcome: feasible
+    description: "MPV class 7, 50 items, native instance 01; fixed orientation + exact support."
+    algorithms: [extreme_point_best_fit, extreme_point_ffd]
+    dataset_family: mpv_fixed_orientation_exact_support
+    scale_bucket: 50
+    config_overrides:
+      paths:
+        raw_items_csv: data/interim/mpv_3dbpp/normalized/mpv-c07-n050-v1/solver_items.csv
+        raw_containers_csv: data/interim/mpv_3dbpp/normalized/mpv-c07-n050-v1/solver_containers.csv
+        processed_dir: data/processed/level_02/mpv_fixed_orientation/mpv-c07-n050-v1
+        manifest_json: data/processed/level_02/mpv_fixed_orientation/mpv-c07-n050-v1/latest_manifest.json
+      container_search:
+        max_used_container_count: 50
+      academic_corpus:
+        normalization_manifest_path: data/interim/mpv_3dbpp/normalized/mpv-c07-n050-v1/generation_manifest.json
+  - case_id: mpv_c07_n100_i01
+    group: mpv_class_07
+    difficulty: candidate_heavy
+    item_count: 100
+    container_count: 100
+    expected_outcome: feasible
+    description: "MPV class 7, 100 items, native instance 01; fixed orientation + exact support."
+    algorithms: [extreme_point_best_fit, extreme_point_ffd]
+    dataset_family: mpv_fixed_orientation_exact_support
+    scale_bucket: 100
+    config_overrides:
+      paths:
+        raw_items_csv: data/interim/mpv_3dbpp/normalized/mpv-c07-n100-v1/solver_items.csv
+        raw_containers_csv: data/interim/mpv_3dbpp/normalized/mpv-c07-n100-v1/solver_containers.csv
+        processed_dir: data/processed/level_02/mpv_fixed_orientation/mpv-c07-n100-v1
+        manifest_json: data/processed/level_02/mpv_fixed_orientation/mpv-c07-n100-v1/latest_manifest.json
+      container_search:
+        max_used_container_count: 100
+      academic_corpus:
+        normalization_manifest_path: data/interim/mpv_3dbpp/normalized/mpv-c07-n100-v1/generation_manifest.json
+  - case_id: mpv_c08_n020_i01
+    group: mpv_class_08
+    difficulty: small
+    item_count: 20
+    container_count: 20
+    expected_outcome: feasible
+    description: "MPV class 8, 20 items, native instance 01; fixed orientation + exact support."
+    algorithms: [extreme_point_best_fit, extreme_point_ffd]
+    dataset_family: mpv_fixed_orientation_exact_support
+    scale_bucket: 20
+    config_overrides:
+      paths:
+        raw_items_csv: data/interim/mpv_3dbpp/normalized/mpv-c08-n020-v1/solver_items.csv
+        raw_containers_csv: data/interim/mpv_3dbpp/normalized/mpv-c08-n020-v1/solver_containers.csv
+        processed_dir: data/processed/level_02/mpv_fixed_orientation/mpv-c08-n020-v1
+        manifest_json: data/processed/level_02/mpv_fixed_orientation/mpv-c08-n020-v1/latest_manifest.json
+      container_search:
+        max_used_container_count: 20
+      academic_corpus:
+        normalization_manifest_path: data/interim/mpv_3dbpp/normalized/mpv-c08-n020-v1/generation_manifest.json
+  - case_id: mpv_c08_n050_i01
+    group: mpv_class_08
+    difficulty: medium
+    item_count: 50
+    container_count: 50
+    expected_outcome: feasible
+    description: "MPV class 8, 50 items, native instance 01; fixed orientation + exact support."
+    algorithms: [extreme_point_best_fit, extreme_point_ffd]
+    dataset_family: mpv_fixed_orientation_exact_support
+    scale_bucket: 50
+    config_overrides:
+      paths:
+        raw_items_csv: data/interim/mpv_3dbpp/normalized/mpv-c08-n050-v1/solver_items.csv
+        raw_containers_csv: data/interim/mpv_3dbpp/normalized/mpv-c08-n050-v1/solver_containers.csv
+        processed_dir: data/processed/level_02/mpv_fixed_orientation/mpv-c08-n050-v1
+        manifest_json: data/processed/level_02/mpv_fixed_orientation/mpv-c08-n050-v1/latest_manifest.json
+      container_search:
+        max_used_container_count: 50
+      academic_corpus:
+        normalization_manifest_path: data/interim/mpv_3dbpp/normalized/mpv-c08-n050-v1/generation_manifest.json
+  - case_id: mpv_c08_n100_i01
+    group: mpv_class_08
+    difficulty: candidate_heavy
+    item_count: 100
+    container_count: 100
+    expected_outcome: feasible
+    description: "MPV class 8, 100 items, native instance 01; fixed orientation + exact support."
+    algorithms: [extreme_point_best_fit, extreme_point_ffd]
+    dataset_family: mpv_fixed_orientation_exact_support
+    scale_bucket: 100
+    config_overrides:
+      paths:
+        raw_items_csv: data/interim/mpv_3dbpp/normalized/mpv-c08-n100-v1/solver_items.csv
+        raw_containers_csv: data/interim/mpv_3dbpp/normalized/mpv-c08-n100-v1/solver_containers.csv
+        processed_dir: data/processed/level_02/mpv_fixed_orientation/mpv-c08-n100-v1
+        manifest_json: data/processed/level_02/mpv_fixed_orientation/mpv-c08-n100-v1/latest_manifest.json
+      container_search:
+        max_used_container_count: 100
+      academic_corpus:
+        normalization_manifest_path: data/interim/mpv_3dbpp/normalized/mpv-c08-n100-v1/generation_manifest.json
+  - case_id: mpv_c09_n020_i01
+    group: mpv_class_09
+    difficulty: small
+    item_count: 20
+    container_count: 20
+    expected_outcome: feasible
+    description: "MPV class 9, 20 items, native instance 01; fixed orientation + exact support."
+    algorithms: [extreme_point_best_fit, extreme_point_ffd]
+    dataset_family: mpv_fixed_orientation_exact_support
+    scale_bucket: 20
+    config_overrides:
+      paths:
+        raw_items_csv: data/interim/mpv_3dbpp/normalized/mpv-c09-n020-v1/solver_items.csv
+        raw_containers_csv: data/interim/mpv_3dbpp/normalized/mpv-c09-n020-v1/solver_containers.csv
+        processed_dir: data/processed/level_02/mpv_fixed_orientation/mpv-c09-n020-v1
+        manifest_json: data/processed/level_02/mpv_fixed_orientation/mpv-c09-n020-v1/latest_manifest.json
+      container_search:
+        max_used_container_count: 20
+      academic_corpus:
+        normalization_manifest_path: data/interim/mpv_3dbpp/normalized/mpv-c09-n020-v1/generation_manifest.json
+  - case_id: mpv_c09_n050_i01
+    group: mpv_class_09
+    difficulty: medium
+    item_count: 50
+    container_count: 50
+    expected_outcome: feasible
+    description: "MPV class 9, 50 items, native instance 01; fixed orientation + exact support."
+    algorithms: [extreme_point_best_fit, extreme_point_ffd]
+    dataset_family: mpv_fixed_orientation_exact_support
+    scale_bucket: 50
+    config_overrides:
+      paths:
+        raw_items_csv: data/interim/mpv_3dbpp/normalized/mpv-c09-n050-v1/solver_items.csv
+        raw_containers_csv: data/interim/mpv_3dbpp/normalized/mpv-c09-n050-v1/solver_containers.csv
+        processed_dir: data/processed/level_02/mpv_fixed_orientation/mpv-c09-n050-v1
+        manifest_json: data/processed/level_02/mpv_fixed_orientation/mpv-c09-n050-v1/latest_manifest.json
+      container_search:
+        max_used_container_count: 50
+      academic_corpus:
+        normalization_manifest_path: data/interim/mpv_3dbpp/normalized/mpv-c09-n050-v1/generation_manifest.json
+  - case_id: mpv_c09_n100_i01
+    group: mpv_class_09
+    difficulty: candidate_heavy
+    item_count: 100
+    container_count: 100
+    expected_outcome: feasible
+    description: "MPV class 9, 100 items, native instance 01; fixed orientation + exact support."
+    algorithms: [extreme_point_best_fit, extreme_point_ffd]
+    dataset_family: mpv_fixed_orientation_exact_support
+    scale_bucket: 100
+    config_overrides:
+      paths:
+        raw_items_csv: data/interim/mpv_3dbpp/normalized/mpv-c09-n100-v1/solver_items.csv
+        raw_containers_csv: data/interim/mpv_3dbpp/normalized/mpv-c09-n100-v1/solver_containers.csv
+        processed_dir: data/processed/level_02/mpv_fixed_orientation/mpv-c09-n100-v1
+        manifest_json: data/processed/level_02/mpv_fixed_orientation/mpv-c09-n100-v1/latest_manifest.json
+      container_search:
+        max_used_container_count: 100
+      academic_corpus:
+        normalization_manifest_path: data/interim/mpv_3dbpp/normalized/mpv-c09-n100-v1/generation_manifest.json

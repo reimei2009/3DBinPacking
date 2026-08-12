@@ -85,6 +85,40 @@ python -m pytest -q
 python scripts\run_experiment.py --level level_02 --algorithm milp_big_m --items-count 6 --containers-count 3 --non-interactive
 ```
 
+Trong vòng lặp phát triển, chạy tầng pure/nhanh trước:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest -q -m unit
+```
+
+Các marker chính là `unit`, `integration`, `web`, `solver`, `acceptance` và
+`slow`. Full suite vẫn là gate cuối trước commit; benchmark quy mô lớn không
+được gọi ngầm từ pytest.
+
+## Corpus MPV fixed-orientation Level 2
+
+Corpus ngoài không được tải ngầm. Sau khi có bundle local cùng checksum từ
+kênh tin cậy độc lập, nhập và chuẩn hóa theo
+`docs/datasets/mpv_fixed_orientation_level2.md`, rồi chạy:
+
+```powershell
+.\.venv\Scripts\python.exe .\scripts\run_benchmark.py `
+  --suite config\level_02\benchmarks\mpv_fixed_orientation_acceptance_manual.yaml
+```
+
+Tạo report tổng hợp sau khi có run MPV:
+
+```powershell
+.\.venv\Scripts\python.exe .\scripts\build_level2_acceptance_report.py `
+  --fleet-500-run outputs\level_02\runs\20260810T043112700000Z__level_02__benchmark__seed42 `
+  --fleet-5000-run outputs\level_02\runs\20260810T043135396811Z__level_02__benchmark__seed42 `
+  --scale-20-300-run outputs\level_02\runs\20260810T050808345167Z__level_02__benchmark__seed42 `
+  --mpv-run outputs\level_02\runs\<mpv-benchmark-run-id>
+```
+
+Nếu chưa truyền `--mpv-run`, report phải trả `BLOCKED_EXTERNAL_CORPUS` và exit
+code 2; đây là gate chủ động, không phải lỗi solver.
+
 For a finer solver approximation, copy the Level 2 YAML to a named experiment
 config and change `support.grid_x/grid_y` to 6 or 8. Keep the default immutable;
 the 16×16 grid is validation diagnostic data, not another MILP.

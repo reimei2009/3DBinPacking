@@ -9,11 +9,14 @@ levels:
     evidence:
       - docs/levels/level_01.md
       - docs/reports/generated/level1_acceptance_report.md
+      - docs/reports/manual/level_01_projected_ep_screening_20260810.md
     algorithms:
       milp_big_m: {execution_class: exact_reference, maturity: accepted, role: exact_reference, exposure: [cli, benchmark, streamlit]}
       extreme_point_best_fit: {execution_class: packing_solver, maturity: accepted, role: practical_candidate, exposure: [cli, benchmark, streamlit]}
       extreme_point_ffd: {execution_class: packing_solver, maturity: accepted, role: constructive_baseline, exposure: [cli, benchmark, streamlit]}
       extreme_point_ffd_gap_fill: {execution_class: packing_solver, maturity: experimental, role: research_comparator, exposure: [cli, benchmark]}
+      extreme_point_best_fit_projected_ep: {execution_class: packing_solver, maturity: experimental, role: research_comparator, exposure: [cli, benchmark]}
+      extreme_point_ffd_projected_ep: {execution_class: packing_solver, maturity: experimental, role: research_comparator, exposure: [cli, benchmark]}
       extreme_point_hill_climbing: {execution_class: packing_solver, maturity: accepted, role: local_search_comparator, exposure: [cli, benchmark, streamlit]}
       extreme_point_simulated_annealing: {execution_class: packing_solver, maturity: accepted, role: quality_comparator, exposure: [cli, benchmark, streamlit]}
       maximal_space_best_fit: {execution_class: packing_solver, maturity: accepted, role: geometric_comparator, exposure: [cli, benchmark, streamlit]}
@@ -24,6 +27,7 @@ levels:
       - docs/levels/level_02.md
       - docs/reports/generated/level2_ffd_baseline.md
       - docs/reports/generated/level2_inventory_acceptance_report.md
+      - docs/reports/manual/level_02_acceptance_20260812.md
     algorithms:
       milp_big_m: {execution_class: exact_reference, maturity: accepted, role: exact_reference, exposure: [cli, benchmark, streamlit]}
       extreme_point_best_fit: {execution_class: packing_solver, maturity: accepted, role: constructive_comparator, exposure: [cli, benchmark, streamlit]}

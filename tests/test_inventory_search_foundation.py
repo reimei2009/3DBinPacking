@@ -10,6 +10,7 @@ from container_packing.algorithms.search import (
     assess_capacity_within_container_limit,
     InventorySearchLimits,
     LazyRankedContainerSubsetPolicy,
+    midpoint_cardinality_ladder,
     estimate_container_lower_bound,
     normalize_container_inventory,
     run_hard_precheck,
@@ -73,6 +74,13 @@ def test_inventory_limits_distinguish_strict_target_from_adaptive_growth() -> No
 
     assert strict.cardinalities == (1,)
     assert adaptive.cardinalities == (1, 2, 3, 4)
+
+
+def test_midpoint_cardinality_ladder_reaches_cap_deterministically() -> None:
+    assert midpoint_cardinality_ladder(9, 15) == (9, 12, 14, 15)
+    assert midpoint_cardinality_ladder(1, 1) == (1,)
+    with pytest.raises(ValueError, match="0 < minimum <= maximum"):
+        midpoint_cardinality_ladder(2, 1)
 
 
 def test_hard_precheck_uses_declared_orientation_and_reports_proven_failures() -> None:
@@ -226,6 +234,36 @@ def test_large_inventory_schedules_one_capacity_anchor_for_each_cardinality_firs
     assert [len(value) for value in candidates[:7]] == list(range(9, 16))
     assert policy.metadata()["container_subset_scheduling"] == (
         "capacity_anchor_each_cardinality_then_cost_portfolio"
+    )
+
+
+def test_acquisition_mode_yields_capacity_anchor_then_cost_candidate() -> None:
+    containers = [
+        *[
+            _container(f"S{index:03d}", side=10, payload=10, cost=5)
+            for index in range(20)
+        ],
+        *[
+            _container(f"L{index:03d}", side=20, payload=20, cost=20)
+            for index in range(20)
+        ],
+    ]
+    policy = LazyRankedContainerSubsetPolicy(
+        InventorySearchLimits(1, 1, False),
+        exhaustive_max_containers=10,
+        max_candidates_per_count=2,
+        candidate_mode="incumbent_acquisition",
+        cardinalities_override=(1,),
+    )
+
+    candidates = list(policy.candidates(
+        containers, [Item("I1", 5, 5, 5, 1)],
+    ))
+
+    assert [value[0].container_id for value in candidates] == ["L000", "S000"]
+    assert policy.metadata()["container_subset_candidates_generated"] == 2
+    assert policy.metadata()["container_subset_scheduling"] == (
+        "capacity_rich_then_cost_acquisition"
     )
 
 

@@ -1,0 +1,11 @@
+suite_id: level_02_mes_inventory_gate_300_v1
+level_id: level_02
+description: Controlled construction A/B cho 300 kiện; chỉ chạy sau gate 100.
+config: config/level_02/experiments/mes_inventory_gate_300_local.yaml
+environment: local
+algorithms: [extreme_point_best_fit, extreme_point_ffd, maximal_space_best_fit]
+seeds: [42]
+repeats: 2
+scenarios:
+  - {scenario_id: mes_gate_prefix_i300, item_count: 300, container_count: 1, item_selection: prefix, tags: [manual, mes, prefix]}
+  - {scenario_id: mes_gate_random_101_i300, item_count: 300, container_count: 1, item_selection: stable_random, selection_seed: 101, tags: [manual, mes, stable_random]}

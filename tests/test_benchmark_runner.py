@@ -1,15 +1,155 @@
 import json
+from math import ceil
 from pathlib import Path
 
 import pandas as pd
 import yaml
 import pytest
 
-from container_packing.benchmarks import run_benchmark, run_benchmark_corpus
-from container_packing.benchmarks.runner import _aggregate
+from container_packing.benchmarks import (
+    load_benchmark_catalog,
+    run_benchmark,
+    run_benchmark_corpus,
+)
+from container_packing.benchmarks.runner import _aggregate, annotate_reference_gaps
+from container_packing.benchmarks.fingerprint import (
+    experiment_fingerprint,
+    semantic_input_fingerprint,
+)
 from container_packing.benchmarks.suites import BenchmarkScenario, load_benchmark_suite
+from container_packing.benchmarks.corpus import load_benchmark_corpus
 from container_packing.data_loader import load_config
 from container_packing.dataset_usage import DatasetExecutionIntent, validate_dataset_usage
+
+
+def test_benchmark_rejects_failed_row_that_leaks_objective() -> None:
+    frame = pd.DataFrame([{
+        "level": "level_01",
+        "algorithm": "bad",
+        "item_count": 1,
+        "container_count": 1,
+        "success": False,
+        "objective_value": 123.0,
+        "used_container_count": 1,
+        "total_container_cost": 10.0,
+    }])
+    with pytest.raises(ValueError, match="must not report objective"):
+        _aggregate(frame)
+
+
+def test_reference_semantics_cover_exact_observed_infeasible_and_unavailable() -> None:
+    rows = [
+        ("exact", "milp", "OPTIMAL", True, 1, 10.0, 100.0),
+        ("observed", "heuristic", "FEASIBLE", True, 2, 20.0, 200.0),
+        ("infeasible", "milp", "INFEASIBLE", False, None, None, None),
+        ("unavailable", "heuristic", "INFEASIBLE_HEURISTIC", False, None, None, None),
+    ]
+    frame = pd.DataFrame([
+        {
+            "case_id": case_id,
+            "algorithm": algorithm,
+            "status": status,
+            "success": success,
+            "official_objective": ({"used_container_count": count} if success else None),
+            "used_container_count": count,
+            "total_container_cost": cost,
+            "objective_value": objective,
+            "algorithm_runtime_seconds": 1.0,
+        }
+        for case_id, algorithm, status, success, count, cost, objective in rows
+    ])
+    annotated = annotate_reference_gaps(frame, instance_keys=("case_id",))
+    kinds = dict(zip(annotated["case_id"], annotated["reference_kind"]))
+    assert kinds == {
+        "exact": "proven_optimal",
+        "observed": "best_observed",
+        "infeasible": "proven_infeasible",
+        "unavailable": "unavailable",
+    }
+
+
+def test_benchmark_rejects_failed_row_that_leaks_secondary_score() -> None:
+    import pandas as pd
+
+    frame = pd.DataFrame([{
+        "level": "level_02",
+        "algorithm": "maximal_space_best_fit",
+        "item_count": 1,
+        "container_count": 1,
+        "random_seed": 42,
+        "repeat": 1,
+        "success": False,
+        "status": "TIME_LIMIT",
+        "algorithm_runtime_seconds": 1.0,
+        "wall_runtime_seconds": 1.0,
+        "objective_value": None,
+        "official_objective": None,
+        "official_secondary_search_score": {
+            "utilization_concentration": 0.5,
+            "internal_void_ratio": 0.1,
+            "minimum_support_margin": 0.2,
+        },
+        "used_container_count": None,
+        "total_container_cost": None,
+        "placement_signature": None,
+    }])
+
+    with pytest.raises(ValueError, match="must not report objective quality"):
+        _aggregate(frame)
+
+
+def test_benchmark_rejects_failed_row_that_leaks_diagnostic_score() -> None:
+    frame = pd.DataFrame([{
+        "level": "level_02", "algorithm": "extreme_point_best_fit",
+        "item_count": 1, "container_count": 1, "random_seed": 42, "repeat": 1,
+        "success": False, "status": "TIME_LIMIT", "algorithm_runtime_seconds": 1.0,
+        "wall_runtime_seconds": 1.0, "objective_value": None,
+        "official_objective": None, "official_secondary_search_score": None,
+        "diagnostic_secondary_search_score": {"utilization_concentration": 0.5},
+        "used_container_count": None, "total_container_cost": None,
+        "placement_signature": None,
+    }])
+
+    with pytest.raises(ValueError, match="must not report objective quality"):
+        _aggregate(frame)
+
+
+def test_semantic_fingerprint_covers_rules_while_algorithm_parameters_are_separate(
+    tmp_path: Path,
+) -> None:
+    rules = tmp_path / "rules.yaml"
+    rules.write_text("minimum_ratio: 0.8\n", encoding="utf-8")
+    scenario = BenchmarkScenario("s", "semantic", 1, 1)
+    config = {
+        "validation": {"rules_file": str(rules)},
+        "algorithms": {"extreme_point_ffd": {"subset_enumeration_limit": 3}},
+    }
+    kwargs = {
+        "level_id": "level_02",
+        "scenario": scenario,
+        "config": config,
+        "root": tmp_path,
+        "selection": {"selected_item_ids_checksum": "items"},
+        "dataset_usage": None,
+    }
+    first = semantic_input_fingerprint(**kwargs)
+    rules.write_text("minimum_ratio: 0.9\n", encoding="utf-8")
+    second = semantic_input_fingerprint(**kwargs)
+    assert first != second
+
+    config["algorithms"]["extreme_point_ffd"]["subset_enumeration_limit"] = 4
+    assert semantic_input_fingerprint(**kwargs) == second
+    assert experiment_fingerprint(
+        input_fingerprint=second,
+        algorithm_id="extreme_point_ffd",
+        random_seed=42,
+        config=config,
+    ) != experiment_fingerprint(
+        input_fingerprint=second,
+        algorithm_id="extreme_point_ffd",
+        random_seed=7,
+        config=config,
+    )
 
 
 def test_configured_corpus_keeps_exact_reference_and_infeasibility_semantics(
@@ -75,7 +215,9 @@ def test_configured_corpus_keeps_exact_reference_and_infeasibility_semantics(
     ) == {1, 2}
     for name in (
         "case_catalog.csv", "results.csv", "summary.csv", "ranking.csv",
-        "references.csv",
+        "references.csv", "case_features.csv", "pairwise_outcomes.csv",
+        "distribution_summary.csv", "determinism_evidence.csv",
+        "repair_comparison.csv",
     ):
         assert (result.run_dir / "benchmark" / name).is_file()
     manifest = json.loads(
@@ -85,6 +227,68 @@ def test_configured_corpus_keeps_exact_reference_and_infeasibility_semantics(
     assert manifest["case_count"] == 2
     assert manifest["execution_count"] == 4
     assert manifest["successful_execution_count"] == 4
+
+
+def test_corpus_case_supports_selection_and_dataset_identity(root: Path, tmp_path: Path) -> None:
+    corpus_path = tmp_path / "corpus.yaml"
+    corpus_path.write_text(yaml.safe_dump({
+        "schema_version": "1.0", "corpus_id": "selection_corpus", "level_id": "level_02",
+        "seeds": [42], "repeats": 1,
+        "default_config": "config/level_02/default.yaml",
+        "cases": [{
+            "case_id": "random_case", "item_count": 2, "container_count": 2,
+            "expected_outcome": "feasible", "algorithms": ["extreme_point_ffd"],
+            "item_selection": "stable_random", "selection_seed": 101,
+            "dataset_family": "canonical", "scale_bucket": "micro",
+        }],
+    }, sort_keys=False), encoding="utf-8")
+    corpus = load_benchmark_corpus(corpus_path, project_root=root)
+    case = corpus.cases[0]
+    assert case.item_selection_strategy == "stable_random"
+    assert case.item_selection_seed == 101
+    assert case.dataset_family == "canonical"
+    assert case.scale_bucket == "micro"
+
+
+def test_corpus_case_preserves_config_overrides_for_its_resolved_input(root: Path, tmp_path: Path) -> None:
+    corpus_path = tmp_path / "corpus.yaml"
+    overrides = {"paths": {"raw_items_csv": "data/interim/mpv/items.csv"}}
+    corpus_path.write_text(yaml.safe_dump({
+        "schema_version": "1.0", "corpus_id": "override_corpus", "level_id": "level_02",
+        "seeds": [42], "repeats": 1, "default_config": "config/level_02/default.yaml",
+        "cases": [{
+            "case_id": "mpv_case", "item_count": 2, "container_count": 2,
+            "expected_outcome": "feasible", "algorithms": ["extreme_point_ffd"],
+            "config_overrides": overrides,
+        }],
+    }, sort_keys=False), encoding="utf-8")
+
+    corpus = load_benchmark_corpus(corpus_path, project_root=root)
+
+    assert corpus.cases[0].config_overrides == overrides
+
+
+def test_mpv_corpus_rejects_container_limit_above_materialized_inventory(
+    root: Path, tmp_path: Path,
+) -> None:
+    corpus_path = tmp_path / "mpv_invalid_inventory.yaml"
+    corpus_path.write_text(yaml.safe_dump({
+        "schema_version": "1.0", "corpus_id": "mpv_invalid_inventory",
+        "level_id": "level_02", "seeds": [42], "repeats": 1,
+        "default_config": "config/level_02/experiments/mpv_fixed_orientation_acceptance.yaml",
+        "cases": [{
+            "case_id": "mpv_c01_n020_i01", "item_count": 20,
+            "container_count": 20, "expected_outcome": "feasible",
+            "algorithms": ["extreme_point_ffd"],
+            "dataset_family": "mpv_fixed_orientation_exact_support",
+            "config_overrides": {
+                "container_search": {"max_used_container_count": 100},
+            },
+        }],
+    }, sort_keys=False), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="allows 100 containers.*only 20"):
+        load_benchmark_corpus(corpus_path, project_root=root)
 
 
 def test_level1_gap_fill_screening_suite_has_ten_fair_seeded_profiles(
@@ -104,6 +308,73 @@ def test_level1_gap_fill_screening_suite_has_ten_fair_seeded_profiles(
     assert all((value.item_count, value.container_count) == (20, 5) for value in suite.scenarios)
     assert all(value.algorithm_ids == suite.algorithms for value in suite.scenarios)
     assert all("fixed_subset" in value.tags for value in suite.scenarios)
+
+
+def test_level2_quick_and_distribution_protocols_use_generated_qualified_source(root: Path) -> None:
+    quick = load_benchmark_corpus(
+        root / "config/level_02/benchmarks/ui_quick_generated_1k_500_v2.yaml",
+        project_root=root,
+    )
+    corpus = load_benchmark_corpus(
+        root / "config/level_02/benchmarks/generated_1k_500_distribution_corpus.yaml",
+        project_root=root,
+    )
+    assert len(quick.cases) == 6
+    assert sum(len(case.algorithms) for case in quick.cases) == 18
+    assert {case.item_count for case in quick.cases} == {20, 50, 100}
+    assert all(case.dataset_family == "generated_1k_500_canonical" for case in quick.cases)
+    assert {case.item_count for case in corpus.cases} == {20, 50, 100, 200, 300, 500}
+    assert {case.item_selection_seed for case in corpus.cases if case.item_selection_strategy == "stable_random"} == {101, 202, 303}
+    assert len(corpus.cases) == 24
+    assert corpus.repeats == 2
+    assert sum(len(case.algorithms) for case in corpus.cases) * corpus.repeats == 144
+    expected_algorithms = {
+        "extreme_point_best_fit", "extreme_point_ffd", "maximal_space_best_fit",
+    }
+    deadlines = {20: 30, 50: 30, 100: 60, 200: 90, 300: 90, 500: 120}
+    for case in corpus.cases:
+        search = case.config_overrides["container_search"]
+        assert set(case.algorithms) == expected_algorithms
+        assert search["initial_used_container_count"] == case.container_count
+        assert search["max_used_container_count"] == max(
+            case.container_count + 2, ceil(case.container_count * 1.6),
+        )
+        assert search["time_limit_seconds"] == deadlines[case.item_count]
+        assert search["consolidation"]["enabled"] is False
+
+
+def test_level2_benchmark_catalog_separates_canonical_academic_and_research(root: Path) -> None:
+    catalog = load_benchmark_catalog(
+        root / "config/level_02/benchmarks/registry.yaml", project_root=root,
+    )
+    assert catalog.get("level_02_generated_canonical_v1").kind == "canonical"
+    assert catalog.get("level_02_mpv_acceptance_v1").kind == "academic"
+    assert catalog.get("level_02_repair_ab_v1").kind == "research"
+    legacy = catalog.get("level_02_capacity_repair_legacy_v1")
+    assert legacy.kind == "superseded"
+    assert legacy.replacement_id == "level_02_repair_ab_v1"
+
+
+def test_level2_repair_corpus_has_controlled_treatment_pairs(root: Path) -> None:
+    corpus = load_benchmark_corpus(
+        root / "config/level_02/benchmarks/canonical_repair_ab_corpus.yaml",
+        project_root=root,
+    )
+    assert len(corpus.cases) == 12
+    assert sum(len(case.algorithms) for case in corpus.cases) * corpus.repeats == 24
+    groups: dict[str, list] = {}
+    for case in corpus.cases:
+        groups.setdefault(str(case.comparison_group), []).append(case)
+    assert len(groups) == 6
+    for cases in groups.values():
+        assert {case.variant_id for case in cases} == {
+            "repair_disabled", "repair_enabled",
+        }
+        assert len({
+            (case.item_count, case.container_count, case.item_selection_strategy,
+             case.item_selection_seed)
+            for case in cases
+        }) == 1
 
 
 def test_level1_gap_fill_generated_scale_gates_use_one_qualified_fixed_fleet(
@@ -382,6 +653,10 @@ def test_quality_standard_deviation_is_computed_across_seeds_not_repeats():
                 "container_count": 1, "random_seed": seed, "repeat": repeat,
                 "success": True, "status": "FEASIBLE", "algorithm_runtime_seconds": runtime,
                 "wall_runtime_seconds": runtime, "objective_value": objective,
+                "official_objective": {
+                    "used_container_count": 1,
+                    "total_container_cost": objective,
+                },
                 "used_container_count": 1.0, "total_container_cost": objective,
                 "occupied_bounding_volume_mm3": objective, "coordinate_compactness_mm": objective,
                 "placement_signature": f"{seed}",

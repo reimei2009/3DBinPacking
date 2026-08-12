@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+from copy import deepcopy
 import re
 from typing import Any
 
@@ -12,15 +13,27 @@ import pandas as pd
 import yaml
 
 from ..algorithms.registry import get_algorithm
-from ..data_loader import load_config
+from ..data_loader import load_config, merge_config
+from ..dataset_usage import DatasetExecutionIntent, validate_dataset_usage
 from ..experiments.contracts import ExperimentRequest
 from ..levels.registry import get_level
+from ..instance_data import ITEM_SELECTION_STRATEGIES
+from ..instance_data import item_selection_fingerprint
 from ..provenance import runtime_metadata, sha256_file
 from ..reporting import OUTPUT_SCHEMA_VERSION, write_json, write_text
 from ..runtime.project import find_project_root
 from ..runtime.run_context import create_benchmark_corpus_directory
 from ..runtime.structured_logging import append_event
 from .runner import _seed_values, aggregate_results, annotate_reference_gaps, execute_experiment_case
+from .distribution import (
+    build_case_features,
+    build_determinism_evidence,
+    build_distribution_summary,
+    build_pairwise_outcomes,
+    build_repair_comparison,
+)
+from .fingerprint import semantic_input_fingerprint
+from .suites import BenchmarkScenario
 
 _CASE_ID = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
 _EXPECTED_OUTCOMES = {"feasible", "infeasible"}
@@ -37,6 +50,13 @@ class CorpusCase:
     algorithms: tuple[str, ...]
     config_path: Path
     description: str = ""
+    item_selection_strategy: str = "prefix"
+    item_selection_seed: int | None = None
+    dataset_family: str = "unspecified"
+    scale_bucket: str = "unspecified"
+    config_overrides: dict[str, Any] | None = None
+    comparison_group: str | None = None
+    variant_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -139,17 +159,61 @@ def load_benchmark_corpus(
             raise ValueError(f"Corpus case {case_id} has no config path")
         config_path = _resolve(root, str(configured))
         load_config(config_path)
+        config_overrides = raw_case.get("config_overrides", {})
+        if not isinstance(config_overrides, dict):
+            raise ValueError(f"config_overrides for {case_id} must be a mapping")
+        item_count = _positive(raw_case.get("item_count"), f"{case_id}.item_count")
+        container_count = _positive(
+            raw_case.get("container_count"), f"{case_id}.container_count",
+        )
+        dataset_family = str(raw_case.get("dataset_family", "unspecified"))
+        if dataset_family == "mpv_fixed_orientation_exact_support":
+            resolved_case_config = merge_config(load_config(config_path), config_overrides)
+            search = resolved_case_config.get("container_search", {})
+            maximum = int(search.get("max_used_container_count", container_count))
+            if maximum > container_count:
+                raise ValueError(
+                    f"MPV corpus case {case_id} allows {maximum} containers but its "
+                    f"materialized physical inventory contains only {container_count}"
+                )
+        item_selection_strategy = str(raw_case.get("item_selection", "prefix"))
+        if item_selection_strategy not in ITEM_SELECTION_STRATEGIES:
+            raise ValueError(f"Unsupported item_selection for {case_id}: {item_selection_strategy}")
+        item_selection_seed = raw_case.get("selection_seed")
+        if item_selection_seed is not None:
+            item_selection_seed = int(item_selection_seed)
+            if item_selection_seed < 0:
+                raise ValueError(f"selection_seed for {case_id} must be zero or greater")
+        if item_selection_strategy == "stable_random" and item_selection_seed is None:
+            raise ValueError(f"stable_random corpus case {case_id} requires selection_seed")
         cases.append(CorpusCase(
             case_id=case_id,
             group=str(raw_case.get("group", "unclassified")),
             difficulty=str(raw_case.get("difficulty", "unclassified")),
-            item_count=_positive(raw_case.get("item_count"), f"{case_id}.item_count"),
-            container_count=_positive(raw_case.get("container_count"), f"{case_id}.container_count"),
+            item_count=item_count,
+            container_count=container_count,
             expected_outcome=expected,
             algorithms=_validate_algorithms(level_id, raw_case.get("algorithms")),
             config_path=config_path,
             description=str(raw_case.get("description", "")),
+            item_selection_strategy=item_selection_strategy,
+            item_selection_seed=item_selection_seed,
+            dataset_family=dataset_family,
+            scale_bucket=str(raw_case.get("scale_bucket", "unspecified")),
+            config_overrides=dict(config_overrides),
+            comparison_group=(
+                str(raw_case["comparison_group"]).strip()
+                if raw_case.get("comparison_group") else None
+            ),
+            variant_id=(
+                str(raw_case["variant_id"]).strip()
+                if raw_case.get("variant_id") else None
+            ),
         ))
+        if bool(cases[-1].comparison_group) != bool(cases[-1].variant_id):
+            raise ValueError(
+                f"Corpus case {case_id} must define comparison_group and variant_id together"
+            )
     return BenchmarkCorpus(
         schema_version=schema_version,
         corpus_id=corpus_id,
@@ -192,6 +256,13 @@ def run_benchmark_corpus(
     root = Path(project_root).resolve() if project_root is not None else find_project_root()
     corpus = load_benchmark_corpus(corpus_path, project_root=root)
     configs = {case.config_path for case in corpus.cases}
+    dataset_profiles = [
+        evidence.to_dict()
+        for config_path in sorted(configs)
+        if (evidence := validate_dataset_usage(
+            root, load_config(config_path), DatasetExecutionIntent.BENCHMARK_ACCEPTANCE,
+        )) is not None
+    ]
     output_roots = {
         _resolve(root, load_config(path)["paths"].get("output_root", "outputs")) for path in configs
     }
@@ -216,6 +287,23 @@ def run_benchmark_corpus(
         "algorithms": ",".join(case.algorithms),
         "config_file": str(case.config_path),
         "description": case.description,
+        "item_selection_strategy": case.item_selection_strategy,
+        "item_selection_seed": case.item_selection_seed,
+        "dataset_family": case.dataset_family,
+        "scale_bucket": case.scale_bucket,
+        "config_overrides": case.config_overrides or {},
+        "comparison_group": case.comparison_group,
+        "variant_id": case.variant_id,
+        "initial_container_count": (
+            (case.config_overrides or {}).get("container_search", {}).get(
+                "initial_container_count", case.container_count,
+            )
+        ),
+        "max_used_container_count": (
+            (case.config_overrides or {}).get("container_search", {}).get(
+                "max_used_container_count", case.container_count,
+            )
+        ),
     } for case in corpus.cases])
     resolved_payload = {
         "schema_version": corpus.schema_version,
@@ -234,6 +322,54 @@ def run_benchmark_corpus(
 
     rows: list[dict[str, Any]] = []
     for case in corpus.cases:
+        case_config = merge_config(load_config(case.config_path), case.config_overrides or {})
+        case_usage = validate_dataset_usage(
+            root, case_config, DatasetExecutionIntent.BENCHMARK_ACCEPTANCE,
+        )
+        raw_items = _resolve(root, case_config["paths"]["raw_items_csv"])
+        mapping_value = case_config["paths"].get("items_source_mapping")
+        mapping_path = _resolve(root, mapping_value) if mapping_value else None
+        scenario = BenchmarkScenario(
+            scenario_id=case.case_id, description=case.description or case.case_id,
+            item_count=case.item_count, container_count=case.container_count,
+            item_selection_strategy=case.item_selection_strategy,
+            item_selection_seed=case.item_selection_seed,
+            dataset_family=case.dataset_family, scale_bucket=case.scale_bucket,
+            expected_outcome=case.expected_outcome,
+        )
+        selection = item_selection_fingerprint(
+            raw_items, case.item_count, strategy=case.item_selection_strategy,
+            seed=case.item_selection_seed, mapping_path=mapping_path,
+        )
+        fingerprint = semantic_input_fingerprint(
+            level_id=corpus.level_id, scenario=scenario, config=case_config,
+            root=root, selection=selection, dataset_usage=case_usage,
+        )
+        comparison_fingerprint: str | None = None
+        if case.comparison_group:
+            comparison_config = deepcopy(case_config)
+            # Repair la treatment cua A/B, khong phai mot phan cua input vat ly.
+            # Tat ca search settings khac van nam trong fingerprint doi chung.
+            comparison_config.setdefault("container_search", {}).pop("consolidation", None)
+            comparison_scenario = BenchmarkScenario(
+                scenario_id=case.comparison_group,
+                description=case.comparison_group,
+                item_count=case.item_count,
+                container_count=case.container_count,
+                item_selection_strategy=case.item_selection_strategy,
+                item_selection_seed=case.item_selection_seed,
+                dataset_family=case.dataset_family,
+                scale_bucket=case.scale_bucket,
+                expected_outcome=case.expected_outcome,
+            )
+            comparison_fingerprint = semantic_input_fingerprint(
+                level_id=corpus.level_id,
+                scenario=comparison_scenario,
+                config=comparison_config,
+                root=root,
+                selection=selection,
+                dataset_usage=case_usage,
+            )
         for algorithm_id in case.algorithms:
             for random_seed in corpus.seeds:
                 for repeat_index in range(1, corpus.repeats + 1):
@@ -245,6 +381,9 @@ def run_benchmark_corpus(
                         container_count=case.container_count,
                         environment=corpus.environment,
                         random_seed=random_seed,
+                        item_selection_strategy=case.item_selection_strategy,
+                        item_selection_seed=case.item_selection_seed,
+                        config_overrides=case.config_overrides,
                     )
                     row = execute_experiment_case(request, repeat_index)
                     observed = _observed_outcome(str(row["status"]), bool(row["success"]))
@@ -252,12 +391,24 @@ def run_benchmark_corpus(
                         "corpus_id": corpus.corpus_id,
                         "corpus_run_id": run_id,
                         "case_id": case.case_id,
+                        "scenario_id": case.case_id,
+                        "suite_id": corpus.corpus_id,
+                        "scenario_description": case.description,
+                        "scenario_tags": "",
+                        "input_fingerprint": fingerprint,
+                        "item_selection_strategy": case.item_selection_strategy,
+                        "item_selection_seed": case.item_selection_seed,
                         "group": case.group,
                         "difficulty": case.difficulty,
+                        "dataset_family": case.dataset_family,
+                        "scale_bucket": case.scale_bucket,
                         "expected_outcome": case.expected_outcome,
                         "observed_outcome": observed,
                         "expectation_met": observed == case.expected_outcome,
                         "infeasibility_proven": row["status"] == "INFEASIBLE",
+                        "comparison_group": case.comparison_group,
+                        "benchmark_variant_id": case.variant_id,
+                        "comparison_input_fingerprint": comparison_fingerprint,
                     })
                     rows.append(row)
                     append_event(log_path, "benchmark_corpus_case_completed", **row)
@@ -293,11 +444,21 @@ def run_benchmark_corpus(
         validate="many_to_one",
     )
     ranking = _ranking(summary)
+    case_features = build_case_features(results)
+    pairwise_outcomes = build_pairwise_outcomes(results)
+    distribution_summary = build_distribution_summary(results)
+    determinism_evidence = build_determinism_evidence(results)
+    repair_comparison = build_repair_comparison(results)
 
     results.to_csv(benchmark_dir / "results.csv", index=False, encoding="utf-8")
     summary.to_csv(benchmark_dir / "summary.csv", index=False, encoding="utf-8")
     ranking.to_csv(benchmark_dir / "ranking.csv", index=False, encoding="utf-8")
     references.to_csv(benchmark_dir / "references.csv", index=False, encoding="utf-8")
+    case_features.to_csv(benchmark_dir / "case_features.csv", index=False, encoding="utf-8")
+    pairwise_outcomes.to_csv(benchmark_dir / "pairwise_outcomes.csv", index=False, encoding="utf-8")
+    distribution_summary.to_csv(benchmark_dir / "distribution_summary.csv", index=False, encoding="utf-8")
+    determinism_evidence.to_csv(benchmark_dir / "determinism_evidence.csv", index=False, encoding="utf-8")
+    repair_comparison.to_csv(benchmark_dir / "repair_comparison.csv", index=False, encoding="utf-8")
     write_json(benchmark_dir / "summary.json", {
         "schema_version": OUTPUT_SCHEMA_VERSION,
         "corpus_id": corpus.corpus_id,
@@ -326,6 +487,7 @@ def run_benchmark_corpus(
         "config_file": str(corpus.source_path),
         "config_file_checksum": sha256_file(corpus.source_path),
         "case_config_checksums": config_checksums,
+        "dataset_profiles": dataset_profiles,
         "resolved_config_checksum": sha256_file(resolved_config_path),
         "source_runs": [value for value in results["experiment_run_dir"].dropna().tolist()],
         "artifacts": {
@@ -336,6 +498,9 @@ def run_benchmark_corpus(
             "derived": [
                 "benchmark/summary.csv", "benchmark/summary.json", "benchmark/ranking.csv",
                 "benchmark/references.csv", "reports/summary.md",
+                "benchmark/case_features.csv", "benchmark/pairwise_outcomes.csv",
+                "benchmark/distribution_summary.csv",
+                "benchmark/determinism_evidence.csv", "benchmark/repair_comparison.csv",
             ],
             "diagnostics": ["logs/run.log"],
         },

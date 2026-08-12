@@ -1,0 +1,335 @@
+"""Phân tích phân phối cho benchmark có provenance đồng nhất.
+
+Các hàm ở đây chỉ đọc bảng kết quả đã persist; không can thiệp objective
+chính thức hay solver. Mọi so sánh chất lượng đều khóa theo input fingerprint.
+"""
+
+from __future__ import annotations
+
+from itertools import combinations
+
+import pandas as pd
+
+
+_P95_MINIMUM_SAMPLE_COUNT = 10
+_REPAIR_COMPARISON_COLUMNS = [
+    "level", "comparison_group", "comparison_input_fingerprint", "item_count",
+    "containers_before", "containers_after", "cost_before", "cost_after",
+    "runtime_without_repair_p50_seconds", "runtime_with_repair_p50_seconds",
+    "repair_runtime_p50_seconds", "repair_termination_reason", "outcome",
+    "incumbent_preserved",
+]
+
+
+def _official_rows(results: pd.DataFrame) -> pd.DataFrame:
+    required = {"success", "input_fingerprint", "algorithm"}
+    missing = required - set(results.columns)
+    if missing:
+        raise ValueError(f"Benchmark results are missing: {', '.join(sorted(missing))}")
+    frame = results.copy()
+    scenario = (
+        frame["scenario_id"].fillna("").astype(str).str.strip()
+        if "scenario_id" in frame else pd.Series("", index=frame.index)
+    )
+    case = (
+        frame["case_id"].fillna("").astype(str).str.strip()
+        if "case_id" in frame else pd.Series("", index=frame.index)
+    )
+    frame["case_id"] = case.where(case.ne(""), scenario)
+    if frame["case_id"].eq("").any():
+        raise ValueError("Benchmark results must identify every row with case_id or scenario_id")
+    if "scenario_id" not in frame:
+        frame["scenario_id"] = frame["case_id"]
+    failed_with_objective = (~frame["success"].fillna(False)) & (
+        frame.get("objective_value", pd.Series(index=frame.index)).notna()
+        | frame.get("used_container_count", pd.Series(index=frame.index)).notna()
+        | frame.get("total_container_cost", pd.Series(index=frame.index)).notna()
+    )
+    if bool(failed_with_objective.any()):
+        raise ValueError("Distribution analysis rejects failed rows that carry an official objective")
+    return frame
+
+
+def _fingerprint_keys() -> list[str]:
+    return ["level", "case_id", "input_fingerprint"]
+
+
+def _quantile_when_sufficient(values: pd.Series, quantile: float) -> float | None:
+    numeric = pd.to_numeric(values, errors="coerce").dropna()
+    if len(numeric) < _P95_MINIMUM_SAMPLE_COUNT:
+        return None
+    return float(numeric.quantile(quantile))
+
+
+def build_case_features(results: pd.DataFrame) -> pd.DataFrame:
+    """One provenance row per benchmark instance, never per algorithm."""
+    frame = _official_rows(results)
+    columns = [
+        column for column in (
+            "level", "suite_id", "case_id", "scenario_id", "scenario_description", "scenario_tags",
+            "dataset_family", "scale_bucket", "expected_outcome", "item_count",
+            "container_count", "item_selection_strategy", "item_selection_seed",
+            "input_fingerprint", "selected_item_ids_checksum", "aggregate_lower_bound",
+        ) if column in frame.columns
+    ]
+    return frame[columns].drop_duplicates().sort_values(
+        [column for column in ("item_count", "case_id", "input_fingerprint") if column in columns]
+    ).reset_index(drop=True)
+
+
+def build_pairwise_outcomes(results: pd.DataFrame) -> pd.DataFrame:
+    """WIN/TIE/LOSS per exact shared instance using the official tuple only."""
+    frame = _official_rows(results)
+    records: list[dict[str, object]] = []
+    for key, group in frame.groupby(_fingerprint_keys(), dropna=False, sort=True):
+        by_algorithm = []
+        for algorithm, values in group.groupby("algorithm", sort=True):
+            valid = values[values["success"].fillna(False)]
+            if valid.empty:
+                by_algorithm.append((algorithm, None))
+                continue
+            by_algorithm.append((algorithm, (
+                float(valid["used_container_count"].min()),
+                float(valid.loc[valid["used_container_count"].eq(valid["used_container_count"].min()), "total_container_cost"].min()),
+            )))
+        metadata = group.iloc[0]
+        for (left, left_quality), (right, right_quality) in combinations(by_algorithm, 2):
+            if left_quality is None and right_quality is None:
+                outcome = "NO_VALID_SOLUTION"
+                winner = None
+            elif right_quality is None or (left_quality is not None and left_quality < right_quality):
+                outcome, winner = "WIN", left
+            elif left_quality is None or right_quality < left_quality:
+                outcome, winner = "LOSS", right
+            else:
+                outcome, winner = "TIE", None
+            records.append({
+                "level": key[0], "case_id": key[1], "scenario_id": key[1],
+                "input_fingerprint": key[2],
+                "dataset_family": metadata.get("dataset_family", "unspecified"),
+                "scale_bucket": metadata.get("scale_bucket", "unspecified"),
+                "item_count": metadata.get("item_count"),
+                "algorithm_a": left, "algorithm_b": right,
+                "outcome_for_a": outcome, "winner": winner,
+                "quality_a": left_quality, "quality_b": right_quality,
+            })
+    return pd.DataFrame(records)
+
+
+def build_distribution_summary(
+    results: pd.DataFrame, *, baseline_algorithm: str = "extreme_point_best_fit",
+) -> pd.DataFrame:
+    """Aggregate reliability, quality gap, runtime and memory by comparable strata."""
+    frame = _official_rows(results)
+    for column, default in (("dataset_family", "unspecified"), ("scale_bucket", "unspecified")):
+        if column not in frame:
+            frame[column] = default
+    valid = frame[frame["success"].fillna(False)].copy()
+    if not valid.empty:
+        valid["container_gap_to_lower_bound"] = (
+            pd.to_numeric(valid["used_container_count"], errors="coerce")
+            - pd.to_numeric(valid.get("aggregate_lower_bound"), errors="coerce")
+        )
+        valid["container_gap_ratio_to_lower_bound"] = (
+            valid["container_gap_to_lower_bound"]
+            / pd.to_numeric(valid.get("aggregate_lower_bound"), errors="coerce").where(
+                pd.to_numeric(valid.get("aggregate_lower_bound"), errors="coerce") > 0
+            )
+        )
+        best = valid.groupby(_fingerprint_keys(), dropna=False)["used_container_count"].transform("min")
+        valid["container_gap_to_best_observed"] = (
+            pd.to_numeric(valid["used_container_count"], errors="coerce") - best
+        )
+        baseline = valid[valid["algorithm"].eq(baseline_algorithm)].copy()
+        if not baseline.empty:
+            baseline = baseline.sort_values(
+                ["used_container_count", "total_container_cost", "wall_runtime_seconds"],
+                na_position="last",
+            ).drop_duplicates(_fingerprint_keys())
+            baseline = baseline[[
+                *_fingerprint_keys(), "used_container_count", "total_container_cost",
+            ]].rename(columns={
+                "used_container_count": "baseline_container_count",
+                "total_container_cost": "baseline_container_cost",
+            })
+            valid = valid.merge(
+                baseline, on=_fingerprint_keys(), how="left", validate="many_to_one",
+            )
+            valid["container_delta_vs_baseline"] = (
+                pd.to_numeric(valid["used_container_count"], errors="coerce")
+                - pd.to_numeric(valid["baseline_container_count"], errors="coerce")
+            )
+            equal_container_count = valid["container_delta_vs_baseline"].eq(0)
+            valid["cost_delta_vs_baseline_same_container_count"] = (
+                pd.to_numeric(valid["total_container_cost"], errors="coerce")
+                - pd.to_numeric(valid["baseline_container_cost"], errors="coerce")
+            ).where(equal_container_count)
+    group_keys = ["level", "algorithm", "dataset_family", "scale_bucket", "item_count"]
+    base = frame.groupby(group_keys, dropna=False).agg(
+        execution_count=("success", "size"),
+        valid_rate=("success", "mean"),
+        timeout_rate=("status", lambda values: float(values.astype(str).eq("TIME_LIMIT").mean())),
+        invalid_rate=("status", lambda values: float(values.astype(str).isin({"INVALID_SOLUTION", "VALIDATION_FAILED"}).mean())),
+        runtime_p50_seconds=("wall_runtime_seconds", "median"),
+        runtime_min_seconds=("wall_runtime_seconds", "min"),
+        runtime_max_seconds=("wall_runtime_seconds", "max"),
+        runtime_p95_seconds=(
+            "wall_runtime_seconds", lambda values: _quantile_when_sufficient(values, 0.95)
+        ),
+        peak_memory_max_bytes=("peak_rss_bytes", "max"),
+        peak_memory_p95_bytes=(
+            "peak_rss_bytes", lambda values: _quantile_when_sufficient(values, 0.95)
+        ),
+    ).reset_index()
+    if valid.empty:
+        return base
+    quality = valid.groupby(group_keys, dropna=False).agg(
+        used_containers_median=("used_container_count", "median"),
+        container_gap_lower_bound_median=("container_gap_to_lower_bound", "median"),
+        container_gap_ratio_lower_bound_median=("container_gap_ratio_to_lower_bound", "median"),
+        container_gap_best_observed_median=("container_gap_to_best_observed", "median"),
+        runtime_per_item_p50=("wall_runtime_seconds", lambda values: values.median()),
+    ).reset_index()
+    if "container_delta_vs_baseline" in valid:
+        comparison = valid.groupby(group_keys, dropna=False).agg(
+            container_delta_vs_baseline_median=("container_delta_vs_baseline", "median"),
+            cost_delta_vs_baseline_same_container_median=(
+                "cost_delta_vs_baseline_same_container_count", "median",
+            ),
+        ).reset_index()
+        quality = quality.merge(comparison, on=group_keys, how="left", validate="one_to_one")
+    quality["runtime_per_item_p50"] = quality["runtime_per_item_p50"] / quality["item_count"]
+    return base.merge(quality, on=group_keys, how="left", validate="one_to_one")
+
+
+def build_determinism_evidence(results: pd.DataFrame) -> pd.DataFrame:
+    """Kiem tra repeat co giu nguyen objective va placement signature hay khong."""
+    frame = _official_rows(results)
+    keys = [
+        column for column in (
+            "level", "case_id", "input_fingerprint", "algorithm", "random_seed",
+        ) if column in frame.columns
+    ]
+    if not keys:
+        return pd.DataFrame()
+    rows: list[dict[str, object]] = []
+    for values, group in frame.groupby(keys, dropna=False, sort=True):
+        key_values = values if isinstance(values, tuple) else (values,)
+        successful = group[group["success"].fillna(False)]
+        objective_signatures = successful[[
+            column for column in ("used_container_count", "total_container_cost")
+            if column in successful.columns
+        ]].drop_duplicates()
+        placement_count = (
+            successful["placement_signature"].dropna().nunique()
+            if "placement_signature" in successful.columns else 0
+        )
+        record = dict(zip(keys, key_values))
+        record.update({
+            "repeat_count": int(len(group)),
+            "successful_repeat_count": int(len(successful)),
+            "distinct_official_objective_count": int(len(objective_signatures)),
+            "distinct_placement_signature_count": int(placement_count),
+            "deterministic": bool(
+                len(successful) == len(group)
+                and len(objective_signatures) <= 1
+                and placement_count <= 1
+            ),
+        })
+        rows.append(record)
+    return pd.DataFrame(rows)
+
+
+def build_repair_comparison(results: pd.DataFrame) -> pd.DataFrame:
+    """Tong hop controlled A/B khi corpus khai bao repair_disabled/repair_enabled."""
+    frame = _official_rows(results)
+    required = {
+        "comparison_group", "benchmark_variant_id", "comparison_input_fingerprint",
+    }
+    if not required.issubset(frame.columns):
+        return pd.DataFrame(columns=_REPAIR_COMPARISON_COLUMNS)
+    frame = frame.dropna(subset=list(required)).copy()
+    if frame.empty:
+        return pd.DataFrame(columns=_REPAIR_COMPARISON_COLUMNS)
+    records: list[dict[str, object]] = []
+    group_keys = ["level", "comparison_group", "comparison_input_fingerprint"]
+    for key, group in frame.groupby(group_keys, dropna=False, sort=True):
+        variants = set(group["benchmark_variant_id"].astype(str))
+        expected = {"repair_disabled", "repair_enabled"}
+        if variants != expected:
+            raise ValueError(
+                f"Repair comparison {key[1]} must contain exactly {sorted(expected)}"
+            )
+        values: dict[str, dict[str, object]] = {}
+        for variant, variant_rows in group.groupby("benchmark_variant_id", sort=True):
+            successful = variant_rows[variant_rows["success"].fillna(False)]
+            best = None
+            if not successful.empty:
+                best = successful.sort_values(
+                    ["used_container_count", "total_container_cost", "wall_runtime_seconds"],
+                    na_position="last",
+                ).iloc[0]
+            repair_runtime = (
+                pd.to_numeric(
+                    variant_rows["container_consolidation_runtime_seconds"],
+                    errors="coerce",
+                )
+                if "container_consolidation_runtime_seconds" in variant_rows
+                else pd.Series(dtype=float)
+            )
+            values[str(variant)] = {
+                "valid_rate": float(variant_rows["success"].mean()),
+                "containers": None if best is None else float(best["used_container_count"]),
+                "cost": None if best is None else float(best["total_container_cost"]),
+                "runtime_p50_seconds": float(variant_rows["wall_runtime_seconds"].median()),
+                "repair_runtime_p50_seconds": (
+                    None if repair_runtime.empty else float(repair_runtime.median())
+                ),
+                "termination_reason": _first_non_null(
+                    variant_rows.get("container_consolidation_termination_reason")
+                ),
+            }
+        before = values["repair_disabled"]
+        after = values["repair_enabled"]
+        before_quality = _quality(before)
+        after_quality = _quality(after)
+        if after_quality is None:
+            outcome = "NO_VALID_REPAIR_RESULT"
+        elif before_quality is None or after_quality < before_quality:
+            outcome = "IMPROVED"
+        elif after_quality == before_quality:
+            outcome = "UNCHANGED"
+        else:
+            outcome = "REGRESSION"
+        records.append({
+            "level": key[0],
+            "comparison_group": key[1],
+            "comparison_input_fingerprint": key[2],
+            "item_count": int(group["item_count"].iloc[0]),
+            "containers_before": before["containers"],
+            "containers_after": after["containers"],
+            "cost_before": before["cost"],
+            "cost_after": after["cost"],
+            "runtime_without_repair_p50_seconds": before["runtime_p50_seconds"],
+            "runtime_with_repair_p50_seconds": after["runtime_p50_seconds"],
+            "repair_runtime_p50_seconds": after["repair_runtime_p50_seconds"],
+            "repair_termination_reason": after["termination_reason"],
+            "outcome": outcome,
+            "incumbent_preserved": outcome != "REGRESSION",
+        })
+    return pd.DataFrame(records, columns=_REPAIR_COMPARISON_COLUMNS)
+
+
+def _quality(values: dict[str, object]) -> tuple[float, float] | None:
+    containers = values.get("containers")
+    cost = values.get("cost")
+    if containers is None or cost is None:
+        return None
+    return float(containers), float(cost)
+
+
+def _first_non_null(values: pd.Series | None) -> object | None:
+    if values is None:
+        return None
+    present = values.dropna()
+    return None if present.empty else present.iloc[0]

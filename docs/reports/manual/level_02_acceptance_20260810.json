@@ -1,0 +1,169 @@
+{
+  "encoded_solver_objective_role": "legacy_compatibility_only",
+  "evidence": [
+    {
+      "acquisition_ladders": [],
+      "all_successful": true,
+      "deterministic": true,
+      "label": "fleet_500",
+      "maximum_algorithm_runtime_seconds": 0.1970748999156057,
+      "objective_invariant_valid": true,
+      "official_objectives": {
+        "inventory_support_practical_i50_f500|extreme_point_best_fit": {
+          "total_container_cost": 4000.0,
+          "used_container_count": 2
+        },
+        "inventory_support_practical_i50_f500|extreme_point_ffd": {
+          "total_container_cost": 4000.0,
+          "used_container_count": 2
+        },
+        "inventory_support_smoke_i20_f500|extreme_point_best_fit": {
+          "total_container_cost": 2000.0,
+          "used_container_count": 1
+        },
+        "inventory_support_smoke_i20_f500|extreme_point_ffd": {
+          "total_container_cost": 2000.0,
+          "used_container_count": 1
+        }
+      },
+      "peak_rss_max_bytes": 176660480,
+      "placement_signatures": {
+        "inventory_support_practical_i50_f500|extreme_point_best_fit": [
+          "16d8666230aa71ab58471f9d4887a02bfe1b50f91107acf925357cc09d1f3fae"
+        ],
+        "inventory_support_practical_i50_f500|extreme_point_ffd": [
+          "16d8666230aa71ab58471f9d4887a02bfe1b50f91107acf925357cc09d1f3fae"
+        ],
+        "inventory_support_smoke_i20_f500|extreme_point_best_fit": [
+          "b1ccc35eabb2c793e378eaaed243e198c95945616da7ec7a4480872f4658d278"
+        ],
+        "inventory_support_smoke_i20_f500|extreme_point_ffd": [
+          "ce44c4a4288102ae6405c9b000a96b63e48a070b92891e56aac88f2f6787c464"
+        ]
+      },
+      "results_checksum": "96627822a8cb9fa9344e5e524d170f0b4d5f9f20e0916d59f73d3dcb6e13575b",
+      "row_count": 8,
+      "run_dir": "outputs/level_02/runs/20260810T043112700000Z__level_02__benchmark__seed42",
+      "successful_row_count": 8,
+      "telemetry_complete": true,
+      "termination_reasons": [
+        "already_at_lower_bound"
+      ]
+    },
+    {
+      "acquisition_ladders": [],
+      "all_successful": true,
+      "deterministic": true,
+      "label": "fleet_5000",
+      "maximum_algorithm_runtime_seconds": 22.31129509978928,
+      "objective_invariant_valid": true,
+      "official_objectives": {
+        "inventory_support_scale_i100_f5000|extreme_point_best_fit": {
+          "total_container_cost": 9450.0,
+          "used_container_count": 7
+        },
+        "inventory_support_scale_i100_f5000|extreme_point_ffd": {
+          "total_container_cost": 9450.0,
+          "used_container_count": 7
+        }
+      },
+      "peak_rss_max_bytes": 188227584,
+      "placement_signatures": {
+        "inventory_support_scale_i100_f5000|extreme_point_best_fit": [
+          "9db63a1ac3a6011cb5c9af8dcca4f739ec08e19887037525bfb5686d445549ba"
+        ],
+        "inventory_support_scale_i100_f5000|extreme_point_ffd": [
+          "082c41ade887cc710594f9c32c47e61a15e770a8a9f13beabac1d8b6417e47c0"
+        ]
+      },
+      "results_checksum": "5f38a93f9310e86a4fd4d3deb5af999e9110ee1c14c284c3c47e6cb332316701",
+      "row_count": 4,
+      "run_dir": "outputs/level_02/runs/20260810T043135396811Z__level_02__benchmark__seed42",
+      "successful_row_count": 4,
+      "telemetry_complete": true,
+      "termination_reasons": [
+        "disabled"
+      ]
+    },
+    {
+      "acquisition_ladders": [
+        "[1, 8, 12, 14, 15]",
+        "[3, 9, 12, 14, 15]",
+        "[9, 12, 14, 15]"
+      ],
+      "all_successful": true,
+      "deterministic": true,
+      "label": "scale_20_300",
+      "maximum_algorithm_runtime_seconds": 13.19535949989222,
+      "objective_invariant_valid": true,
+      "official_objectives": {
+        "inventory_exact_support_i100_f500|extreme_point_best_fit": {
+          "total_container_cost": 8000.0,
+          "used_container_count": 4
+        },
+        "inventory_exact_support_i100_f500|extreme_point_ffd": {
+          "total_container_cost": 8000.0,
+          "used_container_count": 4
+        },
+        "inventory_exact_support_i20_f500|extreme_point_best_fit": {
+          "total_container_cost": 2000.0,
+          "used_container_count": 1
+        },
+        "inventory_exact_support_i20_f500|extreme_point_ffd": {
+          "total_container_cost": 2000.0,
+          "used_container_count": 1
+        },
+        "inventory_exact_support_i300_f500|extreme_point_best_fit": {
+          "total_container_cost": 22000.0,
+          "used_container_count": 11
+        },
+        "inventory_exact_support_i300_f500|extreme_point_ffd": {
+          "total_container_cost": 24000.0,
+          "used_container_count": 12
+        }
+      },
+      "peak_rss_max_bytes": 201592832,
+      "placement_signatures": {
+        "inventory_exact_support_i100_f500|extreme_point_best_fit": [
+          "94242230a5c8f417c7b3a865b6ee4ab0f5c475a761b2f4d2eda64095b4b90445"
+        ],
+        "inventory_exact_support_i100_f500|extreme_point_ffd": [
+          "1d58be3699fe719f7bc6df2639f1fe7546f550a1d803ac617be1c7b10e1afc85"
+        ],
+        "inventory_exact_support_i20_f500|extreme_point_best_fit": [
+          "6d4500f2600a379a7a93f5ff85a9c1ced8797ebbf63ffc0c550da1aee23dcc17"
+        ],
+        "inventory_exact_support_i20_f500|extreme_point_ffd": [
+          "b1b7e08d178d520e444b09984aff9c288e287813261a8713d861f1c3b4465b05"
+        ],
+        "inventory_exact_support_i300_f500|extreme_point_best_fit": [
+          "26420e6b9d3120607e25182cb3f1ae449515555e5ccc0958e1af0c562a6d03ad"
+        ],
+        "inventory_exact_support_i300_f500|extreme_point_ffd": [
+          "4bd2884d8ce9c402f805406ec5f733af3b403b5b6da92347ac9e2dee71f7523c"
+        ]
+      },
+      "results_checksum": "8368d9ce665169383a5cbc2d77825024d8943f211f8311e09b84cc6f604b8dc8",
+      "row_count": 12,
+      "run_dir": "outputs/level_02/runs/20260810T050808345167Z__level_02__benchmark__seed42",
+      "successful_row_count": 12,
+      "telemetry_complete": true,
+      "termination_reasons": [
+        "already_at_lower_bound",
+        "consolidation_time_limit",
+        "heuristic_consolidation_failed",
+        "valid_consolidated"
+      ]
+    }
+  ],
+  "internal_acceptance_passed": true,
+  "level": "level_02",
+  "mpv_acceptance_passed": false,
+  "mpv_best_known_comparison_allowed": false,
+  "mpv_evidence": null,
+  "mpv_semantics": "fixed_orientation_with_level_02_exact_support",
+  "objective_semantics": "used_container_count_then_total_container_cost",
+  "promotion_inventory_orchestration_to_level_03_allowed": false,
+  "schema_version": "1.0",
+  "status": "BLOCKED_EXTERNAL_CORPUS"
+}

@@ -30,6 +30,7 @@ from .extreme_point_core import (
     _incomplete_attempt,
 )
 from .candidate_scoring import CandidateScoringPolicy
+from .secondary_candidate_scoring import configured_secondary_candidate_policy
 from .candidate_points import CandidatePointProvider
 from .container_subset_selection import ContainerSubsetSelectionPolicy
 from .container_assignment import (
@@ -37,19 +38,6 @@ from .container_assignment import (
     ContainerPreferencePolicy,
 )
 from ...schemas import Container, Item, Placement, SolveResult
-
-
-def _bounding_volume(placements: list[Placement], candidate: Placement | None = None) -> float:
-    if not placements and candidate is None:
-        return 0.0
-    max_x = max((value.x_mm + value.length_mm for value in placements), default=0.0)
-    max_y = max((value.y_mm + value.width_mm for value in placements), default=0.0)
-    max_z = max((value.z_mm + value.height_mm for value in placements), default=0.0)
-    if candidate is not None:
-        max_x = max(max_x, candidate.x_mm + candidate.length_mm)
-        max_y = max(max_y, candidate.y_mm + candidate.width_mm)
-        max_z = max(max_z, candidate.z_mm + candidate.height_mm)
-    return max_x * max_y * max_z
 
 
 def best_fit_candidate_score(
@@ -63,8 +51,8 @@ def best_fit_candidate_score(
     )
     remaining_volume = container_volume - state.loaded_volume_mm3 - item_volume
     remaining_payload = state.container.max_weight_kg - state.loaded_weight_kg - candidate.weight_kg
-    before = _bounding_volume(state.placements)
-    after = _bounding_volume(state.placements, candidate)
+    before = state.bounding_volume_mm3
+    after = state.bounding_volume_with(candidate)
     return (
         0.0 if is_open else 1.0,
         0.0 if is_open else float(state.container.cost),
@@ -210,6 +198,14 @@ def solve(
         raise ValueError("subset_enumeration_limit must be positive")
     selected_policy = policy or FixedOrientationFeasibilityPolicy()
     selected_orientation_provider = orientation_provider or fixed_orientation_provider()
+    if candidate_scoring_policy is None:
+        policy_metadata = selected_policy.metadata()
+        candidate_scoring_policy = configured_secondary_candidate_policy(
+            settings,
+            exact_support_active=str(
+                policy_metadata.get("feasibility_policy", "")
+            ).endswith("exact_support"),
+        )
     deadline = settings.get("constructive_deadline_monotonic")
     if deadline is not None and (not isinstance(deadline, (int, float)) or not isfinite(float(deadline))):
         raise ValueError("constructive_deadline_monotonic must be a finite monotonic timestamp")

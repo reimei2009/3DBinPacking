@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass
 from itertools import combinations
-from math import comb
+from math import ceil, comb
 from time import perf_counter
 
 from ..orientation import OrientationProvider, fixed_orientation_provider
@@ -17,6 +17,19 @@ from .inventory import (
     normalize_container_inventory,
 )
 from .precheck import container_volume_m3, estimate_container_lower_bound
+
+
+def midpoint_cardinality_ladder(minimum: int, maximum: int) -> tuple[int, ...]:
+    """Ladder tăng nhanh tới cap để lấy incumbent trước khi tối ưu ngược."""
+
+    if minimum <= 0 or maximum <= 0 or minimum > maximum:
+        raise ValueError("cardinality ladder requires 0 < minimum <= maximum")
+    values = [minimum]
+    current = minimum
+    while current < maximum:
+        current = max(current + 1, ceil((current + maximum) / 2))
+        values.append(current)
+    return tuple(values)
 
 
 @dataclass
@@ -37,6 +50,8 @@ class LazyRankedContainerSubsetPolicy:
     soft_volume_buffer_ratio: float = 0.10
     deadline_monotonic: float | None = None
     monotonic_clock: Callable[[], float] = perf_counter
+    candidate_mode: str = "portfolio"
+    cardinalities_override: tuple[int, ...] | None = None
 
     def __post_init__(self) -> None:
         if self.exhaustive_max_containers <= 0:
@@ -49,6 +64,20 @@ class LazyRankedContainerSubsetPolicy:
             raise ValueError("composition_beam_width must be positive")
         if not 0 <= self.soft_volume_buffer_ratio <= 1:
             raise ValueError("soft_volume_buffer_ratio must be in [0, 1]")
+        if self.candidate_mode not in {"portfolio", "incumbent_acquisition"}:
+            raise ValueError(
+                "candidate_mode must be portfolio or incumbent_acquisition"
+            )
+        if self.cardinalities_override is not None:
+            if (
+                not self.cardinalities_override
+                or any(value <= 0 for value in self.cardinalities_override)
+                or tuple(sorted(set(self.cardinalities_override)))
+                != self.cardinalities_override
+            ):
+                raise ValueError(
+                    "cardinalities_override must be positive, unique and increasing"
+                )
         self._mode = "not_run"
         self._generated = 0
         self._capacity_pruned = 0
@@ -78,8 +107,13 @@ class LazyRankedContainerSubsetPolicy:
             self.limits.initial_used_container_count,
             lower_bound.aggregate_lower_bound,
         )
+        requested_cardinalities = (
+            self.limits.cardinalities
+            if self.cardinalities_override is None
+            else self.cardinalities_override
+        )
         cardinalities = tuple(
-            value for value in self.limits.cardinalities
+            value for value in requested_cardinalities
             if minimum <= value <= inventory.physical_container_count
         )
         self._cardinalities_considered = cardinalities
@@ -95,10 +129,6 @@ class LazyRankedContainerSubsetPolicy:
         self._duplicate_physical_subsets_avoided = 0
         self._compositions_generated = 0
         self._compositions_by_cardinality = {}
-        scheduled: dict[
-            int, list[tuple[tuple[object, ...], tuple[Container, ...]]]
-        ] = {}
-
         for count in cardinalities:
             if self._expired():
                 return
@@ -124,6 +154,39 @@ class LazyRankedContainerSubsetPolicy:
                 ranked.append((self._score(canonical, items), canonical))
             self._compositions_by_cardinality[count] = len(ranked)
             ranked.sort(key=lambda value: value[0])
+            if (
+                self.candidate_mode == "incumbent_acquisition"
+                and inventory.physical_container_count > self.exhaustive_max_containers
+            ):
+                capacity_anchor = min(
+                    ranked,
+                    key=lambda value: self._acquisition_capacity_rank(
+                        value[1], items,
+                    ),
+                    default=None,
+                )
+                cost_candidate = None if not ranked else ranked[0]
+                selected_ranked = []
+                signatures: set[tuple[str, ...]] = set()
+                for value in (capacity_anchor, cost_candidate):
+                    if value is None:
+                        continue
+                    signature = tuple(
+                        item.container_id for item in value[1]
+                    )
+                    if signature in signatures:
+                        continue
+                    signatures.add(signature)
+                    selected_ranked.append(value)
+                    if len(selected_ranked) >= self.max_candidates_per_count:
+                        break
+                ordered = selected_ranked
+                for _, subset in ordered:
+                    if self._expired():
+                        return
+                    self._generated += 1
+                    yield subset
+                continue
             limit = (
                 len(ranked)
                 if inventory.physical_container_count <= self.exhaustive_max_containers
@@ -161,43 +224,28 @@ class LazyRankedContainerSubsetPolicy:
                         if tuple(item.container_id for item in value[1]) not in keep_signatures
                     )
                     selected_ranked = sorted(keep[:limit], key=lambda value: value[0])
-            scheduled[count] = selected_ranked
-
-        if inventory.physical_container_count <= self.exhaustive_max_containers:
-            for count in cardinalities:
-                for _, subset in scheduled.get(count, ()):
-                    self._generated += 1
-                    yield subset
-            return
-
-        # Pass 1 thử một capacity anchor của mỗi cardinality để cardinality thấp
-        # không nuốt toàn bộ deadline. Pass 2 quay lại portfolio cost-ranked.
-        type_by_id = inventory.type_id_by_container_id
-        anchor_signatures: set[tuple[str, ...]] = set()
-        for count in cardinalities:
-            values = scheduled.get(count, [])
-            homogeneous = [
-                value for value in values
-                if len({type_by_id[item.container_id] for item in value[1]}) == 1
-            ]
-            if not homogeneous:
-                continue
-            _, anchor = max(homogeneous, key=lambda value: (
-                sum(container_volume_m3(item) for item in value[1]),
-                sum(item.max_weight_kg for item in value[1]),
-                -sum(item.cost for item in value[1]),
-            ))
-            signature = tuple(item.container_id for item in anchor)
-            anchor_signatures.add(signature)
-            if self._expired():
-                return
-            self._generated += 1
-            yield anchor
-        for count in cardinalities:
-            for _, subset in scheduled.get(count, ()):
-                signature = tuple(item.container_id for item in subset)
-                if signature in anchor_signatures:
-                    continue
+            # Chỉ materialize một cardinality tại một thời điểm. Caller có thể
+            # dừng iterator mà không phải dựng lịch cho các cardinality sau.
+            ordered = selected_ranked
+            if inventory.physical_container_count > self.exhaustive_max_containers:
+                type_by_id = inventory.type_id_by_container_id
+                homogeneous = [
+                    value for value in selected_ranked
+                    if len({type_by_id[item.container_id] for item in value[1]}) == 1
+                ]
+                anchor = None if not homogeneous else max(
+                    homogeneous,
+                    key=lambda value: (
+                        sum(container_volume_m3(item) for item in value[1]),
+                        sum(item.max_weight_kg for item in value[1]),
+                        -sum(item.cost for item in value[1]),
+                    ),
+                )
+                if anchor is not None:
+                    ordered = [anchor] + [
+                        value for value in selected_ranked if value != anchor
+                    ]
+            for _, subset in ordered:
                 if self._expired():
                     return
                 self._generated += 1
@@ -414,6 +462,26 @@ class LazyRankedContainerSubsetPolicy:
             tuple(value.container_id for value in subset),
         )
 
+    @staticmethod
+    def _acquisition_capacity_rank(
+        subset: tuple[Container, ...], items: list[Item],
+    ) -> tuple[object, ...]:
+        required_volume = sum(value.volume_m3 for value in items)
+        required_payload = sum(value.weight_kg for value in items)
+        total_volume = sum(container_volume_m3(value) for value in subset)
+        total_payload = sum(value.max_weight_kg for value in subset)
+        volume_ratio = total_volume / max(required_volume, 1e-12)
+        payload_ratio = total_payload / max(required_payload, 1e-12)
+        return (
+            -min(volume_ratio, payload_ratio),
+            -max(container_volume_m3(value) for value in subset),
+            -max(value.max_weight_kg for value in subset),
+            -total_volume,
+            -total_payload,
+            sum(value.cost for value in subset),
+            tuple(value.container_id for value in subset),
+        )
+
     def _expired(self) -> bool:
         if self.deadline_monotonic is None:
             return False
@@ -429,10 +497,13 @@ class LazyRankedContainerSubsetPolicy:
             "container_subset_policy": "lazy_ranked_inventory_aware_v1",
             "container_subset_search_mode": self._mode,
             "container_subset_scheduling": (
-                "capacity_anchor_each_cardinality_then_cost_portfolio"
+                "capacity_rich_then_cost_acquisition"
+                if self.candidate_mode == "incumbent_acquisition"
+                else "capacity_anchor_each_cardinality_then_cost_portfolio"
                 if self._mode == "bounded_lazy_large_inventory"
                 else "strict_cardinality_order"
             ),
+            "container_subset_candidate_mode": self.candidate_mode,
             "container_subset_candidates_generated": self._generated,
             "container_subset_capacity_pruned": self._capacity_pruned,
             "container_subset_compatibility_pruned": self._compatibility_pruned,

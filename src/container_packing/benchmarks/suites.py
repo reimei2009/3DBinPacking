@@ -23,6 +23,9 @@ class BenchmarkScenario:
     algorithm_ids: tuple[str, ...] = ()
     item_selection_strategy: str = "prefix"
     item_selection_seed: int | None = None
+    dataset_family: str = "unspecified"
+    scale_bucket: str = "unspecified"
+    expected_outcome: str = "feasible"
 
 
 @dataclass(frozen=True)
@@ -108,6 +111,11 @@ def load_benchmark_suite(path: str | Path) -> BenchmarkSuite:
             raise ValueError(f"suite.scenarios[{index}].selection_seed must be zero or greater")
         if selection_strategy == "stable_random" and selection_seed is None:
             raise ValueError(f"suite.scenarios[{index}] stable_random requires selection_seed")
+        expected_outcome = str(value.get("expected_outcome", "feasible"))
+        if expected_outcome not in {"feasible", "infeasible"}:
+            raise ValueError(
+                f"suite.scenarios[{index}].expected_outcome must be feasible or infeasible"
+            )
         scenarios.append(BenchmarkScenario(
             scenario_id=scenario_id,
             description=str(value.get("description", scenario_id)),
@@ -117,6 +125,9 @@ def load_benchmark_suite(path: str | Path) -> BenchmarkSuite:
             algorithm_ids=scenario_algorithms,
             item_selection_strategy=selection_strategy,
             item_selection_seed=selection_seed,
+            dataset_family=str(value.get("dataset_family", "unspecified")),
+            scale_bucket=str(value.get("scale_bucket", "unspecified")),
+            expected_outcome=expected_outcome,
         ))
     if len({value.scenario_id for value in scenarios}) != len(scenarios):
         raise ValueError("suite.scenarios scenario_id values must be unique")

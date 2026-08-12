@@ -202,6 +202,13 @@ def terminal_preview(result: RunResult, *, placement_limit: int = 20) -> str:
     metadata = result.metadata
     validation = "NOT_RUN" if result.validation is None else ("VALID" if result.validation.valid else "INVALID")
     selected = ", ".join(metadata.get("selected_containers", [])) or "none"
+    official = metadata.get("official_objective")
+    official_text = "None"
+    if isinstance(official, dict):
+        official_text = (
+            f"({official.get('used_container_count')}, "
+            f"{official.get('total_container_cost')})"
+        )
     lines = [
         "\n=== EXPERIMENT PREVIEW ===",
         f"Status       : {metadata.get('status')}",
@@ -214,7 +221,8 @@ def terminal_preview(result: RunResult, *, placement_limit: int = 20) -> str:
         f"Subset seed  : {metadata.get('item_selection_seed')}",
         f"Containers   : {metadata.get('container_count', 0)} used / {metadata.get('n_containers')} available",
         f"Selected     : {selected}",
-        f"Objective    : {metadata.get('objective_value')}",
+        f"Official objective (containers, cost): {official_text}",
+        f"Encoded objective (legacy): {metadata.get('encoded_solver_objective', metadata.get('objective_value'))}",
         f"Algorithm time: {float(metadata.get('algorithm_runtime_seconds', 0.0)):.3f} s",
         f"Run directory: {metadata.get('run_dir')}",
     ]

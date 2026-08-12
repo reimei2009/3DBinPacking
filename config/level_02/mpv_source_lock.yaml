@@ -1,0 +1,21 @@
+schema_version: "1.0"
+bundle_id: mpv-official-source-v1
+source_page: https://hjemmesider.diku.dk/~pisinger/codes.html
+verified_at_utc: "2026-08-12T00:00:00Z"
+checksum_policy: >
+  TOFU qua HTTPS chinh thuc: SHA-256 duoc ghi nhan tu lan tai da kiem tra
+  ngay 2026-08-12. Day khong phai checksum do tac gia cong bo.
+license_note: "Chi dung mien phi cho muc dich nghien cuu va hoc thuat theo readme.3dbpp."
+artifacts:
+  - role: generator_source
+    filename: test3dbpp.c
+    canonical_url: https://hjemmesider.diku.dk/~pisinger/new3dbpp/test3dbpp.c
+    sha256: f7fbe2238b54862b4bafaa3d7f0e9120072f1730860b534d7f17f566da2b82ed
+  - role: solver_source
+    filename: 3dbpp.c
+    canonical_url: https://hjemmesider.diku.dk/~pisinger/new3dbpp/3dbpp.c
+    sha256: eb67adddba4c201a42654be04cd9b2316a8e2825c398d79531d0d9884833c0c3
+  - role: compilation_readme
+    filename: readme.3dbpp
+    canonical_url: https://hjemmesider.diku.dk/~pisinger/new3dbpp/readme.3dbpp
+    sha256: 96d061562afa161629aa52370abe0d8d4f1c0e5b4dc6561e64a340cd3e7251ec

@@ -42,6 +42,38 @@ _ALGORITHMS = {
             en="Bounded FFD look-ahead comparator; it does not replace canonical FFD.",
         ),
     ),
+    "extreme_point_best_fit_projected_ep": AlgorithmDefinition(
+        algorithm_id="extreme_point_best_fit_projected_ep",
+        family="constructive_heuristic_comparator",
+        description="Level 1 Best Fit comparator using projected extreme points",
+        supported_levels=("level_01",),
+        local_friendly=True,
+        web_visible=False,
+        display_name=LocalizedText(
+            vi="Extreme Point — Best Fit với điểm chiếu",
+            en="Extreme Point — Projected Best Fit",
+        ),
+        localized_description=LocalizedText(
+            vi="Comparator nghiên cứu sinh thêm extreme point chiếu; không thay solver mặc định.",
+            en="Research comparator adding projected extreme points without replacing the default solver.",
+        ),
+    ),
+    "extreme_point_ffd_projected_ep": AlgorithmDefinition(
+        algorithm_id="extreme_point_ffd_projected_ep",
+        family="constructive_heuristic_comparator",
+        description="Level 1 FFD comparator using projected extreme points",
+        supported_levels=("level_01",),
+        local_friendly=True,
+        web_visible=False,
+        display_name=LocalizedText(
+            vi="Extreme Point — FFD với điểm chiếu",
+            en="Extreme Point — Projected FFD",
+        ),
+        localized_description=LocalizedText(
+            vi="Comparator FFD nghiên cứu sinh thêm extreme point chiếu; không hiển thị trên UI.",
+            en="Research FFD comparator adding projected extreme points; hidden from the UI.",
+        ),
+    ),
     "extreme_point_hill_climbing": AlgorithmDefinition(
         algorithm_id="extreme_point_hill_climbing",
         family="local_search",

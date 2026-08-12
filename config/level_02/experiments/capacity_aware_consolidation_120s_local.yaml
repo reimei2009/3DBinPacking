@@ -1,0 +1,33 @@
+extends: inventory_items_1000_fleet_500_scale_500_acceptance.yaml
+
+# Profile A/B thủ công cho capacity-aware consolidation. Toàn bộ run vẫn dùng
+# cùng catalog 500 physical container; 50 là giới hạn sử dụng, không phải prefix.
+instance:
+  item_count: 500
+  container_count: 1
+
+container_search:
+  enabled: true
+  initial_used_container_count: 1
+  max_used_container_count: 50
+  automatically_increase_container_count: true
+  time_limit_seconds: 120
+  validation_reserve_seconds: 2
+  consolidation:
+    enabled: true
+    time_limit_seconds: 100
+    max_candidates: 512
+    improvement_phase_time_fractions: [0.60, 0.40]
+    container_elimination:
+      enabled: true
+      maximum_target_containers: 8
+      maximum_candidates: 1024
+      phase_time_fractions: [0.35, 0.25, 0.40]
+      adaptive_cluster_elimination:
+        enabled: true
+        maximum_destination_containers: 3
+        neighborhood_sizes: [4, 8, 16, 24]
+        beam_width: 8
+        maximum_candidates: 256
+        maximum_target_containers: 8
+        minimum_validation_reserve_seconds: 2

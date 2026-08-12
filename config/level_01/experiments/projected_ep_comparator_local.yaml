@@ -1,0 +1,18 @@
+extends: ../default.yaml
+project:
+  algorithm_id: extreme_point_best_fit_projected_ep
+environment: local
+instance:
+  item_count: 20
+  container_count: 5
+  item_selection_strategy: prefix
+  item_selection_seed: null
+algorithms:
+  extreme_point_best_fit:
+    subset_enumeration_limit: 12
+  extreme_point_best_fit_projected_ep:
+    subset_enumeration_limit: 12
+  extreme_point_ffd:
+    subset_enumeration_limit: 12
+  extreme_point_ffd_projected_ep:
+    subset_enumeration_limit: 12
