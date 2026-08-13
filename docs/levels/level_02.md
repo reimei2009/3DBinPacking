@@ -86,6 +86,11 @@ Chi tiết, artifact và lệnh chạy nằm tại
 [Benchmark canonical Level 2](../benchmarks/level_02_benchmark_v2.md). MPV tiếp tục
 là evidence học thuật riêng và không được gộp với generated canonical.
 
+Evidence canonical phát hành ngày 2026-08-13 nằm tại
+[report benchmark Level 2](../reports/manual/level_02_canonical_benchmark_20260813.md).
+Report xác nhận 24 bài, 144 lượt chạy và 144 nghiệm `VALID`; Best Fit vẫn chỉ là
+baseline đối chiếu, không phải optimum đã chứng minh.
+
 Profile 500 và 5.000 container là catalog nghiên cứu generated, có provenance
 và fingerprint riêng. Dữ liệu processed/manifest/output của chúng luôn nằm
 trong namespace Level 2; không dùng output Level 1 làm input ẩn.

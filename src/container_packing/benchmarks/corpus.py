@@ -26,6 +26,8 @@ from ..runtime.run_context import create_benchmark_corpus_directory
 from ..runtime.structured_logging import append_event
 from .runner import _seed_values, aggregate_results, annotate_reference_gaps, execute_experiment_case
 from .distribution import (
+    build_case_algorithm_summary,
+    build_case_differences,
     build_case_features,
     build_determinism_evidence,
     build_distribution_summary,
@@ -445,6 +447,8 @@ def run_benchmark_corpus(
     )
     ranking = _ranking(summary)
     case_features = build_case_features(results)
+    case_algorithm_summary = build_case_algorithm_summary(results)
+    case_differences = build_case_differences(results)
     pairwise_outcomes = build_pairwise_outcomes(results)
     distribution_summary = build_distribution_summary(results)
     determinism_evidence = build_determinism_evidence(results)
@@ -455,6 +459,12 @@ def run_benchmark_corpus(
     ranking.to_csv(benchmark_dir / "ranking.csv", index=False, encoding="utf-8")
     references.to_csv(benchmark_dir / "references.csv", index=False, encoding="utf-8")
     case_features.to_csv(benchmark_dir / "case_features.csv", index=False, encoding="utf-8")
+    case_algorithm_summary.to_csv(
+        benchmark_dir / "case_algorithm_summary.csv", index=False, encoding="utf-8",
+    )
+    case_differences.to_csv(
+        benchmark_dir / "case_differences.csv", index=False, encoding="utf-8",
+    )
     pairwise_outcomes.to_csv(benchmark_dir / "pairwise_outcomes.csv", index=False, encoding="utf-8")
     distribution_summary.to_csv(benchmark_dir / "distribution_summary.csv", index=False, encoding="utf-8")
     determinism_evidence.to_csv(benchmark_dir / "determinism_evidence.csv", index=False, encoding="utf-8")
@@ -499,6 +509,7 @@ def run_benchmark_corpus(
                 "benchmark/summary.csv", "benchmark/summary.json", "benchmark/ranking.csv",
                 "benchmark/references.csv", "reports/summary.md",
                 "benchmark/case_features.csv", "benchmark/pairwise_outcomes.csv",
+                "benchmark/case_algorithm_summary.csv", "benchmark/case_differences.csv",
                 "benchmark/distribution_summary.csv",
                 "benchmark/determinism_evidence.csv", "benchmark/repair_comparison.csv",
             ],

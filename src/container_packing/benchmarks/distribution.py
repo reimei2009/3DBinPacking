@@ -77,6 +77,53 @@ def build_case_features(results: pd.DataFrame) -> pd.DataFrame:
     ).reset_index(drop=True)
 
 
+def build_case_algorithm_summary(results: pd.DataFrame) -> pd.DataFrame:
+    """Collapse repeats only inside one exact case, fingerprint and algorithm."""
+    frame = _official_rows(results)
+    valid = frame[frame["success"].fillna(False)].copy()
+    if valid.empty:
+        return pd.DataFrame()
+    identity = ["level", "case_id", "input_fingerprint", "algorithm"]
+    metadata = [
+        column for column in (
+            "dataset_family", "scale_bucket", "item_count", "item_selection_strategy",
+            "item_selection_seed", "aggregate_lower_bound",
+        ) if column in valid.columns
+    ]
+    keys = [*identity, *metadata]
+    summary = valid.groupby(keys, dropna=False, sort=True).agg(
+        repeat_execution_count=("success", "size"),
+        used_container_count=("used_container_count", "median"),
+        total_container_cost=("total_container_cost", "median"),
+        wall_runtime_p50_seconds=("wall_runtime_seconds", "median"),
+        wall_runtime_min_seconds=("wall_runtime_seconds", "min"),
+        wall_runtime_max_seconds=("wall_runtime_seconds", "max"),
+        peak_memory_max_bytes=("peak_rss_bytes", "max"),
+    ).reset_index()
+    return summary
+
+
+def build_case_differences(results: pd.DataFrame) -> pd.DataFrame:
+    """Return only cases where valid algorithms have different official tuples."""
+    summary = build_case_algorithm_summary(results)
+    if summary.empty:
+        return summary
+    quality_count = summary.groupby(
+        ["level", "case_id", "input_fingerprint"], dropna=False,
+    ).apply(
+        lambda values: values[["used_container_count", "total_container_cost"]]
+        .drop_duplicates().shape[0],
+        include_groups=False,
+    )
+    different_keys = quality_count[quality_count > 1].index
+    if different_keys.empty:
+        return summary.iloc[0:0].copy()
+    indexed = summary.set_index(["level", "case_id", "input_fingerprint"])
+    return indexed.loc[different_keys].reset_index().sort_values(
+        ["item_count", "case_id", "used_container_count", "total_container_cost", "algorithm"],
+    ).reset_index(drop=True)
+
+
 def build_pairwise_outcomes(results: pd.DataFrame) -> pd.DataFrame:
     """WIN/TIE/LOSS per exact shared instance using the official tuple only."""
     frame = _official_rows(results)
@@ -124,26 +171,26 @@ def build_distribution_summary(
     for column, default in (("dataset_family", "unspecified"), ("scale_bucket", "unspecified")):
         if column not in frame:
             frame[column] = default
-    valid = frame[frame["success"].fillna(False)].copy()
-    if not valid.empty:
-        valid["container_gap_to_lower_bound"] = (
-            pd.to_numeric(valid["used_container_count"], errors="coerce")
-            - pd.to_numeric(valid.get("aggregate_lower_bound"), errors="coerce")
+    case_summary = build_case_algorithm_summary(frame)
+    if not case_summary.empty:
+        case_summary["container_gap_to_lower_bound"] = (
+            pd.to_numeric(case_summary["used_container_count"], errors="coerce")
+            - pd.to_numeric(case_summary.get("aggregate_lower_bound"), errors="coerce")
         )
-        valid["container_gap_ratio_to_lower_bound"] = (
-            valid["container_gap_to_lower_bound"]
-            / pd.to_numeric(valid.get("aggregate_lower_bound"), errors="coerce").where(
-                pd.to_numeric(valid.get("aggregate_lower_bound"), errors="coerce") > 0
+        case_summary["container_gap_ratio_to_lower_bound"] = (
+            case_summary["container_gap_to_lower_bound"]
+            / pd.to_numeric(case_summary.get("aggregate_lower_bound"), errors="coerce").where(
+                pd.to_numeric(case_summary.get("aggregate_lower_bound"), errors="coerce") > 0
             )
         )
-        best = valid.groupby(_fingerprint_keys(), dropna=False)["used_container_count"].transform("min")
-        valid["container_gap_to_best_observed"] = (
-            pd.to_numeric(valid["used_container_count"], errors="coerce") - best
+        best = case_summary.groupby(_fingerprint_keys(), dropna=False)["used_container_count"].transform("min")
+        case_summary["container_gap_to_best_observed"] = (
+            pd.to_numeric(case_summary["used_container_count"], errors="coerce") - best
         )
-        baseline = valid[valid["algorithm"].eq(baseline_algorithm)].copy()
+        baseline = case_summary[case_summary["algorithm"].eq(baseline_algorithm)].copy()
         if not baseline.empty:
             baseline = baseline.sort_values(
-                ["used_container_count", "total_container_cost", "wall_runtime_seconds"],
+                ["used_container_count", "total_container_cost", "wall_runtime_p50_seconds"],
                 na_position="last",
             ).drop_duplicates(_fingerprint_keys())
             baseline = baseline[[
@@ -152,17 +199,17 @@ def build_distribution_summary(
                 "used_container_count": "baseline_container_count",
                 "total_container_cost": "baseline_container_cost",
             })
-            valid = valid.merge(
+            case_summary = case_summary.merge(
                 baseline, on=_fingerprint_keys(), how="left", validate="many_to_one",
             )
-            valid["container_delta_vs_baseline"] = (
-                pd.to_numeric(valid["used_container_count"], errors="coerce")
-                - pd.to_numeric(valid["baseline_container_count"], errors="coerce")
+            case_summary["container_delta_vs_baseline"] = (
+                pd.to_numeric(case_summary["used_container_count"], errors="coerce")
+                - pd.to_numeric(case_summary["baseline_container_count"], errors="coerce")
             )
-            equal_container_count = valid["container_delta_vs_baseline"].eq(0)
-            valid["cost_delta_vs_baseline_same_container_count"] = (
-                pd.to_numeric(valid["total_container_cost"], errors="coerce")
-                - pd.to_numeric(valid["baseline_container_cost"], errors="coerce")
+            equal_container_count = case_summary["container_delta_vs_baseline"].eq(0)
+            case_summary["cost_delta_vs_baseline_same_container_count"] = (
+                pd.to_numeric(case_summary["total_container_cost"], errors="coerce")
+                - pd.to_numeric(case_summary["baseline_container_cost"], errors="coerce")
             ).where(equal_container_count)
     group_keys = ["level", "algorithm", "dataset_family", "scale_bucket", "item_count"]
     base = frame.groupby(group_keys, dropna=False).agg(
@@ -181,24 +228,27 @@ def build_distribution_summary(
             "peak_rss_bytes", lambda values: _quantile_when_sufficient(values, 0.95)
         ),
     ).reset_index()
-    if valid.empty:
+    base["runtime_per_item_p50"] = base["runtime_p50_seconds"] / base["item_count"]
+    if case_summary.empty:
         return base
-    quality = valid.groupby(group_keys, dropna=False).agg(
+    quality = case_summary.groupby(group_keys, dropna=False).agg(
         used_containers_median=("used_container_count", "median"),
         container_gap_lower_bound_median=("container_gap_to_lower_bound", "median"),
+        container_gap_lower_bound_min=("container_gap_to_lower_bound", "min"),
+        container_gap_lower_bound_max=("container_gap_to_lower_bound", "max"),
         container_gap_ratio_lower_bound_median=("container_gap_ratio_to_lower_bound", "median"),
+        container_gap_ratio_lower_bound_min=("container_gap_ratio_to_lower_bound", "min"),
+        container_gap_ratio_lower_bound_max=("container_gap_ratio_to_lower_bound", "max"),
         container_gap_best_observed_median=("container_gap_to_best_observed", "median"),
-        runtime_per_item_p50=("wall_runtime_seconds", lambda values: values.median()),
     ).reset_index()
-    if "container_delta_vs_baseline" in valid:
-        comparison = valid.groupby(group_keys, dropna=False).agg(
+    if "container_delta_vs_baseline" in case_summary:
+        comparison = case_summary.groupby(group_keys, dropna=False).agg(
             container_delta_vs_baseline_median=("container_delta_vs_baseline", "median"),
             cost_delta_vs_baseline_same_container_median=(
                 "cost_delta_vs_baseline_same_container_count", "median",
             ),
         ).reset_index()
         quality = quality.merge(comparison, on=group_keys, how="left", validate="one_to_one")
-    quality["runtime_per_item_p50"] = quality["runtime_per_item_p50"] / quality["item_count"]
     return base.merge(quality, on=group_keys, how="left", validate="one_to_one")
 
 

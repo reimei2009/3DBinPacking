@@ -81,6 +81,11 @@ Mỗi corpus sinh:
 - `determinism_evidence.csv`: objective/signature giữa các repeat;
 - `repair_comparison.csv`: evidence A/B khi corpus có repair treatment.
 
+Các run mới còn sinh hai bảng trung gian để tránh tổng hợp sai:
+
+- `case_algorithm_summary.csv`: gộp các lần lặp của đúng một bài và một thuật toán;
+- `case_differences.csv`: chỉ liệt kê những bài mà các thuật toán cho objective khác nhau.
+
 `p50` được trình bày là **thời gian thường gặp**. `p95` là mức mà khoảng 95% lượt
 chạy hoàn thành không lâu hơn giá trị đó. UI chỉ công bố p95 khi một nhóm có ít
 nhất 10 lượt chạy; nhóm ít mẫu hơn dùng trung vị và khoảng min–max.
@@ -97,6 +102,31 @@ không được lấy trung bình kết quả 20 kiện với 100 kiện. Phân 
 
 Chi phí chỉ được diễn giải như tie-break khi số container bằng nhau. Best Fit là
 mốc đối chiếu, không phải optimum được chứng minh.
+
+## Evidence canonical ngày 2026-08-13
+
+Report phát hành nằm tại:
+
+- `docs/reports/manual/level_02_canonical_benchmark_20260813.md`;
+- `docs/reports/manual/level_02_canonical_benchmark_20260813.json`.
+
+Report được sinh tự động từ run canonical, không nhập số liệu bằng tay. Gate xác nhận
+đủ 24 bài, 144 lượt, 144 nghiệm được validator độc lập xác nhận `VALID` và 72 nhóm
+bài–thuật toán cho cùng objective cùng placement signature qua hai lần lặp.
+
+Khi đối chiếu với Extreme Point Best Fit:
+
+- Extreme Point FFD: 0 thắng, 24 hòa, 0 thua;
+- Maximal Empty Spaces Best Fit: 1 thắng, 22 hòa, 1 thua.
+
+Hai bài tạo khác biệt là random seed 303 ở quy mô 100 và 500 kiện. Kết quả này là
+evidence trên corpus đã khai báo, không chứng minh Best Fit hoặc MES tối ưu trên mọi
+bài toán 3D Bin Packing.
+
+Mỗi nhóm thuật toán–quy mô hiện chỉ có 8 lượt. Vì vậy report và UI dùng trung vị cùng
+khoảng nhỏ nhất–lớn nhất; không công bố p95 từ số mẫu quá ít. Chất lượng theo quy mô
+dùng số container vượt cận dưới tổng hợp, không lấy trung bình raw số container hoặc
+chi phí giữa bài 20 kiện và bài 500 kiện.
 
 ## Chạy thủ công
 

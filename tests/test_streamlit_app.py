@@ -372,6 +372,62 @@ def test_level2_benchmark_catalog_is_separated_for_nontechnical_users(root: Path
     )
 
 
+def test_multi_case_dashboard_explains_quality_and_hides_under_sampled_p95(
+    tmp_path: Path,
+) -> None:
+    app = tmp_path / "benchmark_dashboard.py"
+    app.write_text(
+        '''
+import pandas as pd
+from container_packing.benchmarks.distribution import (
+    build_determinism_evidence, build_distribution_summary, build_pairwise_outcomes,
+)
+from container_packing.web.streamlit_app import _render_distribution_dashboard
+
+rows = []
+for case_id, item_count in (("small", 20), ("large", 100)):
+    for algorithm, count in (
+        ("extreme_point_best_fit", 2),
+        ("extreme_point_ffd", 2),
+        ("maximal_space_best_fit", 1 if case_id == "small" else 3),
+    ):
+        for repeat in (1, 2):
+            rows.append({
+                "level": "level_02", "case_id": case_id,
+                "scenario_id": case_id, "input_fingerprint": f"fp-{case_id}",
+                "algorithm": algorithm, "success": True, "validation_valid": True,
+                "objective_value": count * 1000, "used_container_count": count,
+                "total_container_cost": count * 1000, "status": "FEASIBLE",
+                "item_count": item_count, "aggregate_lower_bound": 1,
+                "wall_runtime_seconds": float(repeat), "peak_rss_bytes": 1000,
+                "random_seed": 42, "repeat": repeat,
+                "placement_signature": f"{case_id}-{algorithm}",
+                "item_selection_strategy": "prefix", "item_selection_seed": 0,
+                "dataset_family": "generated", "scale_bucket": "test",
+            })
+results = pd.DataFrame(rows)
+_render_distribution_dashboard(
+    build_distribution_summary(results), build_pairwise_outcomes(results), "vi",
+    results=results, determinism=build_determinism_evidence(results),
+)
+''',
+        encoding="utf-8",
+    )
+
+    page = AppTest.from_file(str(app), default_timeout=30).run()
+
+    assert not page.exception
+    assert {"Kết luận", "Chất lượng", "Thời gian và tài nguyên"}.issubset(
+        {value.label for value in page.tabs}
+    )
+    markdown = "\n".join(str(value.value) for value in page.markdown)
+    captions = "\n".join(str(value.value) for value in page.caption)
+    assert "Các bài tạo khác biệt" in markdown
+    assert "lower bound chưa chứng minh khả thi hình học" in captions
+    assert "Chưa hiển thị p95" in captions
+    assert "thời gian toàn pipeline" in captions
+
+
 def test_streamlit_exposes_level4_constructive_algorithms_and_support_threshold(root: Path):
     app = root / "src/container_packing/web/streamlit_app.py"
     page = AppTest.from_file(str(app), default_timeout=30).run()

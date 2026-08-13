@@ -27,6 +27,8 @@ from ..runtime.run_context import create_benchmark_directory
 from ..runtime.structured_logging import append_event
 from .analysis import BenchmarkAnalysis, analyze_benchmark
 from .distribution import (
+    build_case_algorithm_summary,
+    build_case_differences,
     build_case_features,
     build_distribution_summary,
     build_pairwise_outcomes,
@@ -705,9 +707,17 @@ def run_benchmark(
     analysis.pareto_frontier.to_csv(benchmark_dir / "pareto_frontier.csv", index=False, encoding="utf-8")
     analysis.milp_reference_gaps.to_csv(benchmark_dir / "milp_reference_gaps.csv", index=False, encoding="utf-8")
     case_features = build_case_features(results)
+    case_algorithm_summary = build_case_algorithm_summary(results)
+    case_differences = build_case_differences(results)
     pairwise_outcomes = build_pairwise_outcomes(results)
     distribution_summary = build_distribution_summary(results)
     case_features.to_csv(benchmark_dir / "case_features.csv", index=False, encoding="utf-8")
+    case_algorithm_summary.to_csv(
+        benchmark_dir / "case_algorithm_summary.csv", index=False, encoding="utf-8",
+    )
+    case_differences.to_csv(
+        benchmark_dir / "case_differences.csv", index=False, encoding="utf-8",
+    )
     pairwise_outcomes.to_csv(benchmark_dir / "pairwise_outcomes.csv", index=False, encoding="utf-8")
     distribution_summary.to_csv(benchmark_dir / "distribution_summary.csv", index=False, encoding="utf-8")
     write_json(benchmark_dir / "summary.json", {
@@ -759,6 +769,7 @@ def run_benchmark(
                 "benchmark/summary.csv", "benchmark/summary.json", "benchmark/ranking.csv",
                 "benchmark/pairwise_comparison.csv", "benchmark/pareto_frontier.csv",
                 "benchmark/milp_reference_gaps.csv", "benchmark/case_features.csv",
+                "benchmark/case_algorithm_summary.csv", "benchmark/case_differences.csv",
                 "benchmark/pairwise_outcomes.csv", "benchmark/distribution_summary.csv",
                 "reports/summary.md",
             ],

@@ -21,6 +21,10 @@ from container_packing.benchmarks import (
     load_benchmark_corpus,
     run_benchmark_corpus,
 )
+from container_packing.benchmarks.distribution import (
+    build_case_differences,
+    build_distribution_summary,
+)
 from container_packing.application.service import (
     ActiveDataContext,
     build_experiment_request,
@@ -1439,6 +1443,14 @@ def _render_distribution_dashboard(
     if distribution.empty:
         return
     frame = distribution.copy()
+    if results is not None and not results.empty:
+        try:
+            frame = build_distribution_summary(
+                results, baseline_algorithm=baseline_algorithm,
+            )
+        except ValueError:
+            # Artifact legacy vẫn dùng được bằng bảng distribution đã persist.
+            frame = distribution.copy()
     frame["algorithm_name"] = frame["algorithm"].map(
         lambda value: get_algorithm(str(value)).name_for(language)
     )
@@ -1488,9 +1500,9 @@ def _render_distribution_dashboard(
         )
 
     overview_tab, quality_tab, performance_tab = st.tabs([
-        "Tổng quan" if language == "vi" else "Overview",
+        "Kết luận" if language == "vi" else "Conclusion",
         "Chất lượng" if language == "vi" else "Quality",
-        "Thời gian và độ tin cậy" if language == "vi" else "Runtime and reliability",
+        "Thời gian và tài nguyên" if language == "vi" else "Runtime and resources",
     ])
     with overview_tab:
         if run_label:
@@ -1536,11 +1548,63 @@ def _render_distribution_dashboard(
             ),
             width="stretch", config={"displaylogo": False},
         )
+            st.caption(
+                "Mỗi bài được so với Best Fit trên đúng cùng dữ liệu. Thắng nghĩa là dùng ít "
+                "container hơn, hoặc chi phí thấp hơn khi số container bằng nhau."
+                if language == "vi" else
+                "Each case uses the exact same input as Best Fit. A win means fewer containers, or lower cost when counts tie."
+            )
+        differences = pd.DataFrame()
+        if results is not None and not results.empty:
+            try:
+                differences = build_case_differences(results)
+            except ValueError:
+                differences = pd.DataFrame()
+        if not differences.empty:
+            display = differences.copy()
+            def _case_display_label(row: pd.Series) -> str:
+                item_count = int(row["item_count"])
+                strategy = str(row.get("item_selection_strategy", "") or "")
+                seed = row.get("item_selection_seed")
+                if strategy == "prefix":
+                    return f"{item_count} kiện · prefix"
+                if strategy == "stable_random" and pd.notna(seed):
+                    return f"{item_count} kiện · random seed {int(seed)}"
+                return f"{item_count} kiện · {strategy or 'cách chọn khác'}"
+
+            display["Bài kiểm tra"] = display.apply(_case_display_label, axis=1)
+            display["Thuật toán"] = display["algorithm"].map(
+                lambda value: get_algorithm(str(value)).name_for(language)
+            )
+            display = display.rename(columns={
+                "used_container_count": "Số container",
+                "total_container_cost": "Chi phí",
+            })
+            st.markdown("**Các bài tạo khác biệt**" if language == "vi" else "**Cases that differ**")
+            st.dataframe(
+                display[["Bài kiểm tra", "Thuật toán", "Số container", "Chi phí"]],
+                hide_index=True, width="stretch",
+            )
+            st.caption(
+                "Bảng chỉ hiện các bài mà ít nhất hai thuật toán cho official objective khác nhau."
+                if language == "vi" else
+                "Only cases where at least two algorithms produce different official objectives are shown."
+            )
         if "container_gap_lower_bound_median" in frame and frame["container_gap_lower_bound_median"].notna().any():
+            gap = frame.copy()
+            gap["gap_error_plus"] = (
+                gap.get("container_gap_lower_bound_max", gap["container_gap_lower_bound_median"])
+                - gap["container_gap_lower_bound_median"]
+            )
+            gap["gap_error_minus"] = (
+                gap["container_gap_lower_bound_median"]
+                - gap.get("container_gap_lower_bound_min", gap["container_gap_lower_bound_median"])
+            )
             st.plotly_chart(
             px.line(
-                frame, x="item_count", y="container_gap_lower_bound_median",
+                gap, x="item_count", y="container_gap_lower_bound_median",
                 color="algorithm_name", markers=True,
+                error_y="gap_error_plus", error_y_minus="gap_error_minus",
                 labels={
                     "item_count": "Số kiện" if language == "vi" else "Items",
                     "container_gap_lower_bound_median": (
@@ -1552,29 +1616,17 @@ def _render_distribution_dashboard(
                 title="Chất lượng nghiệm theo quy mô" if language == "vi" else "Quality by scale",
             ), width="stretch", config={"displaylogo": False},
         )
+            st.caption(
+                "Điểm là gap trung vị; thanh sai số là min–max giữa các bài cùng quy mô. "
+                "Gap thấp hơn thường tốt hơn, nhưng lower bound chưa chứng minh khả thi hình học."
+                if language == "vi" else
+                "Points are median gaps and error bars are min–max across cases at the same scale. Lower is usually better, but the bound does not prove geometric feasibility."
+            )
         else:
             st.info(
                 "Artifact này chưa có cận tối thiểu sơ bộ; biểu đồ khoảng cách được ẩn."
                 if language == "vi" else "This artifact has no aggregate lower-bound telemetry; the gap chart is hidden."
             )
-        if "used_containers_median" in frame:
-            st.plotly_chart(
-                px.line(
-                    frame, x="item_count", y="used_containers_median",
-                    color="algorithm_name", markers=True,
-                    labels={
-                        "item_count": "Số kiện" if language == "vi" else "Items",
-                        "used_containers_median": "Container trung vị trong cùng quy mô" if language == "vi" else "Median containers within the same scale",
-                        "algorithm_name": "Thuật toán" if language == "vi" else "Algorithm",
-                    },
-                    title="Số container theo từng quy mô" if language == "vi" else "Containers by scale",
-                ), width="stretch", config={"displaylogo": False},
-            )
-            st.caption(
-                "Các điểm chỉ nối xu hướng theo số kiện; không cộng hoặc lấy trung bình giữa các quy mô."
-                if language == "vi" else "Points show scale trends; values are not summed or averaged across scales."
-            )
-
     with performance_tab:
         runtime = frame.copy()
         runtime["runtime_error_plus"] = runtime["runtime_max_seconds"] - runtime["runtime_p50_seconds"]
@@ -1602,6 +1654,12 @@ def _render_distribution_dashboard(
                 "Chưa hiển thị p95 vì mỗi nhóm có dưới 10 lượt chạy; thanh sai số biểu diễn min–max."
                 if language == "vi" else "p95 is hidden because each group has fewer than 10 executions; error bars show min–max."
             )
+        st.caption(
+            "Đây là thời gian toàn pipeline mà người dùng phải chờ. Điểm là trung vị; thanh sai số "
+            "là min–max. Runtime riêng của thuật toán nằm trong Chi tiết kỹ thuật."
+            if language == "vi" else
+            "This is user-visible end-to-end pipeline time. Points are medians and error bars are min–max; algorithm-only runtime stays in technical details."
+        )
 
         reliability = frame.melt(
             id_vars=["item_count", "algorithm_name"],
@@ -1619,6 +1677,11 @@ def _render_distribution_dashboard(
                     labels={"item_count": "Số kiện", "rate": "Tỷ lệ", "result_kind": "Kết quả"},
                     title="Tỷ lệ hợp lệ, hết thời gian và không hợp lệ",
                 ), width="stretch", config={"displaylogo": False},
+            )
+            st.caption(
+                "Biểu đồ cho biết tỷ lệ lượt chạy hợp lệ, hết thời gian hoặc bị validator từ chối ở từng quy mô."
+                if language == "vi" else
+                "This chart shows valid, timed-out and validator-rejected execution rates at each scale."
             )
         memory_column = None
         memory_title = None
@@ -1640,6 +1703,11 @@ def _render_distribution_dashboard(
                     labels={"item_count": "Số kiện", "peak_memory_display_mb": "Bộ nhớ (MB)", "algorithm_name": "Thuật toán"},
                     title=memory_title,
                 ), width="stretch", config={"displaylogo": False},
+            )
+            st.caption(
+                "Bộ nhớ cao hơn nghĩa là cần nhiều RAM hơn. Khi chưa đủ 10 mẫu, biểu đồ dùng mức lớn nhất đã quan sát thay cho p95."
+                if language == "vi" else
+                "Higher values require more RAM. With fewer than 10 samples, the chart uses the observed maximum instead of p95."
             )
 
     if results is not None and not results.empty:

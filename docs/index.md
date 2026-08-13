@@ -24,6 +24,7 @@ loại maturity, vai trò và exposure.
 - [Luồng solver và dữ liệu](design/solver_design.md)
 - [Thiết kế benchmark](design/benchmark_design.md)
 - [Benchmark chuẩn Level 2](benchmarks/level_02_benchmark_v2.md)
+- [Evidence canonical Level 2 ngày 2026-08-13](reports/manual/level_02_canonical_benchmark_20260813.md)
 - [Corpus nghiên cứu Level 1](benchmarks/level1_research_corpus.md)
 - [Corpus MPV fixed-orientation Level 2](datasets/mpv_fixed_orientation_level2.md)
 - [Parameter sweep](design/parameter_sweep_design.md)

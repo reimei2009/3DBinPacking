@@ -2,6 +2,8 @@ import pandas as pd
 import pytest
 
 from container_packing.benchmarks.distribution import (
+    build_case_algorithm_summary,
+    build_case_differences,
     build_case_features,
     build_determinism_evidence,
     build_distribution_summary,
@@ -90,6 +92,28 @@ def test_cross_scale_summary_keeps_item_counts_separate():
 
     assert set(summary.item_count) == {20, 100}
     assert len(summary) == 4
+
+
+def test_quality_range_is_computed_between_cases_after_repeat_collapse():
+    first = pd.concat([_rows(), _rows()], ignore_index=True)
+    first["repeat"] = [1, 1, 2, 2]
+    second = first.copy()
+    second["case_id"] = "case-b"
+    second["scenario_id"] = "case-b"
+    second["input_fingerprint"] = "other"
+    second["used_container_count"] = [4, 5, 4, 5]
+    combined = pd.concat([first, second], ignore_index=True)
+
+    case_summary = build_case_algorithm_summary(combined)
+    summary = build_distribution_summary(combined, baseline_algorithm="best")
+    differences = build_case_differences(combined)
+
+    assert len(case_summary) == 4
+    best = summary.set_index("algorithm").loc["best"]
+    assert best.container_gap_lower_bound_median == pytest.approx(2.0)
+    assert best.container_gap_lower_bound_min == pytest.approx(1.0)
+    assert best.container_gap_lower_bound_max == pytest.approx(3.0)
+    assert set(differences.case_id) == {"case", "case-b"}
 
 
 def test_distribution_rejects_failed_objective_leakage():

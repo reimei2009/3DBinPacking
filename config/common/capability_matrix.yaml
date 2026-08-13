@@ -28,6 +28,7 @@ levels:
       - docs/reports/generated/level2_ffd_baseline.md
       - docs/reports/generated/level2_inventory_acceptance_report.md
       - docs/reports/manual/level_02_acceptance_20260812.md
+      - docs/reports/manual/level_02_canonical_benchmark_20260813.md
     algorithms:
       milp_big_m: {execution_class: exact_reference, maturity: accepted, role: exact_reference, exposure: [cli, benchmark, streamlit]}
       extreme_point_best_fit: {execution_class: packing_solver, maturity: accepted, role: constructive_comparator, exposure: [cli, benchmark, streamlit]}

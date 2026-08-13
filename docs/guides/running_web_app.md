@@ -167,8 +167,13 @@ gian xấu nhất trên năm phút hoặc chế độ không giới hạn đều
 có ngân sách riêng và không được chiếm thời gian dành cho kiểm định cuối.
 
 Dashboard một case chỉ hiển thị validity, số container, chi phí và runtime. Dashboard
-nhiều case có ba khu vực: **Tổng quan**, **Chất lượng**, và **Thời gian và độ tin cậy**.
-Không cộng hoặc lấy trung bình raw container/objective giữa các quy mô khác nhau.
+nhiều case có ba khu vực: **Kết luận**, **Chất lượng**, và **Thời gian và tài nguyên**.
+Khu vực Kết luận cho biết coverage, tỷ lệ hợp lệ và tính lặp lại. Khu vực Chất lượng
+so sánh thắng/hòa/thua trên cùng bài, liệt kê trực tiếp các bài tạo khác biệt và biểu
+diễn gap tới cận dưới. Khu vực Thời gian và tài nguyên dùng thời gian toàn pipeline,
+runtime trên mỗi kiện và bộ nhớ. Không cộng hoặc lấy trung bình raw container/objective
+giữa các quy mô khác nhau. Mỗi biểu đồ có chú giải ngay bên dưới về câu hỏi nó trả lời,
+chiều tốt/xấu và giới hạn diễn giải.
 
 Trên Level 2, tab benchmark được chia thành:
 

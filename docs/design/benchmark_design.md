@@ -26,6 +26,13 @@ runtime và số nghiệm khác nhau. Một case chỉ thành công khi thuật 
 complete và independent validator xác nhận hợp lệ. `OPTIMAL` và `FEASIBLE` luôn
 được phân biệt.
 
+Các corpus mới tạo thêm `case_algorithm_summary.csv` và `case_differences.csv`.
+Bảng thứ nhất chỉ gộp repeat trong cùng `case_id`, fingerprint, thuật toán và seed.
+Bảng thứ hai chỉ giữ các bài có official objective khác nhau giữa các thuật toán.
+Thống kê xuyên nhiều bài dùng trung vị cùng khoảng nhỏ nhất–lớn nhất của gap đã chuẩn
+hóa theo lower bound; tuyệt đối không lấy trung bình raw số container, chi phí hoặc
+encoded objective giữa các quy mô.
+
 ## Fingerprint và điều kiện đưa vào thống kê
 
 `input_fingerprint` bao phủ item selection, toàn bộ container catalog, resolved
