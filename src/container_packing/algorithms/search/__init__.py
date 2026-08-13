@@ -45,6 +45,7 @@ from .inventory_orchestration import (
     InventorySearchOrchestrator,
     InventorySearchRequest,
 )
+from .inventory_level_adapter import InventoryLevelAdapter
 
 __all__ = [
     "ContainerTypeGroup",
@@ -70,6 +71,7 @@ __all__ = [
     "InventoryConstructiveExecutor",
     "InventorySearchOrchestrator",
     "InventorySearchRequest",
+    "InventoryLevelAdapter",
     "LazyRankedContainerSubsetPolicy",
     "midpoint_cardinality_ladder",
     "LowerBoundEstimate",

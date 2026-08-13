@@ -6,10 +6,9 @@ from typing import Any, Callable
 
 from ..algorithms.contracts import AlgorithmOutcome
 from ..algorithms.search import (
-    ContainerSearchConfiguration,
-    InventorySearchOrchestrator,
-    InventorySearchRequest,
+    InventoryLevelAdapter,
 )
+from ..algorithms.orientation import fixed_orientation_provider
 from ..algorithms.exact.milp_big_m import solve_level1 as solve_milp_big_m
 from ..algorithms.heuristics.extreme_point_best_fit import solve as solve_extreme_point_best_fit
 from ..algorithms.heuristics.extreme_point_ffd import solve as solve_extreme_point_ffd
@@ -38,10 +37,14 @@ LEVEL_01_EXECUTORS: dict[str, Level01Executor] = {
     "milp_big_m": solve_milp_big_m,
 }
 
-_INVENTORY_SEARCH_ORCHESTRATOR = InventorySearchOrchestrator()
 _INVENTORY_SEARCH_ALGORITHMS = frozenset({
     "extreme_point_best_fit", "extreme_point_ffd", "maximal_space_best_fit",
 })
+_INVENTORY_ADAPTER = InventoryLevelAdapter(
+    level_id="level_01",
+    supported_algorithm_ids=_INVENTORY_SEARCH_ALGORITHMS,
+    orientation_provider=fixed_orientation_provider(),
+)
 
 
 def execute_level_01(
@@ -52,11 +55,6 @@ def execute_level_01(
     except KeyError as exc:
         available = ", ".join(sorted(LEVEL_01_EXECUTORS))
         raise ValueError(f"Level 1 algorithm {algorithm_id!r} is not implemented. Available: {available}") from exc
-    search = ContainerSearchConfiguration.from_mapping(
-        settings.get("container_search")
-    )
-    if not search.enabled:
-        return executor(items, containers, settings)
     validation = settings.get("validation", {})
     candidate_validator = lambda placements: validate_solution(
         items,
@@ -67,18 +65,11 @@ def execute_level_01(
         ),
         weight_tolerance=float(validation.get("weight_tolerance_kg", 1e-6)),
     ).valid
-    return _INVENTORY_SEARCH_ORCHESTRATOR.execute(
-        InventorySearchRequest(
-            algorithm_id=algorithm_id,
-            items=items,
-            containers=containers,
-            settings=settings,
-            configuration=search,
-            supported_algorithm_ids=_INVENTORY_SEARCH_ALGORITHMS,
-            precheck_backend="inventory-aware-level-01-precheck",
-            precheck_failure_context="Level 1 instance",
-            candidate_validator=candidate_validator,
-            secondary_support_threshold=None,
-        ),
-        executor,
+    return _INVENTORY_ADAPTER.execute(
+        algorithm_id=algorithm_id,
+        items=items,
+        containers=containers,
+        settings=settings,
+        executor=executor,
+        candidate_validator=candidate_validator,
     )
