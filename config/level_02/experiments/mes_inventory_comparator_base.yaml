@@ -1,0 +1,14 @@
+extends: inventory_items_1000_fleet_500.yaml
+# Comparator MES dùng chung inventory orchestration và validator Level 2.
+container_search:
+  enabled: true
+  initial_used_container_count: 1
+  automatically_increase_container_count: true
+  validation_reserve_seconds: 2
+  secondary_search_score:
+    enabled: false
+    complete_first_cardinality_portfolio: true
+  consolidation:
+    enabled: false
+    container_elimination:
+      enabled: false

@@ -81,13 +81,23 @@ def test_profile_selection_policies_match_their_data_meaning(root: Path):
     largest = select_item_rows(source, 10, strategy="largest_volume")
     heaviest = select_item_rows(source, 10, strategy="heaviest")
     diverse = select_item_rows(source, 10, strategy="volume_stratified")
+    payload_pressure = select_item_rows(source, 10, strategy="payload_pressure")
     largest_volume = largest.length * largest.width * largest.height
     diverse_volume = diverse.length * diverse.width * diverse.height
+    density = source.weight / source_volume
+    selected_density = (
+        payload_pressure.weight
+        / (payload_pressure.length * payload_pressure.width * payload_pressure.height)
+    )
 
     assert largest_volume.min() >= source_volume.nlargest(10).min()
     assert heaviest.weight.min() >= source.weight.nlargest(10).min()
     assert diverse_volume.min() == source_volume.min()
     assert diverse_volume.max() == source_volume.max()
+    assert selected_density.min() >= density.nlargest(10).min()
+    assert payload_pressure.id_item.tolist() == select_item_rows(
+        source, 10, strategy="payload_pressure",
+    ).id_item.tolist()
 
 
 def test_stable_random_requires_an_explicit_selection_seed(root: Path):

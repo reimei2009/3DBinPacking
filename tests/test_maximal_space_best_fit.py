@@ -2,6 +2,9 @@ import pytest
 
 from container_packing.algorithms.heuristics.extreme_point_best_fit import solve_level1 as solve_extreme_point
 from container_packing.algorithms.heuristics.maximal_space_best_fit import solve_level1
+from container_packing.algorithms.heuristics.container_subset_selection import (
+    FixedContainerSubsetSelectionPolicy,
+)
 from container_packing.algorithms.feasibility import ExactSupportFeasibilityPolicy
 from container_packing.algorithms.orientation import horizontal_orientation_provider
 from container_packing.algorithms.heuristics.maximal_space_core import (
@@ -111,6 +114,23 @@ def test_rejects_invalid_subset_limit():
         )
 
 
+def test_secondary_scoring_disabled_keeps_mes_placement_signature() -> None:
+    items = [
+        Item("A", 6, 4, 4, 2), Item("B", 4, 6, 4, 2),
+        Item("C", 4, 4, 6, 2),
+    ]
+    containers = [Container("C1", 10, 10, 10, 100, 10, volume_m3=1e-6)]
+    baseline = solve_level1(items, containers)
+    explicitly_disabled = solve_level1(items, containers, {
+        "container_search": {
+            "secondary_search_score": {"enabled": False},
+        },
+    })
+
+    assert explicitly_disabled.placements == baseline.placements
+    assert "candidate_secondary_scoring_policy" not in explicitly_disabled.metadata
+
+
 def test_maximal_spaces_use_horizontal_orientation_and_exact_support():
     items = [Item("BOTTOM", 10, 20, 5, 1), Item("TOP", 10, 20, 5, 1)]
     containers = [Container("C", 20, 10, 10, 10, 1, volume_m3=0.000002)]
@@ -125,3 +145,53 @@ def test_maximal_spaces_use_horizontal_orientation_and_exact_support():
     assert outcome.metadata["orientation_candidates_evaluated"] >= 3
     assert {placement.orientation_code for placement in outcome.placements} == {"YXZ"}
     assert validate_level3(items, containers, outcome.placements).result.valid
+
+
+def test_seeded_mes_state_matches_full_construction() -> None:
+    items = [Item("I1", 1, 1, 1, 1), Item("I2", 1, 1, 1, 1)]
+    containers = [Container("C1", 2, 1, 1, 2, 1, volume_m3=2e-9)]
+    full = solve_level1(items, containers, {})
+    seed = next(value for value in full.placements if value.item_id == "I1")
+
+    rebuilt = solve_level1(
+        [items[1]], containers, {"construction_initial_placements": [seed]},
+        container_subset_policy=FixedContainerSubsetSelectionPolicy(),
+    )
+
+    assert rebuilt.solve.status == "FEASIBLE"
+    assert sorted(rebuilt.placements, key=lambda value: value.item_id) == sorted(
+        full.placements, key=lambda value: value.item_id,
+    )
+
+
+def test_seeded_mes_rejects_invalid_seed_contract() -> None:
+    item = Item("I1", 1, 1, 1, 1)
+    container = Container("C1", 2, 2, 2, 10, 1, volume_m3=8e-9)
+    outside = Placement("SEED", "UNKNOWN", 0, 0, 0, 1, 1, 1, 1)
+    duplicate = Placement("I1", "C1", 0, 0, 0, 1, 1, 1, 1)
+
+    with pytest.raises(ValueError, match="outside the fixed subset"):
+        solve_level1(
+            [item], [container], {"construction_initial_placements": [outside]},
+        )
+    with pytest.raises(ValueError, match="must be disjoint"):
+        solve_level1(
+            [item], [container], {"construction_initial_placements": [duplicate]},
+        )
+
+
+def test_mes_honors_construction_deadline() -> None:
+    class FakeClock:
+        def __call__(self) -> float:
+            return 2.0
+
+    outcome = solve_level1(
+        [Item("I1", 1, 1, 1, 1)],
+        [Container("C1", 2, 2, 2, 10, 1, volume_m3=8e-9)],
+        {"constructive_deadline_monotonic": 1.0},
+        monotonic_clock=FakeClock(),
+    )
+
+    assert outcome.solve.status == "TIME_LIMIT"
+    assert outcome.solve.objective_value is None
+    assert outcome.metadata["construction_time_limit_reached"] is True

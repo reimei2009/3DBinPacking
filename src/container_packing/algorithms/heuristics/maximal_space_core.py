@@ -45,6 +45,8 @@ class MaximalSpaceStats:
     empty_spaces_pruned: int = 0
     maximum_active_spaces: int = 0
     orientation_candidates_evaluated: int = 0
+    time_limit_reached: bool = False
+    subset_attempts: list[dict[str, object]] = field(default_factory=list)
 
 
 @dataclass
@@ -252,6 +254,52 @@ def place_candidate(
     stats.empty_spaces_pruned += pruned
     stats.maximum_active_spaces = max(stats.maximum_active_spaces, len(state.empty_spaces))
     return placement
+
+
+def initialized_maximal_space_states(
+    containers: tuple[Container, ...],
+    initial_placements: tuple[Placement, ...] = (),
+    *,
+    tolerance: float,
+    policy: PlacementFeasibilityPolicy,
+    stats: MaximalSpaceStats,
+) -> list[MaximalSpaceContainerState]:
+    """Dựng lại MES state từ seed deterministic và kiểm tra seed fail-closed."""
+
+    states = [MaximalSpaceContainerState(value) for value in containers]
+    by_container = {value.container.container_id: value for value in states}
+    seen_items: set[str] = set()
+    for placement in sorted(
+        initial_placements,
+        key=lambda value: (
+            value.container_id, value.z_mm, value.y_mm, value.x_mm, value.item_id,
+        ),
+    ):
+        if placement.item_id in seen_items:
+            raise ValueError(
+                f"construction_initial_placements duplicates item {placement.item_id}"
+            )
+        try:
+            state = by_container[placement.container_id]
+        except KeyError as exc:
+            raise ValueError(
+                "construction_initial_placements references container outside "
+                f"the fixed subset: {placement.container_id}"
+            ) from exc
+        if not policy.allows(
+            state.container,
+            state.placements,
+            placement,
+            loaded_weight_kg=state.loaded_weight_kg,
+            tolerance=tolerance,
+        ):
+            raise ValueError(
+                "construction_initial_placements contains an infeasible seed: "
+                f"{placement.item_id}"
+            )
+        seen_items.add(placement.item_id)
+        place_candidate(state, placement, stats, tolerance)
+    return states
 
 
 def occupied_bounding_volume(

@@ -224,7 +224,9 @@ def test_level7_baseline_best_fit_is_invalid_on_the_same_balance_fixture(root: P
     ))
     run_dir = Path(result.metadata["run_dir"])
     top = next(value for value in result.placements if value.item_id == "TOP")
-    assert result.solve.status == "FEASIBLE"
+    assert result.solve.status == "INVALID_SOLUTION"
+    assert result.solve.objective_value is None
+    assert result.metadata["official_objective"] is None
     assert result.validation is not None and not result.validation.valid
     assert result.metadata["status"] == "INVALID_SOLUTION"
     assert (top.x_mm, top.y_mm, top.z_mm) == (0.0, 0.0, 100.0)
@@ -298,7 +300,9 @@ def test_level7_balance_aware_ffd_selects_balanced_side_within_first_container(r
     assert aware.metadata["first_fit_candidate_selection_policy"].startswith("level_07_first_feasible")
     assert aware.metadata["balance_construction_mode"].startswith("first_feasible_container")
     assert aware.metadata["balance_validation_status"] == "VALID"
-    assert baseline.solve.status == "FEASIBLE"
+    assert baseline.solve.status == "INVALID_SOLUTION"
+    assert baseline.solve.objective_value is None
+    assert baseline.metadata["official_objective"] is None
     assert baseline.validation is not None and not baseline.validation.valid
     assert baseline.metadata["status"] == "INVALID_SOLUTION"
     assert (baseline_top.x_mm, baseline_top.y_mm, baseline_top.z_mm) == (0.0, 0.0, 100.0)
@@ -354,7 +358,9 @@ def test_level7_ffd_negative_control_never_escapes_first_feasible_container(root
     )
     run_dir = Path(result.metadata["run_dir"])
 
-    assert result.solve.status == "FEASIBLE"
+    assert result.solve.status == "INVALID_SOLUTION"
+    assert result.solve.objective_value is None
+    assert result.metadata["official_objective"] is None
     assert result.validation is not None and not result.validation.valid
     assert result.metadata["status"] == "INVALID_SOLUTION"
     assert result.placements[0].container_id == "C1"

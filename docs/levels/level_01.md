@@ -8,14 +8,19 @@ Mỗi kiện giữ orientation cố định. Mục tiêu được so sánh theo 
 1. ít container được sử dụng hơn;
 2. tổng chi phí thực nghiệm thấp hơn.
 
+Artifact mới ghi tuple này trong `official_objective`. Scalar mã hóa theo tổng
+chi phí catalog cũ chỉ còn ở `encoded_solver_objective` để đọc kết quả lịch sử;
+không dùng scalar đó để xếp hạng giữa hai catalog khác nhau.
+
 Các ràng buộc đang hoạt động gồm biên container, không chồng lấn, payload và mỗi
 kiện xuất hiện đúng một lần. Support, stability, rotation, stackability,
 load-bearing, nesting, trọng tâm và thứ tự giao hàng chưa thuộc Level 1.
 
 ## Chế độ tìm kiếm container trong inventory
 
-`container_search` là chế độ opt-in, hiện chỉ hỗ trợ
-`extreme_point_best_fit` và `extreme_point_ffd`.
+`container_search` là chế độ opt-in, hỗ trợ `extreme_point_best_fit`,
+`extreme_point_ffd` và `maximal_space_best_fit`. MES inventory hiện chỉ là
+research comparator cho CLI/benchmark; UI vẫn chỉ expose Best Fit/FFD.
 
 Khi tắt, `instance.container_count` giữ nguyên semantics legacy: chuẩn bị prefix
 container có kích thước tương ứng.
@@ -82,12 +87,32 @@ thái `NOT_PROMOTED`, chưa được tích hợp inventory-aware search hoặc p
 level sau. Xem báo cáo
 `docs/reports/manual/level_01_ep_ffd_gap_fill_baseline_20260805.md`.
 
+## Comparator Projected Extreme Point
+
+`extreme_point_best_fit_projected_ep` và `extreme_point_ffd_projected_ep` là hai
+comparator chỉ dành cho CLI/benchmark. Provider sinh ba EP kề và projection âm
+theo trục, sau đó deduplicate và dominance-prune có kiểm soát. Điểm chiếu chỉ là
+nguồn candidate; boundary, overlap và payload vẫn do feasibility policy Level 1
+kiểm tra đầy đủ. Hai comparator không thay solver mặc định và chưa xuất hiện trên
+Streamlit. Chỉ promote nếu benchmark đạt toàn bộ gate validity, deterministic,
+quality và runtime đã khai báo.
+
+Screening ngày 2026-08-10 cho kết quả `0 WIN / 6 TIE / 0 LOSS`, vì vậy trạng
+thái hiện tại là `NOT_PROMOTED`. Xem
+`docs/reports/manual/level_01_projected_ep_screening_20260810.md`.
+
 ## UI catalog inventory
 
 Với `extreme_point_best_fit` hoặc `extreme_point_ffd`, Streamlit cho phép chọn
 catalog 5, 500/10 type hoặc 5.000/25 type. Catalog 500 và 5.000 là dữ liệu
 sinh tái lập dưới `data/interim/synthetic/`; nếu chưa được sinh, UI dừng an
 toàn và hiển thị lệnh generate thay vì quay về catalog 5 container.
+
+Khi inventory search được bật, checkbox **Cải thiện nghiệm sau construction**
+điều khiển bounded consolidation và container elimination. Người dùng chọn
+budget 3/10/30 giây hoặc tùy chỉnh; mặc định kế thừa profile. Repair tắt thì
+construction và independent validation vẫn giữ nguyên. Repair timeout không
+được làm mất validated incumbent.
 
 UI phân biệt ba đại lượng:
 
@@ -107,9 +132,16 @@ ghi vào metadata/manifest để đối chiếu đúng kho physical giữa các 
 ## Giới hạn
 
 - Chế độ inventory-aware chưa được bật mặc định.
-- MILP, EMS, Hill Climbing và Simulated Annealing chưa dùng contract này.
+- MILP, Hill Climbing và Simulated Annealing chưa dùng contract này. MES đã
+  dùng shared inventory/repair contract nhưng chưa được promote thành solver
+  practical hoặc expose control inventory trên UI.
 - Nhánh catalog lớn là bounded heuristic, không chứng minh đã duyệt toàn bộ subset.
 - Không được gọi nghiệm Level 1 là phương án ổn định vật lý.
+
+KPI phụ `container_search.secondary_search_score` mặc định tắt. Khi bật, nó chỉ
+phân xử candidate complete, independently `VALID` có cùng số container và cùng
+chi phí; Level 1 giữ thành phần support trung tính. Chi tiết xem
+[ADR-0042](../decisions/ADR-0042-kpi-phu-va-mes-inventory-level-2.md).
 
 ## Runtime inventory và composition search
 

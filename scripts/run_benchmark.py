@@ -65,11 +65,16 @@ def main(argv: list[str] | None = None) -> int:
     print("\n=== BENCHMARK SUMMARY ===")
     preview_columns = [
         "level", "scenario_id", "item_selection_strategy", "algorithm", "item_count", "container_count", "run_count", "seed_count",
-        "success_rate", "objective_mean", "objective_std", "used_containers_mean",
+        "success_rate", "encoded_objective_mean_legacy", "encoded_objective_std_legacy", "used_containers_mean",
         "used_containers_std", "total_cost_mean", "total_cost_std", "distinct_solution_count",
         "algorithm_runtime_mean_seconds",
     ]
-    print(result.summary[preview_columns].to_string(index=False))
+    preview = result.summary.rename(columns={
+        "objective_mean": "encoded_objective_mean_legacy",
+        "objective_std": "encoded_objective_std_legacy",
+    })
+    print(preview[preview_columns].to_string(index=False))
+    print("Official ranking: used_container_count, then total_container_cost.")
     print(f"\nBenchmark directory: {result.run_dir}")
     return 0 if result.successful else 2
 

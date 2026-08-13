@@ -1,0 +1,31 @@
+suite_id: level_01_projected_ep_screening_v1
+level_id: level_01
+description: >
+  Controlled Level 1 screening for canonical and projected Extreme Point
+  providers. Every pair shares input, config, seed, and validation contract.
+config: config/level_01/experiments/projected_ep_comparator_local.yaml
+environment: local
+algorithms:
+  - extreme_point_best_fit
+  - extreme_point_best_fit_projected_ep
+  - extreme_point_ffd
+  - extreme_point_ffd_projected_ep
+seeds: [42]
+repeats: 2
+scenarios:
+  - scenario_id: projected_prefix_i20_c5
+    item_count: 20
+    container_count: 5
+    item_selection: prefix
+    tags: [controlled_ab, projected_ep, fixed_orientation]
+  - scenario_id: projected_random_101_i20_c5
+    item_count: 20
+    container_count: 5
+    item_selection: stable_random
+    selection_seed: 101
+    tags: [controlled_ab, projected_ep, fixed_orientation]
+  - scenario_id: projected_largest_i20_c5
+    item_count: 20
+    container_count: 5
+    item_selection: largest_volume
+    tags: [controlled_ab, projected_ep, fixed_orientation]

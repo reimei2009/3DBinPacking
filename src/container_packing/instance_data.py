@@ -21,6 +21,7 @@ ITEM_SELECTION_STRATEGIES = (
     "volume_stratified",
     "largest_volume",
     "heaviest",
+    "payload_pressure",
 )
 
 
@@ -83,9 +84,9 @@ def select_item_rows(
             f"Unsupported item selection strategy {strategy!r}; expected one of {', '.join(ITEM_SELECTION_STRATEGIES)}"
         )
     required = {"id_item"}
-    if strategy in {"volume_stratified", "largest_volume"}:
+    if strategy in {"volume_stratified", "largest_volume", "payload_pressure"}:
         required.update({"length", "width", "height"})
-    if strategy == "heaviest":
+    if strategy in {"heaviest", "payload_pressure"}:
         required.add("weight")
     missing = sorted(required - set(source.columns))
     if missing:
@@ -119,6 +120,12 @@ def select_item_rows(
             selected = indexed.sort_values(
                 ["_weight_kg", "id_item", "_source_row"], ascending=[False, True, True]
             ).head(item_count)
+        elif strategy == "payload_pressure":
+            indexed["_payload_density"] = indexed["_weight_kg"] / indexed["_volume_mm3"]
+            selected = indexed.sort_values(
+                ["_payload_density", "id_item", "_source_row"],
+                ascending=[False, True, True],
+            ).head(item_count)
         else:
             ranked = indexed.sort_values(["_volume_mm3", "id_item", "_source_row"]).reset_index(drop=True)
             if item_count == 1:
@@ -127,7 +134,10 @@ def select_item_rows(
                 positions = [round(index * (len(ranked) - 1) / (item_count - 1)) for index in range(item_count)]
             selected = ranked.iloc[positions]
     return selected.sort_values("_source_row").drop(
-        columns=["_source_row", "_selection_rank", "_volume_mm3", "_weight_kg"], errors="ignore"
+        columns=[
+            "_source_row", "_selection_rank", "_volume_mm3", "_weight_kg",
+            "_payload_density",
+        ], errors="ignore"
     ).reset_index(drop=True)
 
 
@@ -319,6 +329,9 @@ def prepare_instance(
         "volume_stratified": f"{actual_items} rows distributed across the {source_label} volume range",
         "largest_volume": f"{actual_items} largest-volume rows of {source_label}",
         "heaviest": f"{actual_items} heaviest rows of {source_label}",
+        "payload_pressure": (
+            f"{actual_items} highest weight-per-volume rows of {source_label}"
+        ),
     }
     level_label = level_id.replace("_", " ").title()
     items["level1_note"] = f"{selection_notes[strategy]}; advanced fields classified by {level_label} contract"

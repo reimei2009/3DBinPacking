@@ -1,0 +1,74 @@
+schema_version: "1.0"
+benchmarks:
+  - benchmark_id: level_02_generated_random_v2_candidate
+    level_id: level_02
+    kind: research
+    label_vi: "Benchmark V2 ứng viên — phân phối random"
+    description_vi: "60 bài random ở 6 quy mô; đây là tầng chính để đánh giá phân phối."
+    protocol_file: config/level_02/benchmarks/generated_1k_500_random_candidate.yaml
+    run_mode: cli_manual
+    baseline_algorithm: extreme_point_best_fit
+  - benchmark_id: level_02_generated_stress_v2_candidate
+    level_id: level_02
+    kind: research
+    label_vi: "Benchmark V2 ứng viên — stress"
+    description_vi: "18 bài có chủ đích về thể tích, khối lượng và mật độ tải trọng."
+    protocol_file: config/level_02/benchmarks/generated_1k_500_stress_candidate.yaml
+    run_mode: cli_manual
+    baseline_algorithm: extreme_point_best_fit
+  - benchmark_id: level_02_generated_prefix_v2_candidate
+    level_id: level_02
+    kind: research
+    label_vi: "Benchmark V2 ứng viên — hồi quy prefix"
+    description_vi: "6 bài theo thứ tự nguồn để phát hiện hồi quy; không dùng kết luận phân phối."
+    protocol_file: config/level_02/benchmarks/generated_1k_500_prefix_regression.yaml
+    run_mode: cli_manual
+    baseline_algorithm: extreme_point_best_fit
+  - benchmark_id: level_02_generated_canonical_v1
+    level_id: level_02
+    kind: canonical
+    label_vi: "Benchmark chuẩn Level 2 — nguồn 1.000 kiện / kho 500 container"
+    description_vi: "24 bài kiểm tra ở 6 quy mô; Best Fit là mốc đối chiếu."
+    protocol_file: config/level_02/benchmarks/generated_1k_500_distribution_corpus.yaml
+    run_mode: cli_manual
+    baseline_algorithm: extreme_point_best_fit
+  - benchmark_id: level_02_generated_quick_v3
+    level_id: level_02
+    kind: canonical
+    label_vi: "Kiểm tra nhanh benchmark chuẩn"
+    description_vi: "6 bài kiểm tra ở 20, 50 và 100 kiện; chạy trực tiếp trên UI."
+    protocol_file: config/level_02/benchmarks/ui_quick_generated_1k_500_v2.yaml
+    run_mode: ui_quick
+    baseline_algorithm: extreme_point_best_fit
+  - benchmark_id: level_02_repair_ab_v1
+    level_id: level_02
+    kind: research
+    label_vi: "Đánh giá tác động của repair"
+    description_vi: "So sánh Best Fit trước và sau repair ở 100, 300 và 500 kiện."
+    protocol_file: config/level_02/benchmarks/canonical_repair_ab_corpus.yaml
+    run_mode: cli_manual
+    baseline_algorithm: extreme_point_best_fit
+  - benchmark_id: level_02_generated_scale_extended_v1
+    level_id: level_02
+    kind: research
+    label_vi: "Scale gate mở rộng — 750 và 1.000 kiện"
+    description_vi: "48 lượt chạy thủ công; không thuộc benchmark thường xuyên."
+    protocol_file: config/level_02/benchmarks/generated_1k_500_scale_extended_manual.yaml
+    run_mode: cli_manual
+    baseline_algorithm: extreme_point_best_fit
+  - benchmark_id: level_02_mpv_acceptance_v1
+    level_id: level_02
+    kind: academic
+    label_vi: "Benchmark học thuật MPV"
+    description_vi: "27 instance MPV với fixed orientation và exact support của Level 2."
+    protocol_file: config/level_02/benchmarks/mpv_fixed_orientation_acceptance_manual.yaml
+    run_mode: read_only
+    baseline_algorithm: extreme_point_best_fit
+  - benchmark_id: level_02_capacity_repair_legacy_v1
+    level_id: level_02
+    kind: superseded
+    label_vi: "Capacity-aware consolidation — protocol lịch sử"
+    description_vi: "Không phải A/B repair thuần; được thay bằng repair treatment corpus."
+    protocol_file: config/level_02/benchmarks/capacity_aware_consolidation_ab_manual.yaml
+    run_mode: read_only
+    replacement_id: level_02_repair_ab_v1

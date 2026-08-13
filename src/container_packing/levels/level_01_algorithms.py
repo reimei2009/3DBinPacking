@@ -14,6 +14,10 @@ from ..algorithms.exact.milp_big_m import solve_level1 as solve_milp_big_m
 from ..algorithms.heuristics.extreme_point_best_fit import solve as solve_extreme_point_best_fit
 from ..algorithms.heuristics.extreme_point_ffd import solve as solve_extreme_point_ffd
 from ..algorithms.heuristics.extreme_point_ffd_gap_fill import solve as solve_extreme_point_ffd_gap_fill
+from ..algorithms.heuristics.extreme_point_projected import (
+    solve_best_fit_projected,
+    solve_ffd_projected,
+)
 from ..algorithms.heuristics.extreme_point_hill_climbing import solve as solve_extreme_point_hill_climbing
 from ..algorithms.heuristics.maximal_space_best_fit import solve as solve_maximal_space_best_fit
 from ..algorithms.metaheuristics.extreme_point_simulated_annealing import solve as solve_extreme_point_simulated_annealing
@@ -26,6 +30,8 @@ LEVEL_01_EXECUTORS: dict[str, Level01Executor] = {
     "extreme_point_best_fit": solve_extreme_point_best_fit,
     "extreme_point_ffd": solve_extreme_point_ffd,
     "extreme_point_ffd_gap_fill": solve_extreme_point_ffd_gap_fill,
+    "extreme_point_best_fit_projected_ep": solve_best_fit_projected,
+    "extreme_point_ffd_projected_ep": solve_ffd_projected,
     "extreme_point_hill_climbing": solve_extreme_point_hill_climbing,
     "extreme_point_simulated_annealing": solve_extreme_point_simulated_annealing,
     "maximal_space_best_fit": solve_maximal_space_best_fit,
@@ -34,7 +40,7 @@ LEVEL_01_EXECUTORS: dict[str, Level01Executor] = {
 
 _INVENTORY_SEARCH_ORCHESTRATOR = InventorySearchOrchestrator()
 _INVENTORY_SEARCH_ALGORITHMS = frozenset({
-    "extreme_point_best_fit", "extreme_point_ffd",
+    "extreme_point_best_fit", "extreme_point_ffd", "maximal_space_best_fit",
 })
 
 
@@ -72,6 +78,7 @@ def execute_level_01(
             precheck_backend="inventory-aware-level-01-precheck",
             precheck_failure_context="Level 1 instance",
             candidate_validator=candidate_validator,
+            secondary_support_threshold=None,
         ),
         executor,
     )

@@ -1,0 +1,5 @@
+extends: mes_inventory_comparator_base.yaml
+instance: {item_count: 100, container_count: 1}
+container_search:
+  max_used_container_count: 10
+  time_limit_seconds: 60

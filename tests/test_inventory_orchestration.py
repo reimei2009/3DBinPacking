@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import Any
 
 import pytest
@@ -41,6 +42,7 @@ def _request(
         settings={"caller_setting": "preserved"},
         configuration=configuration or _configuration(),
         supported_algorithm_ids=frozenset({"extreme_point_best_fit", "extreme_point_ffd"}),
+        candidate_validator=lambda placements: bool(placements),
     )
 
 
@@ -224,3 +226,146 @@ def test_orchestrator_requires_enabled_configuration() -> None:
         InventorySearchOrchestrator().execute(
             _request(configuration=disabled), lambda *args, **kwargs: _feasible_outcome(),
         )
+
+
+def test_orchestrator_skips_invalid_complete_variant_and_keeps_valid_incumbent() -> None:
+    calls = 0
+
+    def executor(items, containers, settings, *, container_subset_policy):
+        nonlocal calls
+        calls += 1
+        outcome = _feasible_outcome()
+        if calls == 1:
+            outcome.placements[0] = replace(outcome.placements[0], x_mm=-1)
+        return outcome
+
+    request = replace(
+        _request(),
+        candidate_validator=lambda placements: all(value.x_mm >= 0 for value in placements),
+    )
+    outcome = InventorySearchOrchestrator(monotonic_clock=lambda: 100.0).execute(
+        request, executor,
+    )
+
+    assert calls == 2
+    assert outcome.solve.status == "FEASIBLE"
+    assert outcome.placements[0].x_mm == 0
+    assert outcome.metadata["validated_incumbent_rejected_invalid"] == 1
+
+
+def test_large_inventory_acquires_incumbent_with_midpoint_ladder() -> None:
+    items = [Item(f"I{index}", 10, 10, 10, 1) for index in range(9)]
+    containers = [
+        Container(
+            f"C{index:03d}", 10, 10, 10, 10, 5,
+            volume_m3=0.000001,
+            source={"container_type_id": "BOX-A"},
+        )
+        for index in range(30)
+    ]
+    config = ContainerSearchConfiguration.from_mapping({
+        "enabled": True,
+        "initial_used_container_count": 1,
+        "max_used_container_count": 15,
+        "automatically_increase_container_count": True,
+        "time_limit_seconds": None,
+        "incumbent_acquisition": {
+            "enabled": True,
+            "max_subsets_per_cardinality": 2,
+        },
+    })
+    cardinalities: list[int] = []
+
+    def executor(items, containers, settings, *, container_subset_policy):
+        candidates = list(container_subset_policy.candidates(containers, items))
+        cardinality = len(candidates[0])
+        cardinalities.append(cardinality)
+        if cardinality < 12:
+            return AlgorithmOutcome(
+                SolveResult(
+                    "INFEASIBLE_HEURISTIC", "partial", None, None,
+                    OptimizeResult(),
+                ),
+                [], "test-executor",
+                {
+                    "best_partial_placement_count": 8,
+                    "candidate_subsets_evaluated": len(candidates),
+                    "candidate_feasibility_checks": 9,
+                },
+            )
+        placements = [
+            Placement(
+                item.item_id, candidates[0][index].container_id,
+                0, 0, 0, 10, 10, 10, 1,
+            )
+            for index, item in enumerate(items)
+        ]
+        return AlgorithmOutcome(
+            SolveResult("FEASIBLE", "complete", 1.0, None, OptimizeResult()),
+            placements, "test-executor",
+            {
+                "candidate_subsets_evaluated": len(candidates),
+                "candidate_feasibility_checks": 9,
+            },
+        )
+
+    outcome = InventorySearchOrchestrator().execute(
+        _request(items=items, containers=containers, configuration=config),
+        executor,
+    )
+
+    assert outcome.solve.status == "FEASIBLE"
+    assert cardinalities == [9, 12]
+    assert outcome.metadata["incumbent_acquisition_cardinality_ladder"] == [
+        9, 12, 14, 15,
+    ]
+    assert outcome.metadata["incumbent_acquisition_attempt_count"] == 2
+    assert outcome.metadata["validated_incumbent_available"] is True
+
+
+def test_secondary_score_completes_first_valid_cardinality_item_order_portfolio() -> None:
+    configuration = ContainerSearchConfiguration.from_mapping({
+        "enabled": True,
+        "initial_used_container_count": 1,
+        "max_used_container_count": 1,
+        "automatically_increase_container_count": False,
+        "time_limit_seconds": None,
+        "construction_item_order_variants": [
+            "current", "decreasing_weight", "support_difficulty",
+        ],
+        "secondary_search_score": {
+            "enabled": True,
+            "complete_first_cardinality_portfolio": True,
+        },
+    })
+    x_by_call = [4.0, 0.0, 2.0]
+    calls = 0
+
+    def executor(items, containers, settings, *, container_subset_policy):
+        nonlocal calls
+        x_mm = x_by_call[calls]
+        calls += 1
+        return AlgorithmOutcome(
+            SolveResult("FEASIBLE", "complete", 1.0, None, OptimizeResult()),
+            [Placement("I1", "C1", x_mm, 0, 0, 10, 10, 10, 1)],
+            "test-executor",
+            {
+                "candidate_subsets_evaluated": 1,
+                "candidate_feasibility_checks": 1,
+            },
+        )
+
+    outcome = InventorySearchOrchestrator().execute(
+        _request(configuration=configuration), executor,
+    )
+
+    assert calls == 3
+    assert outcome.solve.status == "FEASIBLE"
+    assert outcome.placements[0].x_mm == 0.0
+    assert outcome.metadata["secondary_search_score_portfolio_completed"] is True
+    assert outcome.metadata["secondary_search_score_first_valid_cardinality"] == 1
+    assert outcome.metadata["validated_incumbent_objective"] == {
+        "used_container_count": 1,
+        "total_container_cost": 10.0,
+    }
+    assert outcome.metadata["validated_incumbent_secondary_score"] is not None

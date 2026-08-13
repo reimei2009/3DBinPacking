@@ -1,0 +1,15 @@
+suite_id: level_02_mes_inventory_ep_mes_control_v1
+level_id: level_02
+description: Control EP/MES cùng fleet cap và deadline; repair và KPI phụ đều tắt.
+config: config/level_02/experiments/mes_inventory_gate_500_local.yaml
+environment: local
+algorithms: [extreme_point_best_fit, maximal_space_best_fit]
+seeds: [42]
+repeats: 2
+scenarios:
+  - {scenario_id: control_prefix_i100, item_count: 100, container_count: 1, item_selection: prefix, tags: [manual, control, prefix]}
+  - {scenario_id: control_random_101_i100, item_count: 100, container_count: 1, item_selection: stable_random, selection_seed: 101, tags: [manual, control, stable_random]}
+  - {scenario_id: control_prefix_i300, item_count: 300, container_count: 1, item_selection: prefix, tags: [manual, control, prefix]}
+  - {scenario_id: control_random_101_i300, item_count: 300, container_count: 1, item_selection: stable_random, selection_seed: 101, tags: [manual, control, stable_random]}
+  - {scenario_id: control_prefix_i500, item_count: 500, container_count: 1, item_selection: prefix, tags: [manual, control, prefix]}
+  - {scenario_id: control_random_101_i500, item_count: 500, container_count: 1, item_selection: stable_random, selection_seed: 101, tags: [manual, control, stable_random]}

@@ -1,0 +1,40 @@
+schema_version: "1.1"
+corpus_id: level_02_generated_1k_500_stress_v2_candidate
+level_id: level_02
+environment: local
+seeds: [42]
+repeats: 3
+default_config: config/level_02/experiments/inventory_items_1000_fleet_500.yaml
+matrix:
+  case_prefix: stress
+  benchmark_stratum: stress
+  group: canonical_v2_candidate
+  dataset_family: generated_1k_500_canonical
+  expected_outcome: feasible
+  algorithms:
+    - extreme_point_best_fit
+    - extreme_point_ffd
+    - maximal_space_best_fit
+  scales:
+    - {item_count: 20, time_limit_seconds: 30, scale_bucket: small}
+    - {item_count: 50, time_limit_seconds: 30, scale_bucket: small}
+    - {item_count: 100, time_limit_seconds: 60, scale_bucket: medium}
+    - {item_count: 200, time_limit_seconds: 90, scale_bucket: large}
+    - {item_count: 300, time_limit_seconds: 90, scale_bucket: xlarge}
+    - {item_count: 500, time_limit_seconds: 120, scale_bucket: scale}
+  selections:
+    - {selection_id: largest_volume, item_selection: largest_volume, difficulty: volume_pressure}
+    - {selection_id: heaviest, item_selection: heaviest, difficulty: absolute_payload_pressure}
+    - {selection_id: payload_pressure, item_selection: payload_pressure, difficulty: payload_density_pressure}
+  container_limits:
+    maximum_multiplier: 1.6
+    maximum_extra: 2
+  config_overrides:
+    container_search:
+      enabled: true
+      automatically_increase_container_count: true
+      validation_reserve_seconds: 2
+      secondary_search_score: {enabled: false}
+      consolidation:
+        enabled: false
+        container_elimination: {enabled: false}

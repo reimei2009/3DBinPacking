@@ -1,0 +1,14 @@
+schema_version: "1.0"
+corpus_id: level_02_correctness_micro_v1
+level_id: level_02
+environment: local
+seeds: [42]
+repeats: 1
+default_config: config/level_02/default.yaml
+cases:
+  - {case_id: support_prefix_i1, group: correctness, difficulty: micro, item_count: 1, container_count: 1, expected_outcome: feasible, algorithms: [milp_big_m, extreme_point_best_fit, extreme_point_ffd, maximal_space_best_fit], item_selection: prefix, dataset_family: canonical_small, scale_bucket: micro}
+  - {case_id: support_prefix_i2, group: correctness, difficulty: micro, item_count: 2, container_count: 1, expected_outcome: feasible, algorithms: [milp_big_m, extreme_point_best_fit, extreme_point_ffd, maximal_space_best_fit], item_selection: prefix, dataset_family: canonical_small, scale_bucket: micro}
+  - {case_id: support_prefix_i3, group: correctness, difficulty: micro, item_count: 3, container_count: 2, expected_outcome: feasible, algorithms: [milp_big_m, extreme_point_best_fit, extreme_point_ffd, maximal_space_best_fit], item_selection: prefix, dataset_family: canonical_small, scale_bucket: micro}
+  - {case_id: support_prefix_i5, group: correctness, difficulty: small, item_count: 5, container_count: 3, expected_outcome: feasible, algorithms: [milp_big_m, extreme_point_best_fit, extreme_point_ffd, maximal_space_best_fit], item_selection: prefix, dataset_family: canonical_small, scale_bucket: small}
+  - {case_id: support_prefix_i10, group: correctness, difficulty: small, item_count: 10, container_count: 5, expected_outcome: feasible, algorithms: [extreme_point_best_fit, extreme_point_ffd, maximal_space_best_fit], item_selection: prefix, dataset_family: canonical_small, scale_bucket: small}
+  - {case_id: support_prefix_i20, group: correctness, difficulty: small, item_count: 20, container_count: 5, expected_outcome: feasible, algorithms: [extreme_point_best_fit, extreme_point_ffd, maximal_space_best_fit], item_selection: prefix, dataset_family: canonical_small, scale_bucket: small}

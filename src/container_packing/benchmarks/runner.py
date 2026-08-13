@@ -22,9 +22,22 @@ from ..metrics import packing_tiebreak_metrics, placement_signature
 from ..provenance import runtime_metadata, sha256_file
 from ..reporting import OUTPUT_SCHEMA_VERSION, write_json, write_text
 from ..runtime.project import find_project_root
+from ..runtime.performance import PeakMemorySampler
 from ..runtime.run_context import create_benchmark_directory
 from ..runtime.structured_logging import append_event
 from .analysis import BenchmarkAnalysis, analyze_benchmark
+from .distribution import (
+    build_case_algorithm_summary,
+    build_case_differences,
+    build_case_features,
+    build_distribution_summary,
+    build_pairwise_outcomes,
+)
+from .fingerprint import (
+    experiment_fingerprint,
+    referenced_semantic_file_checksums,
+    semantic_input_fingerprint,
+)
 from .suites import BenchmarkScenario
 
 
@@ -97,24 +110,14 @@ def _input_fingerprint(
             if config["paths"].get("items_source_mapping") else None
         ),
     )
-    payload = {
-        "level": level_id,
-        "scenario_id": scenario.scenario_id,
-        "item_count": scenario.item_count,
-        "container_count": scenario.container_count,
-        **selection,
-        "containers": config.get("containers", []),
-        "model": config.get("model", {}),
-        "support": config.get("support", {}),
-        "orientation": config.get("orientation", {}),
-        "generation_manifest_checksum": (
-            dataset_usage.generation_manifest_checksum if dataset_usage is not None else None
-        ),
-    }
-    import hashlib
-    import json
-
-    return hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
+    return semantic_input_fingerprint(
+        level_id=level_id,
+        scenario=scenario,
+        config=config,
+        root=root,
+        selection=selection,
+        dataset_usage=dataset_usage,
+    )
 
 
 def execute_experiment_case(request: ExperimentRequest, repeat_index: int) -> dict[str, Any]:
@@ -124,12 +127,24 @@ def execute_experiment_case(request: ExperimentRequest, repeat_index: int) -> di
     signature: str | None = None
     bounding_volume: float | None = None
     coordinate_compactness: float | None = None
+    peak_rss_bytes: int | None = None
     try:
-        result = run_experiment(request)
+        with PeakMemorySampler() as memory:
+            result = run_experiment(request)
+        peak_rss_bytes = memory.peak_rss_bytes
         metadata = result.metadata
         validation_valid = bool(result.validation and result.validation.valid)
         status = str(metadata["status"])
         success = status in {"OPTIMAL", "FEASIBLE", "FEASIBLE_TIME_LIMIT"} and validation_valid
+        if not success and (
+            metadata.get("objective_value") is not None
+            or metadata.get("official_objective") is not None
+            or metadata.get("official_secondary_search_score") is not None
+            or metadata.get("diagnostic_secondary_search_score") is not None
+        ):
+            raise ValueError(
+                "Benchmark invariant violated: failed/invalid run reported an objective"
+            )
         if result.placements:
             signature = placement_signature(result.placements)
             bounding_volume, coordinate_compactness = packing_tiebreak_metrics(result.placements)
@@ -139,6 +154,29 @@ def execute_experiment_case(request: ExperimentRequest, repeat_index: int) -> di
         status = "ERROR"
         success = False
         error = f"{type(exc).__name__}: {exc}"
+    wall_runtime_seconds = perf_counter() - started
+    secondary_score = metadata.get("official_secondary_search_score")
+    if not isinstance(secondary_score, dict):
+        secondary_score = {}
+    diagnostic_score = metadata.get("diagnostic_secondary_search_score")
+    if not isinstance(diagnostic_score, dict):
+        diagnostic_score = {}
+    pipeline_runtime_seconds = metadata.get("pipeline_runtime_seconds")
+    reporting_runtime_seconds = None
+    if isinstance(pipeline_runtime_seconds, int | float):
+        reporting_runtime_seconds = max(
+            0.0, wall_runtime_seconds - float(pipeline_runtime_seconds)
+        )
+    aggregate_lower_bound = next((
+        metadata.get(key)
+        for key in (
+            "aggregate_lower_bound",
+            "container_subset_aggregate_lower_bound",
+            "capacity_limit_aggregate_lower_bound",
+            "container_count_lower_bound",
+        )
+        if metadata.get(key) is not None
+    ), None)
     return {
         "level": request.level_id,
         "algorithm": request.algorithm_id,
@@ -150,13 +188,47 @@ def execute_experiment_case(request: ExperimentRequest, repeat_index: int) -> di
         "validation_valid": validation_valid,
         "success": success,
         "objective_value": metadata.get("objective_value"),
+        "encoded_solver_objective": metadata.get("encoded_solver_objective"),
+        "official_objective": metadata.get("official_objective"),
+        "official_secondary_search_score": metadata.get(
+            "official_secondary_search_score"
+        ),
+        "secondary_utilization_concentration": secondary_score.get(
+            "utilization_concentration"
+        ),
+        "secondary_internal_void_ratio": secondary_score.get(
+            "internal_void_ratio"
+        ),
+        "secondary_minimum_support_margin": secondary_score.get(
+            "minimum_support_margin"
+        ),
+        "diagnostic_secondary_search_score": metadata.get(
+            "diagnostic_secondary_search_score"
+        ),
+        "diagnostic_secondary_utilization_concentration": diagnostic_score.get(
+            "utilization_concentration"
+        ),
+        "diagnostic_secondary_internal_void_ratio": diagnostic_score.get(
+            "internal_void_ratio"
+        ),
+        "diagnostic_secondary_minimum_support_margin": diagnostic_score.get(
+            "minimum_support_margin"
+        ),
         "used_container_count": metadata.get("container_count"),
         "total_container_cost": metadata.get("total_container_cost"),
         "occupied_bounding_volume_mm3": bounding_volume,
         "coordinate_compactness_mm": coordinate_compactness,
         "placement_signature": signature,
         "algorithm_runtime_seconds": metadata.get("algorithm_runtime_seconds"),
-        "wall_runtime_seconds": perf_counter() - started,
+        "wall_runtime_seconds": wall_runtime_seconds,
+        "reporting_runtime_seconds": reporting_runtime_seconds,
+        "peak_rss_bytes": peak_rss_bytes,
+        "pipeline_phase_runtime_seconds": metadata.get(
+            "pipeline_phase_runtime_seconds"
+        ),
+        "inventory_search_phase_runtime_seconds": metadata.get(
+            "inventory_search_phase_runtime_seconds"
+        ),
         "experiment_run_id": metadata.get("run_id"),
         "experiment_run_dir": metadata.get("run_dir"),
         "error": error,
@@ -167,6 +239,47 @@ def execute_experiment_case(request: ExperimentRequest, repeat_index: int) -> di
         "minimum_exact_support_ratio": metadata.get("minimum_exact_support_ratio"),
         "orientation_profile": metadata.get("orientation_profile"),
         "orientation_candidates_evaluated": metadata.get("orientation_candidates_evaluated"),
+        "candidate_feasibility_checks": metadata.get("candidate_feasibility_checks"),
+        "extreme_points_evaluated": metadata.get("extreme_points_evaluated"),
+        "candidate_subsets_evaluated": metadata.get("candidate_subsets_evaluated"),
+        "aggregate_lower_bound": aggregate_lower_bound,
+        "container_consolidation_candidates_evaluated": metadata.get(
+            "container_consolidation_candidates_evaluated"
+        ),
+        "container_consolidation_attempted": metadata.get(
+            "container_consolidation_attempted"
+        ),
+        "container_consolidation_initial_count": metadata.get(
+            "container_consolidation_initial_count"
+        ),
+        "container_consolidation_final_count": metadata.get(
+            "container_consolidation_final_count"
+        ),
+        "container_consolidation_runtime_seconds": metadata.get(
+            "container_consolidation_runtime_seconds"
+        ),
+        "container_consolidation_termination_reason": metadata.get(
+            "container_consolidation_termination_reason"
+        ),
+        "best_partial_placement_count": metadata.get(
+            "best_partial_placement_count"
+        ),
+        "incumbent_acquisition_cardinality_ladder": metadata.get(
+            "incumbent_acquisition_cardinality_ladder"
+        ),
+        "incumbent_acquisition_attempt_count": metadata.get(
+            "incumbent_acquisition_attempt_count"
+        ),
+        "validated_incumbent_candidates_considered": metadata.get(
+            "validated_incumbent_candidates_considered"
+        ),
+        "search_termination_reason": metadata.get(
+            "inventory_search_termination_reason",
+            metadata.get(
+                "container_consolidation_termination_reason",
+                metadata.get("construction_termination_reason"),
+            ),
+        ),
     }
 
 
@@ -186,14 +299,22 @@ def annotate_reference_gaps(
     references: list[dict[str, Any]] = []
     for group_values, group in frame.groupby(keys, sort=True, dropna=False):
         values = group_values if isinstance(group_values, tuple) else (group_values,)
-        successful = group[group["success"].astype(bool) & group["objective_value"].notna()]
+        successful = group[
+            group["success"].astype(bool)
+            & group["official_objective"].notna()
+            & group["used_container_count"].notna()
+            & group["total_container_cost"].notna()
+        ]
         optimal = successful[successful["status"] == "OPTIMAL"]
         if not optimal.empty:
             candidates = optimal
             reference_kind = "proven_optimal"
         elif not successful.empty:
             candidates = successful
-            reference_kind = "best_known"
+            # This is only the best result observed inside the current corpus
+            # and input fingerprint. It is not an externally established
+            # best-known value and must not imply academic optimality.
+            reference_kind = "best_observed"
         else:
             candidates = successful
             reference_kind = (
@@ -213,7 +334,7 @@ def annotate_reference_gaps(
             })
         else:
             chosen = candidates.sort_values(
-                ["objective_value", "algorithm_runtime_seconds", "algorithm"],
+                ["used_container_count", "total_container_cost", "algorithm_runtime_seconds", "algorithm"],
                 na_position="last",
             ).iloc[0]
             reference.update({
@@ -238,9 +359,19 @@ def annotate_reference_gaps(
 def aggregate_results(frame: pd.DataFrame, *, extra_group_keys: Sequence[str] = ()) -> pd.DataFrame:
     """Aggregate runtime over repeats and quality over one value per seed."""
     frame = frame.copy()
+    _validate_benchmark_objective_invariant(frame)
     for column in (
         "feasibility_policy", "support_threshold", "minimum_exact_support_ratio", "orientation_profile",
-        "orientation_candidates_evaluated",
+        "orientation_candidates_evaluated", "peak_rss_bytes",
+        "reporting_runtime_seconds",
+        "candidate_feasibility_checks", "extreme_points_evaluated",
+        "candidate_subsets_evaluated",
+        "container_consolidation_candidates_evaluated",
+        "secondary_utilization_concentration", "secondary_internal_void_ratio",
+        "secondary_minimum_support_margin",
+        "diagnostic_secondary_utilization_concentration",
+        "diagnostic_secondary_internal_void_ratio",
+        "diagnostic_secondary_minimum_support_margin",
     ):
         if column not in frame:
             frame[column] = None
@@ -255,6 +386,15 @@ def aggregate_results(frame: pd.DataFrame, *, extra_group_keys: Sequence[str] = 
         algorithm_runtime_mean_seconds=("algorithm_runtime_seconds", "mean"),
         algorithm_runtime_std_seconds=("algorithm_runtime_seconds", "std"),
         wall_runtime_mean_seconds=("wall_runtime_seconds", "mean"),
+        reporting_runtime_mean_seconds=("reporting_runtime_seconds", "mean"),
+        peak_rss_mean_bytes=("peak_rss_bytes", "mean"),
+        peak_rss_max_bytes=("peak_rss_bytes", "max"),
+        candidate_feasibility_checks_mean=("candidate_feasibility_checks", "mean"),
+        extreme_points_evaluated_mean=("extreme_points_evaluated", "mean"),
+        candidate_subsets_evaluated_mean=("candidate_subsets_evaluated", "mean"),
+        consolidation_candidates_evaluated_mean=(
+            "container_consolidation_candidates_evaluated", "mean",
+        ),
         distinct_solution_count=("placement_signature", "nunique"),
         feasibility_policy=("feasibility_policy", "first"),
         support_threshold=("support_threshold", "first"),
@@ -268,13 +408,34 @@ def aggregate_results(frame: pd.DataFrame, *, extra_group_keys: Sequence[str] = 
         "occupied_bounding_volume_mm3": ("occupied_bounding_volume_mm3", "mean"),
         "coordinate_compactness_mm": ("coordinate_compactness_mm", "mean"),
         "minimum_exact_support_ratio": ("minimum_exact_support_ratio", "min"),
+        "secondary_utilization_concentration": (
+            "secondary_utilization_concentration", "mean",
+        ),
+        "secondary_internal_void_ratio": (
+            "secondary_internal_void_ratio", "mean",
+        ),
+        "secondary_minimum_support_margin": (
+            "secondary_minimum_support_margin", "min",
+        ),
+        "diagnostic_secondary_utilization_concentration": (
+            "diagnostic_secondary_utilization_concentration", "mean",
+        ),
+        "diagnostic_secondary_internal_void_ratio": (
+            "diagnostic_secondary_internal_void_ratio", "mean",
+        ),
+        "diagnostic_secondary_minimum_support_margin": (
+            "diagnostic_secondary_minimum_support_margin", "min",
+        ),
     }
     if "objective_gap_absolute" in frame.columns:
         per_seed_aggregations.update({
             "objective_gap_absolute": ("objective_gap_absolute", "mean"),
             "objective_gap_percent": ("objective_gap_percent", "mean"),
         })
-    per_seed = frame.groupby(
+    quality_source = frame[
+        frame["success"].astype(bool) & frame["official_objective"].notna()
+    ].copy()
+    per_seed = quality_source.groupby(
         [*keys, "random_seed"], sort=True, dropna=False,
     ).agg(**per_seed_aggregations)
 
@@ -296,6 +457,24 @@ def aggregate_results(frame: pd.DataFrame, *, extra_group_keys: Sequence[str] = 
         "coordinate_compactness_mean_mm": ("coordinate_compactness_mm", "mean"),
         "coordinate_compactness_std_mm": ("coordinate_compactness_mm", "std"),
         "minimum_exact_support_ratio_min": ("minimum_exact_support_ratio", "min"),
+        "secondary_utilization_concentration_mean": (
+            "secondary_utilization_concentration", "mean",
+        ),
+        "secondary_internal_void_ratio_mean": (
+            "secondary_internal_void_ratio", "mean",
+        ),
+        "secondary_minimum_support_margin_min": (
+            "secondary_minimum_support_margin", "min",
+        ),
+        "diagnostic_secondary_utilization_concentration_mean": (
+            "diagnostic_secondary_utilization_concentration", "mean",
+        ),
+        "diagnostic_secondary_internal_void_ratio_mean": (
+            "diagnostic_secondary_internal_void_ratio", "mean",
+        ),
+        "diagnostic_secondary_minimum_support_margin_min": (
+            "diagnostic_secondary_minimum_support_margin", "min",
+        ),
     }
     if "objective_gap_absolute" in per_seed.columns:
         quality_aggregations.update({
@@ -314,6 +493,29 @@ def aggregate_results(frame: pd.DataFrame, *, extra_group_keys: Sequence[str] = 
         "occupied_bounding_volume_std_mm3": 0.0,
         "coordinate_compactness_std_mm": 0.0,
     })
+
+
+def _validate_benchmark_objective_invariant(frame: pd.DataFrame) -> None:
+    """Failure rows không được tham gia quality/ranking dưới bất kỳ hình thức nào."""
+
+    required = {"success", "objective_value", "used_container_count", "total_container_cost"}
+    missing = sorted(required - set(frame.columns))
+    if missing:
+        raise ValueError("Benchmark results are missing required columns: " + ", ".join(missing))
+    failures = ~frame["success"].astype(bool)
+    leaked = failures & frame["objective_value"].notna()
+    for column in (
+        "official_objective", "official_secondary_search_score",
+        "diagnostic_secondary_search_score",
+    ):
+        if column in frame:
+            leaked |= failures & frame[column].notna()
+    if bool(leaked.any()):
+        indexes = ", ".join(str(value) for value in frame.index[leaked].tolist())
+        raise ValueError(
+            "Failed/invalid benchmark rows must not report objective quality; "
+            f"violating row indexes: {indexes}"
+        )
 
 
 def _aggregate(frame: pd.DataFrame) -> pd.DataFrame:
@@ -429,6 +631,9 @@ def run_benchmark(
                 ],
                 "item_selection_strategy": value.item_selection_strategy,
                 "item_selection_seed": value.item_selection_seed,
+                "dataset_family": value.dataset_family,
+                "scale_bucket": value.scale_bucket,
+                "expected_outcome": value.expected_outcome,
                 "raw_items_checksum": scenario_selections[value.scenario_id]["raw_items_checksum"],
                 "selected_item_ids": scenario_selections[value.scenario_id]["selected_item_ids"],
                 "selected_item_ids_checksum": scenario_selections[value.scenario_id]["selected_item_ids_checksum"],
@@ -468,9 +673,18 @@ def run_benchmark(
                     "scenario_id": scenario.scenario_id,
                     "scenario_description": scenario.description,
                     "scenario_tags": ",".join(scenario.tags),
+                    "dataset_family": scenario.dataset_family,
+                    "scale_bucket": scenario.scale_bucket,
+                    "expected_outcome": scenario.expected_outcome,
                     "item_selection_strategy": scenario.item_selection_strategy,
                     "item_selection_seed": scenario.item_selection_seed,
                     "input_fingerprint": fingerprint,
+                    "experiment_fingerprint": experiment_fingerprint(
+                        input_fingerprint=fingerprint,
+                        algorithm_id=algorithm_id,
+                        random_seed=random_seed,
+                        config=config,
+                    ),
                     **execute_experiment_case(request, repeat_index),
                 }
                 rows.append(row)
@@ -481,7 +695,8 @@ def run_benchmark(
         results,
         extra_group_keys=(
             "suite_id", "scenario_id", "scenario_description", "scenario_tags",
-            "item_selection_strategy", "item_selection_seed", "input_fingerprint",
+            "item_selection_strategy", "item_selection_seed", "dataset_family",
+            "scale_bucket", "expected_outcome", "input_fingerprint",
         ),
     )
     results.to_csv(benchmark_dir / "results.csv", index=False, encoding="utf-8")
@@ -491,6 +706,20 @@ def run_benchmark(
     analysis.pairwise_comparison.to_csv(benchmark_dir / "pairwise_comparison.csv", index=False, encoding="utf-8")
     analysis.pareto_frontier.to_csv(benchmark_dir / "pareto_frontier.csv", index=False, encoding="utf-8")
     analysis.milp_reference_gaps.to_csv(benchmark_dir / "milp_reference_gaps.csv", index=False, encoding="utf-8")
+    case_features = build_case_features(results)
+    case_algorithm_summary = build_case_algorithm_summary(results)
+    case_differences = build_case_differences(results)
+    pairwise_outcomes = build_pairwise_outcomes(results)
+    distribution_summary = build_distribution_summary(results)
+    case_features.to_csv(benchmark_dir / "case_features.csv", index=False, encoding="utf-8")
+    case_algorithm_summary.to_csv(
+        benchmark_dir / "case_algorithm_summary.csv", index=False, encoding="utf-8",
+    )
+    case_differences.to_csv(
+        benchmark_dir / "case_differences.csv", index=False, encoding="utf-8",
+    )
+    pairwise_outcomes.to_csv(benchmark_dir / "pairwise_outcomes.csv", index=False, encoding="utf-8")
+    distribution_summary.to_csv(benchmark_dir / "distribution_summary.csv", index=False, encoding="utf-8")
     write_json(benchmark_dir / "summary.json", {
         "schema_version": OUTPUT_SCHEMA_VERSION,
         "rows": summary.to_dict(orient="records"),
@@ -524,13 +753,25 @@ def run_benchmark(
         "config_file": str(config_file),
         "resolved_config_checksum": sha256_file(resolved_config_path),
         "dataset_usage": dataset_usage.to_dict() if dataset_usage is not None else None,
+        "dataset_provenance": {
+            "raw_items_checksum": sha256_file(raw_items_path),
+            "container_catalog_checksum": (
+                dataset_usage.containers_checksum if dataset_usage is not None else
+                referenced_semantic_file_checksums(config, root=root).get(
+                    "paths.raw_containers_csv"
+                )
+            ),
+        },
         "source_runs": [value for value in results["experiment_run_dir"].dropna().tolist()],
         "artifacts": {
             "canonical": ["manifest.json", "resolved_config.yaml", "benchmark/request.json", "benchmark/results.csv"],
             "derived": [
                 "benchmark/summary.csv", "benchmark/summary.json", "benchmark/ranking.csv",
                 "benchmark/pairwise_comparison.csv", "benchmark/pareto_frontier.csv",
-                "benchmark/milp_reference_gaps.csv", "reports/summary.md",
+                "benchmark/milp_reference_gaps.csv", "benchmark/case_features.csv",
+                "benchmark/case_algorithm_summary.csv", "benchmark/case_differences.csv",
+                "benchmark/pairwise_outcomes.csv", "benchmark/distribution_summary.csv",
+                "reports/summary.md",
             ],
             "diagnostics": ["logs/run.log"],
         },

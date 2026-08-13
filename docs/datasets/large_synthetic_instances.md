@@ -131,3 +131,15 @@ The versioned inspection baseline is recorded in
 `docs/reports/manual/generated_dataset_scale_baseline_20260803.md`. Profile
 configuration availability must not be confused with validation: one-million
 item profiles were deliberately not executed in the current R&D phase.
+## View solver-research Level 2 tối đa 20.000/5.000
+
+Corpus `empirical_scale_100k_5k_v1` tiếp tục là `data_pipeline_only`. Công cụ
+`scripts/materialize_level2_solver_research.py` chỉ đọc corpus này và tạo một view
+prefix bất biến dưới `data/interim`, tối đa 20.000 item cùng 5.000 container. Công cụ
+tính lại schema, ID uniqueness, fixed-orientation compatibility, checksum, volume và
+payload margin; chỉ publish manifest `solver_research` khi mọi gate dữ liệu đạt yêu
+cầu. Đây là qualification dữ liệu, chưa phải bằng chứng runtime của solver.
+
+Sau benchmark scale thủ công, `scripts/qualify_level2_large_web_profile.py` xác minh
+trạng thái, objective leakage, deterministic repeat và peak memory. Chỉ gate artifact
+khớp generation-manifest hiện tại mới làm profile xuất hiện trên Streamlit.

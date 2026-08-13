@@ -9,10 +9,13 @@ from container_packing.application.service import (
     discover_benchmark_runs,
     discover_runs,
     execute_benchmark_comparison,
+    get_benchmark_input_provenance,
     get_inventory_request_preview,
     get_instance_limits,
+    resolve_active_data_context,
 )
 from container_packing.data_loader import load_config
+from container_packing.benchmarks.legacy_audit import audit_level2_default_source_benchmarks
 
 
 def test_web_application_boundary_builds_registry_validated_request(root):
@@ -87,6 +90,50 @@ def test_inventory_request_preview_reports_proven_container_limit_deficit(root):
     assert preview.volume_deficit_m3 > 0 or preview.payload_deficit_kg > 0
 
 
+def test_generated_level2_benchmark_preview_uses_qualified_profile_and_capacity_gate(root):
+    config = root / "config/level_02/experiments/inventory_items_1000_fleet_500.yaml"
+    provenance = get_benchmark_input_provenance(config, root=root)
+    assert provenance.dataset_profile_id == "level_02_inventory_items_1000_fleet_500_t10_v1"
+    assert provenance.available_item_count == 1000
+    assert provenance.physical_container_count == 500
+    assert provenance.raw_items_checksum != (
+        "33cc4d74b04c34714f1c3ed639396deda5c087a408214f6541d744142b239a1e"
+    )
+
+    blocked = get_inventory_request_preview(
+        config, item_count=500, initial_used_container_count=10,
+        max_used_container_count=10, root=root,
+    )
+    assert blocked.aggregate_lower_bound == 14
+    assert not blocked.capacity_limit_valid
+    assert blocked.payload_deficit_kg > 36_000
+
+    for maximum in (20, 50):
+        allowed = get_inventory_request_preview(
+            config, item_count=500, initial_used_container_count=14,
+            max_used_container_count=maximum, root=root,
+        )
+        assert allowed.aggregate_lower_bound == 14
+        assert allowed.capacity_limit_valid
+
+
+def test_level2_active_data_context_is_the_generated_solver_source(root):
+    context = resolve_active_data_context(
+        "level_02",
+        root / "config/level_02/experiments/inventory_items_1000_fleet_500.yaml",
+        root=root,
+    )
+
+    assert context.level_id == "level_02"
+    assert context.profile_id == "level_02_inventory_items_1000_fleet_500_t10_v1"
+    assert context.available_item_count == 1000
+    assert context.physical_container_count == 500
+    assert context.solver_acceptance_allowed
+    assert context.raw_items_checksum != (
+        "33cc4d74b04c34714f1c3ed639396deda5c087a408214f6541d744142b239a1e"
+    )
+
+
 def test_run_discovery_is_level_isolated(tmp_path):
     (tmp_path / "pyproject.toml").write_text("[project]\nname='fixture'\n", encoding="utf-8")
     (tmp_path / "config").mkdir()
@@ -137,7 +184,67 @@ def test_benchmark_discovery_requires_benchmark_artifacts(tmp_path):
     assert len(benchmarks) == 1
     assert benchmarks[0].run_id == "benchmark-1"
     assert benchmarks[0].case_count == 4
+    assert benchmarks[0].execution_count == 4
+    assert benchmarks[0].successful_execution_count == 4
     assert benchmarks[0].random_seeds == (7, 11)
+
+
+def test_benchmark_discovery_filters_to_the_active_profile(tmp_path):
+    (tmp_path / "pyproject.toml").write_text("[project]\nname='fixture'\n", encoding="utf-8")
+    for run_id, config_file, profile in (
+        ("generated", str(tmp_path / "generated.yaml"), "generated_1k"),
+        ("default", str(tmp_path / "default.yaml"), None),
+    ):
+        run_dir = tmp_path / "outputs/level_02/runs" / run_id
+        (run_dir / "benchmark").mkdir(parents=True)
+        (run_dir / "benchmark/summary.csv").write_text("algorithm\nextreme_point_ffd\n", encoding="utf-8")
+        (run_dir / "benchmark/results.csv").write_text("algorithm\nextreme_point_ffd\n", encoding="utf-8")
+        (run_dir / "manifest.json").write_text(json.dumps({
+            "run_id": run_id, "run_type": "benchmark", "level": "level_02",
+            "status": "SUCCESS", "created_at_utc": "2026-01-01T00:00:00Z",
+            "case_count": 1, "successful_case_count": 1, "random_seeds": [42],
+            "config_file": config_file,
+            "dataset_usage": {"profile_id": profile} if profile else None,
+            "dataset_provenance": {"raw_items_checksum": run_id, "container_catalog_checksum": "catalog"},
+        }), encoding="utf-8")
+    selected = discover_benchmark_runs(
+        "level_02", root=tmp_path, config_file=tmp_path / "generated.yaml",
+        dataset_profile_id="generated_1k",
+        expected_raw_items_checksum="generated",
+        expected_container_catalog_checksum="catalog",
+    )
+    assert [artifact.run_id for artifact in selected] == ["generated"]
+    assert selected[0].raw_items_checksum == "generated"
+    assert selected[0].container_catalog_checksum == "catalog"
+
+
+def test_legacy_audit_is_read_only_and_selects_only_default_interactive_runs(tmp_path):
+    (tmp_path / "pyproject.toml").write_text("[project]\nname='fixture'\n", encoding="utf-8")
+    source = tmp_path / "outputs/level_02/runs/source"
+    source.mkdir(parents=True)
+    (source / "payload.txt").write_text("source", encoding="utf-8")
+    candidate = tmp_path / "outputs/level_02/runs/candidate"
+    (candidate / "benchmark").mkdir(parents=True)
+    (candidate / "manifest.json").write_text(json.dumps({
+        "run_id": "candidate", "run_type": "benchmark", "level": "level_02",
+        "suite_id": "level_02_interactive_comparison",
+        "config_file": str(tmp_path / "config/level_02/default.yaml"),
+        "source_runs": [str(source)],
+    }), encoding="utf-8")
+    unrelated = tmp_path / "outputs/level_02/runs/generated"
+    unrelated.mkdir(parents=True)
+    (unrelated / "manifest.json").write_text(json.dumps({
+        "run_type": "benchmark", "level": "level_02",
+        "suite_id": "other", "config_file": "config/level_02/default.yaml",
+    }), encoding="utf-8")
+    benchmarks, sources = audit_level2_default_source_benchmarks(tmp_path)
+    assert benchmarks.benchmark_run_id.tolist() == ["candidate"]
+    assert sources.source_run_dir.tolist() == [str(source.resolve())]
+    assert benchmarks.iloc[0].recommended_action == "review_then_delete"
+    assert benchmarks.iloc[0].can_regenerate
+    assert sources.iloc[0].recommended_action == "retain_until_reference_audit"
+    assert sources.iloc[0].referenced_by_benchmark_ids == ["candidate"]
+    assert (source / "payload.txt").read_text(encoding="utf-8") == "source"
 
 
 def test_interactive_benchmark_uses_one_shared_instance(root: Path, tmp_path: Path):
@@ -167,6 +274,59 @@ def test_interactive_benchmark_uses_one_shared_instance(root: Path, tmp_path: Pa
     assert set(result.results["scenario_id"]) == {"interactive_i1_c2"}
     assert result.results["input_fingerprint"].nunique() == 1
     assert set(result.results["item_selection_strategy"]) == {"stable_random"}
+    for filename in ("case_features.csv", "pairwise_outcomes.csv", "distribution_summary.csv"):
+        assert (result.run_dir / "benchmark" / filename).is_file()
+
+
+def test_level2_generated_interactive_benchmark_persists_the_active_source(
+    root: Path, tmp_path: Path,
+) -> None:
+    config = load_config(
+        root / "config/level_02/experiments/inventory_items_1000_fleet_500.yaml"
+    )
+    config["paths"]["processed_dir"] = str(tmp_path / "processed/level_02")
+    config["paths"]["manifest_json"] = str(
+        tmp_path / "processed/level_02/latest_manifest.json"
+    )
+    config["paths"]["output_root"] = str(tmp_path / "outputs")
+    config_path = tmp_path / "level_02_generated.yaml"
+    config_path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
+    context = resolve_active_data_context("level_02", config_path, root=root)
+
+    result = execute_benchmark_comparison(
+        level_id="level_02",
+        algorithm_ids=["extreme_point_ffd", "extreme_point_best_fit"],
+        item_count=1,
+        container_count=1,
+        seeds=[7],
+        repeats=1,
+        config_path=config_path,
+        root=root,
+        config_overrides={
+            "container_search": {
+                "enabled": True,
+                "initial_used_container_count": 1,
+                "max_used_container_count": 1,
+                "time_limit_seconds": 10,
+                "validation_reserve_seconds": 2,
+                "consolidation": {"enabled": False},
+            },
+        },
+    )
+
+    manifest = json.loads((result.run_dir / "manifest.json").read_text(encoding="utf-8"))
+    request = json.loads(
+        (result.run_dir / "benchmark/request.json").read_text(encoding="utf-8")
+    )
+    provenance = manifest["dataset_provenance"]
+    assert result.successful
+    assert request["config_file"] == str(config_path.resolve())
+    assert request["scenarios"][0]["item_count"] == 1
+    assert request["scenarios"][0]["container_count"] == 1
+    assert request["config_overrides"]["container_search"]["max_used_container_count"] == 1
+    assert provenance["raw_items_checksum"] == context.raw_items_checksum
+    assert provenance["container_catalog_checksum"] == context.container_catalog_checksum
+    assert result.results["input_fingerprint"].nunique() == 1
 
 
 def test_interactive_benchmark_requires_two_algorithms(root: Path):

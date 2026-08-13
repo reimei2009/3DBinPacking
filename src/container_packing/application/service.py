@@ -14,6 +14,7 @@ import pandas as pd
 from ..algorithms.registry import get_algorithm
 from ..benchmarks import BenchmarkResult, BenchmarkScenario, run_benchmark
 from ..data_loader import load_config
+from ..dataset_usage import DatasetExecutionIntent, validate_dataset_usage
 from ..experiments.contracts import ExperimentRequest
 from ..experiments.runner import run_experiment
 from ..instance_data import (
@@ -32,6 +33,7 @@ from ..algorithms.search.precheck import (
 from ..schemas import Container, Item
 from ..source_adapter import SourceAdapterError, load_csv_source
 from ..schemas import RunResult
+from ..provenance import sha256_file
 
 
 @dataclass(frozen=True)
@@ -83,6 +85,33 @@ class InventoryRequestPreview:
 
 
 @dataclass(frozen=True)
+class BenchmarkInputProvenance:
+    """Nguồn dữ liệu đã resolve dùng cho preview benchmark trên frontend."""
+
+    config_file: str
+    dataset_profile_id: str | None
+    raw_items_checksum: str
+    container_catalog_checksum: str | None
+    available_item_count: int
+    physical_container_count: int
+
+
+@dataclass(frozen=True)
+class ActiveDataContext:
+    """Nguồn dữ liệu duy nhất được chia sẻ bởi experiment và benchmark trên UI."""
+
+    level_id: str
+    config_file: str
+    profile_id: str | None
+    available_item_count: int
+    physical_container_count: int
+    raw_items_checksum: str
+    container_catalog_checksum: str | None
+    usage_class: str
+    solver_acceptance_allowed: bool
+
+
+@dataclass(frozen=True)
 class RunArtifact:
     run_id: str
     run_dir: Path
@@ -104,8 +133,16 @@ class BenchmarkArtifact:
     created_at_utc: str
     case_count: int
     successful_case_count: int
+    execution_count: int
+    successful_execution_count: int
     random_seeds: tuple[int, ...]
     repeats_per_seed: int | None
+    run_type: str = "benchmark"
+    suite_id: str | None = None
+    config_file: str | None = None
+    dataset_profile_id: str | None = None
+    raw_items_checksum: str | None = None
+    container_catalog_checksum: str | None = None
 
 
 def _root(root: str | Path | None = None) -> Path:
@@ -143,6 +180,80 @@ def get_instance_limits(config_path: str | Path, *, root: str | Path | None = No
     if configured_containers <= 0:
         raise ValueError(f"Config {config_path} does not define any base containers")
     return InstanceLimits(available_items=available_items, configured_containers=configured_containers)
+
+
+def get_benchmark_input_provenance(
+    config_path: str | Path,
+    *,
+    root: str | Path | None = None,
+) -> BenchmarkInputProvenance:
+    """Resolve checksum/profile trước benchmark mà không tạo output hay gọi solver."""
+    project_root = _root(root)
+    resolved_config = _resolve(project_root, config_path)
+    config = load_config(resolved_config)
+    usage = validate_dataset_usage(
+        project_root, config, DatasetExecutionIntent.BENCHMARK_ACCEPTANCE,
+    )
+    limits = get_instance_limits(resolved_config, root=project_root)
+    raw_items = _resolve(project_root, config["paths"]["raw_items_csv"])
+    raw_containers_value = config.get("paths", {}).get("raw_containers_csv")
+    catalog_checksum = (
+        sha256_file(_resolve(project_root, raw_containers_value))
+        if raw_containers_value else None
+    )
+    return BenchmarkInputProvenance(
+        config_file=str(resolved_config),
+        dataset_profile_id=usage.profile_id if usage is not None else None,
+        raw_items_checksum=sha256_file(raw_items),
+        container_catalog_checksum=(
+            usage.containers_checksum if usage is not None else catalog_checksum
+        ),
+        available_item_count=limits.available_items,
+        physical_container_count=limits.configured_containers,
+    )
+
+
+def resolve_active_data_context(
+    level_id: str,
+    config_path: str | Path,
+    *,
+    root: str | Path | None = None,
+) -> ActiveDataContext:
+    """Resolve một data context bất biến, đủ điều kiện cho solver và benchmark."""
+    project_root = _root(root)
+    get_level(level_id)
+    resolved_config = _resolve(project_root, config_path)
+    config = load_config(resolved_config)
+    configured_level = str(config.get("project", {}).get("level_id", level_id))
+    if configured_level != level_id:
+        raise ValueError(
+            f"Active data config belongs to {configured_level}, not requested {level_id}"
+        )
+    usage = validate_dataset_usage(
+        project_root, config, DatasetExecutionIntent.SOLVER_EXPERIMENT,
+    )
+    limits = get_instance_limits(resolved_config, root=project_root)
+    raw_items = _resolve(project_root, config["paths"]["raw_items_csv"])
+    raw_containers_value = config.get("paths", {}).get("raw_containers_csv")
+    catalog_checksum = (
+        sha256_file(_resolve(project_root, raw_containers_value))
+        if raw_containers_value else None
+    )
+    return ActiveDataContext(
+        level_id=level_id,
+        config_file=str(resolved_config),
+        profile_id=usage.profile_id if usage is not None else None,
+        available_item_count=limits.available_items,
+        physical_container_count=limits.configured_containers,
+        raw_items_checksum=sha256_file(raw_items),
+        container_catalog_checksum=(
+            usage.containers_checksum if usage is not None else catalog_checksum
+        ),
+        usage_class=usage.usage_class if usage is not None else "canonical_raw",
+        solver_acceptance_allowed=(
+            usage.solver_acceptance_allowed if usage is not None else True
+        ),
+    )
 
 
 def get_container_inventory_summary(
@@ -457,9 +568,23 @@ def execute_benchmark_comparison(
             config_path=resolved_config,
             root=project_root,
         )
+    search_config = dict((config_overrides or {}).get("container_search", {}))
+    inventory_enabled = bool(search_config.get("enabled", False))
+    maximum_count = int(search_config.get("max_used_container_count", container_count))
+    if inventory_enabled:
+        scenario_id = f"interactive_i{item_count}_start{container_count}_max{maximum_count}"
+        scenario_description = (
+            f"Interactive comparison: {item_count} items, inventory search starts at "
+            f"{container_count} and may use at most {maximum_count} containers"
+        )
+    else:
+        scenario_id = f"interactive_i{item_count}_c{container_count}"
+        scenario_description = (
+            f"Interactive comparison: {item_count} items, {container_count} containers"
+        )
     scenario = BenchmarkScenario(
-        scenario_id=f"interactive_i{item_count}_c{container_count}",
-        description=f"Interactive comparison: {item_count} items, {container_count} containers",
+        scenario_id=scenario_id,
+        description=scenario_description,
         item_count=item_count,
         container_count=container_count,
         tags=("interactive", "same_instance"),
@@ -531,6 +656,11 @@ def discover_benchmark_runs(
     *,
     root: str | Path | None = None,
     limit: int = 50,
+    config_file: str | Path | None = None,
+    dataset_profile_id: str | None = None,
+    expected_raw_items_checksum: str | None = None,
+    expected_container_catalog_checksum: str | None = None,
+    include_all_profiles: bool = False,
 ) -> tuple[BenchmarkArtifact, ...]:
     if limit <= 0:
         raise ValueError("limit must be positive")
@@ -539,28 +669,96 @@ def discover_benchmark_runs(
     runs_root = (project_root / "outputs" / level_id / "runs").resolve()
     if not runs_root.is_dir():
         return ()
+    expected_config = (
+        str(_resolve(project_root, config_file)) if config_file is not None else None
+    )
     artifacts: list[BenchmarkArtifact] = []
     for manifest_path in sorted(runs_root.glob("*/manifest.json"), key=lambda value: value.stat().st_mtime, reverse=True):
         try:
             manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
             continue
-        if manifest.get("level") != level_id or manifest.get("run_type") != "benchmark":
+        run_type = str(manifest.get("run_type", ""))
+        if manifest.get("level") != level_id or run_type not in {"benchmark", "benchmark_corpus"}:
             continue
         benchmark_dir = manifest_path.parent / "benchmark"
         if not (benchmark_dir / "summary.csv").is_file() or not (benchmark_dir / "results.csv").is_file():
             continue
+        request: dict[str, Any] = {}
+        request_path = benchmark_dir / "request.json"
+        if request_path.is_file():
+            try:
+                request = json.loads(request_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                request = {}
+        scenarios = request.get("scenarios", [])
+        first_scenario = scenarios[0] if isinstance(scenarios, list) and scenarios else {}
+        usage = manifest.get("dataset_usage") or request.get("dataset_usage") or {}
+        if not usage and run_type == "benchmark_corpus":
+            profiles = manifest.get("dataset_profiles", [])
+            if isinstance(profiles, list) and profiles:
+                usage = profiles[0]
+        profile_id = str(usage.get("profile_id", "")) or None
+        resolved_config = str(manifest.get("config_file", request.get("config_file", ""))) or None
+        provenance = manifest.get("dataset_provenance") or {}
+        raw_items_checksum = provenance.get("raw_items_checksum") or first_scenario.get("raw_items_checksum")
+        catalog_checksum = provenance.get("container_catalog_checksum")
+        if run_type == "benchmark_corpus" and isinstance(usage, dict):
+            raw_items_checksum = raw_items_checksum or usage.get("items_checksum")
+            catalog_checksum = catalog_checksum or usage.get("containers_checksum")
+        checksums = first_scenario.get("referenced_file_checksums")
+        if isinstance(checksums, dict):
+            catalog_checksum = checksums.get("paths.raw_containers_csv")
+        if not include_all_profiles:
+            if run_type == "benchmark" and expected_config is not None and resolved_config != expected_config:
+                continue
+            if dataset_profile_id is not None and profile_id != dataset_profile_id:
+                continue
+            if (
+                expected_raw_items_checksum is not None
+                and expected_raw_items_checksum != str(raw_items_checksum or "")
+            ):
+                continue
+            if (
+                expected_container_catalog_checksum is not None
+                and expected_container_catalog_checksum != str(catalog_checksum or "")
+            ):
+                continue
         seeds = manifest.get("random_seeds", [])
+        if run_type == "benchmark_corpus":
+            test_case_count = int(manifest.get("case_count", 0) or 0)
+            execution_count = int(manifest.get("execution_count", 0) or 0)
+            successful_execution_count = int(
+                manifest.get("successful_execution_count", 0) or 0
+            )
+        else:
+            test_case_count = (
+                len(scenarios)
+                if isinstance(scenarios, list) and scenarios
+                else int(manifest.get("case_count", 0) or 0)
+            )
+            execution_count = int(manifest.get("case_count", 0) or 0)
+            successful_execution_count = int(
+                manifest.get("successful_case_count", 0) or 0
+            )
         artifacts.append(BenchmarkArtifact(
             run_id=str(manifest.get("run_id", manifest_path.parent.name)),
             run_dir=manifest_path.parent,
             level_id=level_id,
             status=str(manifest.get("status", "unknown")),
             created_at_utc=str(manifest.get("created_at_utc", "")),
-            case_count=int(manifest.get("case_count", 0) or 0),
-            successful_case_count=int(manifest.get("successful_case_count", 0) or 0),
+            case_count=test_case_count,
+            successful_case_count=successful_execution_count,
+            execution_count=execution_count,
+            successful_execution_count=successful_execution_count,
             random_seeds=tuple(int(value) for value in seeds),
             repeats_per_seed=manifest.get("repeats_per_seed"),
+            run_type=run_type,
+            suite_id=str(manifest.get("suite_id") or manifest.get("corpus_id") or "") or None,
+            config_file=resolved_config,
+            dataset_profile_id=profile_id,
+            raw_items_checksum=str(raw_items_checksum) if raw_items_checksum else None,
+            container_catalog_checksum=str(catalog_checksum) if catalog_checksum else None,
         ))
         if len(artifacts) >= limit:
             break

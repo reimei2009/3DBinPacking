@@ -39,6 +39,11 @@ data/processed/**
 !data/processed/**/.gitkeep
 !data/processed/**/README.md
 
+# Academic source generators are fetched with pinned checksums, never committed.
+data/external/mpv_3dbpp/*.c
+data/external/mpv_3dbpp/imported/**
+data/external/mpv_3dbpp/sources/**
+
 # Large Level 8 synthetic inputs are reproducibly generated from tracked YAML.
 data/raw/level_08/generated/**
 !data/raw/level_08/generated/

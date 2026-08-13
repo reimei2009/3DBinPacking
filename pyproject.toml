@@ -30,4 +30,11 @@ where = ["src"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra --basetemp=.pytest-work -p no:cacheprovider"
-markers = ["slow: full MILP integration tests"]
+markers = [
+  "unit: pure and fast unit tests",
+  "integration: component and pipeline integration tests",
+  "web: Streamlit and web presentation tests",
+  "solver: constructive, exact, and metaheuristic solver tests",
+  "acceptance: acceptance and scale-gate tests",
+  "slow: long-running tests excluded from the fast suite",
+]

@@ -1,0 +1,19 @@
+schema_version: "1.0"
+execution_id: mpv-c01-n100-v1
+import_manifest: ../../data/external/mpv_3dbpp/imported/mpv-official-source-v1/import_manifest.json
+executable_role: generator_executable
+# test3dbpp arguments: n, bindim, type, nodelimit, iterlimit, timelimit,
+# packingtype. Generator tạo đúng 10 instance deterministic.
+arguments: ["100", "100", "1", "0", "0", "1", "0"]
+timeout_seconds: 300
+expected_output_files:
+  - mpv_instance_01.txt
+  - mpv_instance_02.txt
+  - mpv_instance_03.txt
+  - mpv_instance_04.txt
+  - mpv_instance_05.txt
+  - mpv_instance_06.txt
+  - mpv_instance_07.txt
+  - mpv_instance_08.txt
+  - mpv_instance_09.txt
+  - mpv_instance_10.txt

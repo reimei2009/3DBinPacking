@@ -1,0 +1,45 @@
+suite_id: level_02_capacity_aware_consolidation_ab_v1
+level_id: level_02
+description: >
+  Controlled A/B Best Fit primary và FFD comparator trên cùng nguồn 1.000 kiện,
+  catalog 500 container và budget 120 giây. Chỉ nghiệm complete, independently
+  VALID mới được so sánh theo số container rồi chi phí.
+config: config/level_02/experiments/capacity_aware_consolidation_120s_local.yaml
+environment: local
+algorithms: [extreme_point_best_fit, extreme_point_ffd]
+seeds: [42]
+repeats: 2
+scenarios:
+  - scenario_id: capacity_repair_prefix_i100_f500
+    item_count: 100
+    container_count: 1
+    item_selection: prefix
+    tags: [manual, controlled_ab, capacity_aware, prefix]
+  - scenario_id: capacity_repair_random_101_i100_f500
+    item_count: 100
+    container_count: 1
+    item_selection: stable_random
+    selection_seed: 101
+    tags: [manual, controlled_ab, capacity_aware, stable_random]
+  - scenario_id: capacity_repair_prefix_i300_f500
+    item_count: 300
+    container_count: 1
+    item_selection: prefix
+    tags: [manual, controlled_ab, capacity_aware, prefix]
+  - scenario_id: capacity_repair_random_101_i300_f500
+    item_count: 300
+    container_count: 1
+    item_selection: stable_random
+    selection_seed: 101
+    tags: [manual, controlled_ab, capacity_aware, stable_random]
+  - scenario_id: capacity_repair_prefix_i500_f500
+    item_count: 500
+    container_count: 1
+    item_selection: prefix
+    tags: [manual, controlled_ab, capacity_aware, prefix, scale]
+  - scenario_id: capacity_repair_random_101_i500_f500
+    item_count: 500
+    container_count: 1
+    item_selection: stable_random
+    selection_seed: 101
+    tags: [manual, controlled_ab, capacity_aware, stable_random, scale]

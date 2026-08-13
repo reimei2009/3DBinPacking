@@ -50,3 +50,31 @@ def test_level2_benchmark_applies_one_support_threshold_to_every_algorithm(root)
     assert resolved["support"]["threshold"] == 0.9
     assert request["config_overrides"] == {"support": {"threshold": 0.9}}
     assert set(result.results["support_threshold"]) == {0.9}
+
+
+def test_level2_generated_inventory_benchmark_preserves_generated_provenance(root):
+    result = execute_benchmark_comparison(
+        level_id="level_02",
+        algorithm_ids=("extreme_point_ffd", "extreme_point_best_fit"),
+        item_count=1,
+        container_count=1,
+        seeds=(7,),
+        config_path=root / "config/level_02/experiments/inventory_items_1000_fleet_500.yaml",
+        config_overrides={
+            "container_search": {
+                "enabled": True,
+                "initial_used_container_count": 1,
+                "max_used_container_count": 1,
+                "automatically_increase_container_count": False,
+                "time_limit_seconds": 60,
+            },
+        },
+        root=root,
+    )
+    manifest = json.loads((result.run_dir / "manifest.json").read_text(encoding="utf-8"))
+    request = json.loads((result.run_dir / "benchmark/request.json").read_text(encoding="utf-8"))
+    assert result.successful
+    assert manifest["dataset_usage"]["profile_id"] == "level_02_inventory_items_1000_fleet_500_t10_v1"
+    assert manifest["dataset_provenance"]["raw_items_checksum"] != "33cc4d74b04c34714f1c3ed639396deda5c087a408214f6541d744142b239a1e"
+    assert request["scenarios"][0]["selected_item_ids_checksum"]
+    assert result.results["selected_item_ids_checksum"].nunique() == 1

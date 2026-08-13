@@ -25,7 +25,7 @@ Level02Executor = Callable[[list[Item], list[Container], dict[str, Any]], Algori
 
 _INVENTORY_SEARCH_ORCHESTRATOR = InventorySearchOrchestrator()
 _INVENTORY_SEARCH_ALGORITHMS = frozenset({
-    "extreme_point_best_fit", "extreme_point_ffd",
+    "extreme_point_best_fit", "extreme_point_ffd", "maximal_space_best_fit",
 })
 
 
@@ -37,7 +37,8 @@ def execute_level_02(
         if search.enabled:
             raise ValueError(
                 "Inventory-aware container search currently supports only "
-                "extreme_point_best_fit, extreme_point_ffd; disable "
+                "extreme_point_best_fit, extreme_point_ffd, "
+                "maximal_space_best_fit; disable "
                 "container_search before selecting milp_big_m."
             )
         return solve_level2(items, containers, settings)
@@ -102,6 +103,8 @@ def execute_level_02(
                 placements, epsilon_mm=support_epsilon,
             ),
             candidate_validator=candidate_validator,
+            secondary_support_threshold=float(support.get("threshold", 0.8)),
+            secondary_support_epsilon_mm=support_epsilon,
         ),
         execute_with_exact_support,
     )

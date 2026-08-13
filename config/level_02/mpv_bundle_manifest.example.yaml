@@ -1,0 +1,29 @@
+schema_version: "1.0"
+bundle_id: mpv-official-source-v1
+source_page: https://hjemmesider.diku.dk/~pisinger/codes.html
+checksum_source: "THAY_BANG_KENH_CHECKSUM_TIN_CAY_DOC_LAP"
+license_note: "Chỉ được dùng miễn phí cho mục đích nghiên cứu và học thuật."
+artifacts:
+  - role: generator_source
+    path: C:/duong-dan-local/test3dbpp.c
+    filename: test3dbpp.c
+    sha256: THAY_BANG_SHA256_64_KY_TU
+    canonical_url: https://hjemmesider.diku.dk/~pisinger/new3dbpp/test3dbpp.c
+  - role: solver_source
+    path: C:/duong-dan-local/3dbpp.c
+    filename: 3dbpp.c
+    sha256: THAY_BANG_SHA256_64_KY_TU
+    canonical_url: https://hjemmesider.diku.dk/~pisinger/new3dbpp/3dbpp.c
+  - role: compilation_readme
+    path: C:/duong-dan-local/readme.3dbpp
+    filename: readme.3dbpp
+    sha256: THAY_BANG_SHA256_64_KY_TU
+    canonical_url: https://hjemmesider.diku.dk/~pisinger/new3dbpp/readme.3dbpp
+  # Có thể biên dịch test3dbpp.c cùng scripts/mpv_capture_adapter.c rồi thêm
+  # executable dưới đây. Hash executable là build provenance local, không phải
+  # checksum release từ tác giả.
+  # - role: generator_executable
+  #   path: C:/duong-dan-local/mpv_capture.exe
+  #   filename: mpv_capture.exe
+  #   sha256: THAY_BANG_SHA256_64_KY_TU
+  #   canonical_url: https://hjemmesider.diku.dk/~pisinger/new3dbpp/test3dbpp.c

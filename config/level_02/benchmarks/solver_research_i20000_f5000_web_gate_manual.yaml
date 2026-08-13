@@ -1,0 +1,15 @@
+suite_id: level_02_solver_research_i20000_f5000_web_gate_v1
+level_id: level_02
+description: >
+  Gate thủ công trước khi nguồn 20.000/5.000 được hiển thị trên Streamlit.
+  Timeout rõ ràng được chấp nhận; crash, invalid hoặc objective rò rỉ thì không.
+config: config/level_02/experiments/inventory_items_20000_fleet_5000.yaml
+environment: local
+algorithms: [extreme_point_best_fit]
+seeds: [42]
+repeats: 2
+scenarios:
+  - {scenario_id: large_gate_i1000, item_count: 1000, container_count: 1, item_selection: prefix, tags: [manual, large_scale, gate]}
+  - {scenario_id: large_gate_i5000, item_count: 5000, container_count: 1, item_selection: prefix, tags: [manual, large_scale, gate]}
+  - {scenario_id: large_gate_i10000, item_count: 10000, container_count: 1, item_selection: prefix, tags: [manual, large_scale, gate]}
+  - {scenario_id: large_gate_i12389, item_count: 12389, container_count: 1, item_selection: prefix, tags: [manual, large_scale, gate]}

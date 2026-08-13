@@ -1,0 +1,673 @@
+{
+  "encoded_solver_objective_role": "legacy_compatibility_only",
+  "evidence": [
+    {
+      "acquisition_ladders": [],
+      "algorithms": [
+        "extreme_point_best_fit",
+        "extreme_point_ffd"
+      ],
+      "all_successful": true,
+      "dataset_families": [],
+      "deterministic": true,
+      "fingerprints_consistent_by_scenario": true,
+      "item_checksums_consistent_by_scenario": true,
+      "label": "fleet_500",
+      "legacy_reference_kind_detected": false,
+      "maximum_algorithm_runtime_seconds": 0.1970748999156057,
+      "objective_invariant_valid": true,
+      "official_objectives": {
+        "inventory_support_practical_i50_f500|extreme_point_best_fit": {
+          "total_container_cost": 4000.0,
+          "used_container_count": 2
+        },
+        "inventory_support_practical_i50_f500|extreme_point_ffd": {
+          "total_container_cost": 4000.0,
+          "used_container_count": 2
+        },
+        "inventory_support_smoke_i20_f500|extreme_point_best_fit": {
+          "total_container_cost": 2000.0,
+          "used_container_count": 1
+        },
+        "inventory_support_smoke_i20_f500|extreme_point_ffd": {
+          "total_container_cost": 2000.0,
+          "used_container_count": 1
+        }
+      },
+      "pairwise_outcome_counts": {},
+      "peak_rss_max_bytes": 176660480,
+      "placement_signatures": {
+        "inventory_support_practical_i50_f500|extreme_point_best_fit": [
+          "16d8666230aa71ab58471f9d4887a02bfe1b50f91107acf925357cc09d1f3fae"
+        ],
+        "inventory_support_practical_i50_f500|extreme_point_ffd": [
+          "16d8666230aa71ab58471f9d4887a02bfe1b50f91107acf925357cc09d1f3fae"
+        ],
+        "inventory_support_smoke_i20_f500|extreme_point_best_fit": [
+          "b1ccc35eabb2c793e378eaaed243e198c95945616da7ec7a4480872f4658d278"
+        ],
+        "inventory_support_smoke_i20_f500|extreme_point_ffd": [
+          "ce44c4a4288102ae6405c9b000a96b63e48a070b92891e56aac88f2f6787c464"
+        ]
+      },
+      "reference_kinds": [],
+      "repeat_counts": [
+        2
+      ],
+      "results_checksum": "96627822a8cb9fa9344e5e524d170f0b4d5f9f20e0916d59f73d3dcb6e13575b",
+      "row_count": 8,
+      "run_dir": "outputs/level_02/runs/20260810T043112700000Z__level_02__benchmark__seed42",
+      "scenario_count": 2,
+      "successful_row_count": 8,
+      "telemetry_complete": true,
+      "termination_reasons": [
+        "already_at_lower_bound"
+      ]
+    },
+    {
+      "acquisition_ladders": [],
+      "algorithms": [
+        "extreme_point_best_fit",
+        "extreme_point_ffd"
+      ],
+      "all_successful": true,
+      "dataset_families": [],
+      "deterministic": true,
+      "fingerprints_consistent_by_scenario": true,
+      "item_checksums_consistent_by_scenario": true,
+      "label": "fleet_5000",
+      "legacy_reference_kind_detected": false,
+      "maximum_algorithm_runtime_seconds": 22.31129509978928,
+      "objective_invariant_valid": true,
+      "official_objectives": {
+        "inventory_support_scale_i100_f5000|extreme_point_best_fit": {
+          "total_container_cost": 9450.0,
+          "used_container_count": 7
+        },
+        "inventory_support_scale_i100_f5000|extreme_point_ffd": {
+          "total_container_cost": 9450.0,
+          "used_container_count": 7
+        }
+      },
+      "pairwise_outcome_counts": {},
+      "peak_rss_max_bytes": 188227584,
+      "placement_signatures": {
+        "inventory_support_scale_i100_f5000|extreme_point_best_fit": [
+          "9db63a1ac3a6011cb5c9af8dcca4f739ec08e19887037525bfb5686d445549ba"
+        ],
+        "inventory_support_scale_i100_f5000|extreme_point_ffd": [
+          "082c41ade887cc710594f9c32c47e61a15e770a8a9f13beabac1d8b6417e47c0"
+        ]
+      },
+      "reference_kinds": [],
+      "repeat_counts": [
+        2
+      ],
+      "results_checksum": "5f38a93f9310e86a4fd4d3deb5af999e9110ee1c14c284c3c47e6cb332316701",
+      "row_count": 4,
+      "run_dir": "outputs/level_02/runs/20260810T043135396811Z__level_02__benchmark__seed42",
+      "scenario_count": 1,
+      "successful_row_count": 4,
+      "telemetry_complete": true,
+      "termination_reasons": [
+        "disabled"
+      ]
+    },
+    {
+      "acquisition_ladders": [
+        "[1, 8, 12, 14, 15]",
+        "[3, 9, 12, 14, 15]",
+        "[9, 12, 14, 15]"
+      ],
+      "algorithms": [
+        "extreme_point_best_fit",
+        "extreme_point_ffd"
+      ],
+      "all_successful": true,
+      "dataset_families": [],
+      "deterministic": true,
+      "fingerprints_consistent_by_scenario": true,
+      "item_checksums_consistent_by_scenario": true,
+      "label": "scale_20_300",
+      "legacy_reference_kind_detected": false,
+      "maximum_algorithm_runtime_seconds": 13.19535949989222,
+      "objective_invariant_valid": true,
+      "official_objectives": {
+        "inventory_exact_support_i100_f500|extreme_point_best_fit": {
+          "total_container_cost": 8000.0,
+          "used_container_count": 4
+        },
+        "inventory_exact_support_i100_f500|extreme_point_ffd": {
+          "total_container_cost": 8000.0,
+          "used_container_count": 4
+        },
+        "inventory_exact_support_i20_f500|extreme_point_best_fit": {
+          "total_container_cost": 2000.0,
+          "used_container_count": 1
+        },
+        "inventory_exact_support_i20_f500|extreme_point_ffd": {
+          "total_container_cost": 2000.0,
+          "used_container_count": 1
+        },
+        "inventory_exact_support_i300_f500|extreme_point_best_fit": {
+          "total_container_cost": 22000.0,
+          "used_container_count": 11
+        },
+        "inventory_exact_support_i300_f500|extreme_point_ffd": {
+          "total_container_cost": 24000.0,
+          "used_container_count": 12
+        }
+      },
+      "pairwise_outcome_counts": {},
+      "peak_rss_max_bytes": 201592832,
+      "placement_signatures": {
+        "inventory_exact_support_i100_f500|extreme_point_best_fit": [
+          "94242230a5c8f417c7b3a865b6ee4ab0f5c475a761b2f4d2eda64095b4b90445"
+        ],
+        "inventory_exact_support_i100_f500|extreme_point_ffd": [
+          "1d58be3699fe719f7bc6df2639f1fe7546f550a1d803ac617be1c7b10e1afc85"
+        ],
+        "inventory_exact_support_i20_f500|extreme_point_best_fit": [
+          "6d4500f2600a379a7a93f5ff85a9c1ced8797ebbf63ffc0c550da1aee23dcc17"
+        ],
+        "inventory_exact_support_i20_f500|extreme_point_ffd": [
+          "b1b7e08d178d520e444b09984aff9c288e287813261a8713d861f1c3b4465b05"
+        ],
+        "inventory_exact_support_i300_f500|extreme_point_best_fit": [
+          "26420e6b9d3120607e25182cb3f1ae449515555e5ccc0958e1af0c562a6d03ad"
+        ],
+        "inventory_exact_support_i300_f500|extreme_point_ffd": [
+          "4bd2884d8ce9c402f805406ec5f733af3b403b5b6da92347ac9e2dee71f7523c"
+        ]
+      },
+      "reference_kinds": [],
+      "repeat_counts": [
+        2
+      ],
+      "results_checksum": "8368d9ce665169383a5cbc2d77825024d8943f211f8311e09b84cc6f604b8dc8",
+      "row_count": 12,
+      "run_dir": "outputs/level_02/runs/20260810T050808345167Z__level_02__benchmark__seed42",
+      "scenario_count": 3,
+      "successful_row_count": 12,
+      "telemetry_complete": true,
+      "termination_reasons": [
+        "already_at_lower_bound",
+        "consolidation_time_limit",
+        "heuristic_consolidation_failed",
+        "valid_consolidated"
+      ]
+    }
+  ],
+  "internal_acceptance_passed": true,
+  "level": "level_02",
+  "mpv_acceptance_passed": true,
+  "mpv_best_known_comparison_allowed": false,
+  "mpv_evidence": {
+    "acquisition_ladders": [
+      "[1, 11, 16, 18, 19, 20]",
+      "[1, 26, 38, 44, 47, 49, 50]",
+      "[1, 51, 76, 88, 94, 97, 99, 100]",
+      "[10, 30, 40, 45, 48, 49, 50]",
+      "[11, 31, 41, 46, 48, 49, 50]",
+      "[11, 56, 78, 89, 95, 98, 99, 100]",
+      "[13, 57, 79, 90, 95, 98, 99, 100]",
+      "[15, 33, 42, 46, 48, 49, 50]",
+      "[17, 59, 80, 90, 95, 98, 99, 100]",
+      "[18, 59, 80, 90, 95, 98, 99, 100]",
+      "[2, 11, 16, 18, 19, 20]",
+      "[29, 65, 83, 92, 96, 98, 99, 100]",
+      "[3, 12, 16, 18, 19, 20]",
+      "[3, 27, 39, 45, 48, 49, 50]",
+      "[3, 52, 76, 88, 94, 97, 99, 100]",
+      "[4, 12, 16, 18, 19, 20]",
+      "[7, 14, 17, 19, 20]",
+      "[7, 29, 40, 45, 48, 49, 50]"
+    ],
+    "algorithms": [
+      "extreme_point_best_fit",
+      "extreme_point_ffd"
+    ],
+    "all_successful": true,
+    "dataset_families": [
+      "mpv_fixed_orientation_exact_support"
+    ],
+    "deterministic": true,
+    "fingerprints_consistent_by_scenario": true,
+    "item_checksums_consistent_by_scenario": true,
+    "label": "mpv_fixed_orientation",
+    "legacy_reference_kind_detected": false,
+    "maximum_algorithm_runtime_seconds": 0.5016618999652565,
+    "objective_invariant_valid": true,
+    "official_objectives": {
+      "mpv_c01_n020_i01|extreme_point_best_fit": {
+        "total_container_cost": 6.0,
+        "used_container_count": 6
+      },
+      "mpv_c01_n020_i01|extreme_point_ffd": {
+        "total_container_cost": 6.0,
+        "used_container_count": 6
+      },
+      "mpv_c01_n050_i01|extreme_point_best_fit": {
+        "total_container_cost": 16.0,
+        "used_container_count": 16
+      },
+      "mpv_c01_n050_i01|extreme_point_ffd": {
+        "total_container_cost": 16.0,
+        "used_container_count": 16
+      },
+      "mpv_c01_n100_i01|extreme_point_best_fit": {
+        "total_container_cost": 27.0,
+        "used_container_count": 27
+      },
+      "mpv_c01_n100_i01|extreme_point_ffd": {
+        "total_container_cost": 27.0,
+        "used_container_count": 27
+      },
+      "mpv_c02_n020_i01|extreme_point_best_fit": {
+        "total_container_cost": 6.0,
+        "used_container_count": 6
+      },
+      "mpv_c02_n020_i01|extreme_point_ffd": {
+        "total_container_cost": 6.0,
+        "used_container_count": 6
+      },
+      "mpv_c02_n050_i01|extreme_point_best_fit": {
+        "total_container_cost": 16.0,
+        "used_container_count": 16
+      },
+      "mpv_c02_n050_i01|extreme_point_ffd": {
+        "total_container_cost": 16.0,
+        "used_container_count": 16
+      },
+      "mpv_c02_n100_i01|extreme_point_best_fit": {
+        "total_container_cost": 27.0,
+        "used_container_count": 27
+      },
+      "mpv_c02_n100_i01|extreme_point_ffd": {
+        "total_container_cost": 27.0,
+        "used_container_count": 27
+      },
+      "mpv_c03_n020_i01|extreme_point_best_fit": {
+        "total_container_cost": 6.0,
+        "used_container_count": 6
+      },
+      "mpv_c03_n020_i01|extreme_point_ffd": {
+        "total_container_cost": 6.0,
+        "used_container_count": 6
+      },
+      "mpv_c03_n050_i01|extreme_point_best_fit": {
+        "total_container_cost": 16.0,
+        "used_container_count": 16
+      },
+      "mpv_c03_n050_i01|extreme_point_ffd": {
+        "total_container_cost": 16.0,
+        "used_container_count": 16
+      },
+      "mpv_c03_n100_i01|extreme_point_best_fit": {
+        "total_container_cost": 26.0,
+        "used_container_count": 26
+      },
+      "mpv_c03_n100_i01|extreme_point_ffd": {
+        "total_container_cost": 26.0,
+        "used_container_count": 26
+      },
+      "mpv_c04_n020_i01|extreme_point_best_fit": {
+        "total_container_cost": 14.0,
+        "used_container_count": 14
+      },
+      "mpv_c04_n020_i01|extreme_point_ffd": {
+        "total_container_cost": 14.0,
+        "used_container_count": 14
+      },
+      "mpv_c04_n050_i01|extreme_point_best_fit": {
+        "total_container_cost": 27.0,
+        "used_container_count": 27
+      },
+      "mpv_c04_n050_i01|extreme_point_ffd": {
+        "total_container_cost": 27.0,
+        "used_container_count": 27
+      },
+      "mpv_c04_n100_i01|extreme_point_best_fit": {
+        "total_container_cost": 52.0,
+        "used_container_count": 52
+      },
+      "mpv_c04_n100_i01|extreme_point_ffd": {
+        "total_container_cost": 52.0,
+        "used_container_count": 52
+      },
+      "mpv_c05_n020_i01|extreme_point_best_fit": {
+        "total_container_cost": 3.0,
+        "used_container_count": 3
+      },
+      "mpv_c05_n020_i01|extreme_point_ffd": {
+        "total_container_cost": 3.0,
+        "used_container_count": 3
+      },
+      "mpv_c05_n050_i01|extreme_point_best_fit": {
+        "total_container_cost": 12.0,
+        "used_container_count": 12
+      },
+      "mpv_c05_n050_i01|extreme_point_ffd": {
+        "total_container_cost": 12.0,
+        "used_container_count": 12
+      },
+      "mpv_c05_n100_i01|extreme_point_best_fit": {
+        "total_container_cost": 16.0,
+        "used_container_count": 16
+      },
+      "mpv_c05_n100_i01|extreme_point_ffd": {
+        "total_container_cost": 15.0,
+        "used_container_count": 15
+      },
+      "mpv_c06_n020_i01|extreme_point_best_fit": {
+        "total_container_cost": 1.0,
+        "used_container_count": 1
+      },
+      "mpv_c06_n020_i01|extreme_point_ffd": {
+        "total_container_cost": 1.0,
+        "used_container_count": 1
+      },
+      "mpv_c06_n050_i01|extreme_point_best_fit": {
+        "total_container_cost": 1.0,
+        "used_container_count": 1
+      },
+      "mpv_c06_n050_i01|extreme_point_ffd": {
+        "total_container_cost": 1.0,
+        "used_container_count": 1
+      },
+      "mpv_c06_n100_i01|extreme_point_best_fit": {
+        "total_container_cost": 1.0,
+        "used_container_count": 1
+      },
+      "mpv_c06_n100_i01|extreme_point_ffd": {
+        "total_container_cost": 1.0,
+        "used_container_count": 1
+      },
+      "mpv_c07_n020_i01|extreme_point_best_fit": {
+        "total_container_cost": 1.0,
+        "used_container_count": 1
+      },
+      "mpv_c07_n020_i01|extreme_point_ffd": {
+        "total_container_cost": 1.0,
+        "used_container_count": 1
+      },
+      "mpv_c07_n050_i01|extreme_point_best_fit": {
+        "total_container_cost": 1.0,
+        "used_container_count": 1
+      },
+      "mpv_c07_n050_i01|extreme_point_ffd": {
+        "total_container_cost": 1.0,
+        "used_container_count": 1
+      },
+      "mpv_c07_n100_i01|extreme_point_best_fit": {
+        "total_container_cost": 2.0,
+        "used_container_count": 2
+      },
+      "mpv_c07_n100_i01|extreme_point_ffd": {
+        "total_container_cost": 2.0,
+        "used_container_count": 2
+      },
+      "mpv_c08_n020_i01|extreme_point_best_fit": {
+        "total_container_cost": 5.0,
+        "used_container_count": 5
+      },
+      "mpv_c08_n020_i01|extreme_point_ffd": {
+        "total_container_cost": 5.0,
+        "used_container_count": 5
+      },
+      "mpv_c08_n050_i01|extreme_point_best_fit": {
+        "total_container_cost": 11.0,
+        "used_container_count": 11
+      },
+      "mpv_c08_n050_i01|extreme_point_ffd": {
+        "total_container_cost": 11.0,
+        "used_container_count": 11
+      },
+      "mpv_c08_n100_i01|extreme_point_best_fit": {
+        "total_container_cost": 19.0,
+        "used_container_count": 19
+      },
+      "mpv_c08_n100_i01|extreme_point_ffd": {
+        "total_container_cost": 19.0,
+        "used_container_count": 19
+      },
+      "mpv_c09_n020_i01|extreme_point_best_fit": {
+        "total_container_cost": 4.0,
+        "used_container_count": 4
+      },
+      "mpv_c09_n020_i01|extreme_point_ffd": {
+        "total_container_cost": 4.0,
+        "used_container_count": 4
+      },
+      "mpv_c09_n050_i01|extreme_point_best_fit": {
+        "total_container_cost": 4.0,
+        "used_container_count": 4
+      },
+      "mpv_c09_n050_i01|extreme_point_ffd": {
+        "total_container_cost": 5.0,
+        "used_container_count": 5
+      },
+      "mpv_c09_n100_i01|extreme_point_best_fit": {
+        "total_container_cost": 5.0,
+        "used_container_count": 5
+      },
+      "mpv_c09_n100_i01|extreme_point_ffd": {
+        "total_container_cost": 5.0,
+        "used_container_count": 5
+      }
+    },
+    "pairwise_outcome_counts": {
+      "LOSS": 1,
+      "TIE": 25,
+      "WIN": 1
+    },
+    "peak_rss_max_bytes": 211070976,
+    "placement_signatures": {
+      "mpv_c01_n020_i01|extreme_point_best_fit": [
+        "7bb0843fee762890b2710f3603767b5ec6ac00720b824f7b09956d808c6c0d65"
+      ],
+      "mpv_c01_n020_i01|extreme_point_ffd": [
+        "54fba7208a419ab9562d2b7e88af3b72293e4b1a941713536055ed908d8fade6"
+      ],
+      "mpv_c01_n050_i01|extreme_point_best_fit": [
+        "862aeb2b4c8c0124abeea80485a5e47f20ae9b039228d51b1cfc91737bfa383a"
+      ],
+      "mpv_c01_n050_i01|extreme_point_ffd": [
+        "94e08640c095c40379db62b91cd6ffc276b5361090d1c2f81ce53d9d3c6b2bf3"
+      ],
+      "mpv_c01_n100_i01|extreme_point_best_fit": [
+        "2b9c6cd060ea3f59bdf231e61b390ec4e2b181cb664cecaa63c6b37ae7f239db"
+      ],
+      "mpv_c01_n100_i01|extreme_point_ffd": [
+        "e4ede4bab440beb3a8286a2e759798b0534a83d24f514f9b51375ff2b797c78d"
+      ],
+      "mpv_c02_n020_i01|extreme_point_best_fit": [
+        "9857d249ead0da7a923f286345806cf3ee18193c63957a4aa1d3595fe9c96f75"
+      ],
+      "mpv_c02_n020_i01|extreme_point_ffd": [
+        "00091e49ecf7a64038aea4e5fe50d58acea2418e409ca7e8624845bb3653b5e7"
+      ],
+      "mpv_c02_n050_i01|extreme_point_best_fit": [
+        "020842958d897b6ee2bc6440c804b47e0f9054937ca8e35ae3f07baf706b8178"
+      ],
+      "mpv_c02_n050_i01|extreme_point_ffd": [
+        "94092627db477478622b2d08cc6b09d76c80c0433a91efbd84eacd8f941527df"
+      ],
+      "mpv_c02_n100_i01|extreme_point_best_fit": [
+        "f04693c6788ad156f7f94e01331d3e8d05cb2bddaf7b09623900bbbcc681f4ac"
+      ],
+      "mpv_c02_n100_i01|extreme_point_ffd": [
+        "8e2760e1e2ff89dd2f8ed919b4027936dce554933c417fe79da7eb649e3e666b"
+      ],
+      "mpv_c03_n020_i01|extreme_point_best_fit": [
+        "a37df8a9906271d01fbc923e9cd133ef188e7c8a30cacb47b1bc59fa2379bf8d"
+      ],
+      "mpv_c03_n020_i01|extreme_point_ffd": [
+        "a37df8a9906271d01fbc923e9cd133ef188e7c8a30cacb47b1bc59fa2379bf8d"
+      ],
+      "mpv_c03_n050_i01|extreme_point_best_fit": [
+        "ec003cf32546f889bb23b2967049e0ee0f37e2eb6d9e2fb1d8d182705211cf60"
+      ],
+      "mpv_c03_n050_i01|extreme_point_ffd": [
+        "87fc5621dfa0717d6142f86602d96096e10cb595d2056e9df6a946b4b1fd1ca4"
+      ],
+      "mpv_c03_n100_i01|extreme_point_best_fit": [
+        "3add3965e45b0cc90b7f87dff8ea3d6c3e0ee443ed5a4aa56fd06f7e962ecc42"
+      ],
+      "mpv_c03_n100_i01|extreme_point_ffd": [
+        "009ef0416c3c0c320aa74302a5586b470f8d97785bad6159b7b9162652b0786d"
+      ],
+      "mpv_c04_n020_i01|extreme_point_best_fit": [
+        "37b13a2e685c76a52493b71aed74b72776f50e34f33269e9d65c39fe4c4ce2a3"
+      ],
+      "mpv_c04_n020_i01|extreme_point_ffd": [
+        "eb4fa3db1f7600a556324e61fdf8d3eac685a6229b56468e40588b5250032f57"
+      ],
+      "mpv_c04_n050_i01|extreme_point_best_fit": [
+        "5facd1b56eba06187cc7ed9c16af8978b5a5978d0921bd44ed44e3710b288cfe"
+      ],
+      "mpv_c04_n050_i01|extreme_point_ffd": [
+        "6b83eb20b248aea497718d9a5305a0520b12d31ecb374468796f143309d9e42f"
+      ],
+      "mpv_c04_n100_i01|extreme_point_best_fit": [
+        "2f78427317a95513c2b341a750ac2ccae952de4b2404b6eea5477a585fad9fdc"
+      ],
+      "mpv_c04_n100_i01|extreme_point_ffd": [
+        "9f7e3accee9e1934a43ad7c7165b0fd1c1227db39363521ec6bf4039926437f0"
+      ],
+      "mpv_c05_n020_i01|extreme_point_best_fit": [
+        "2723f46bc17c48cd8d66ea7be00c11d203cbbc3c03440644d303a1face5e013e"
+      ],
+      "mpv_c05_n020_i01|extreme_point_ffd": [
+        "9effacf6de51920a13111a63f18cabc90f98f341e0a4ad9738629aa2233a7389"
+      ],
+      "mpv_c05_n050_i01|extreme_point_best_fit": [
+        "fb96e8fc93077fcbb3f43bb85211b302f8eee9b94aeb68041fcc227842d85b09"
+      ],
+      "mpv_c05_n050_i01|extreme_point_ffd": [
+        "6f10c700102ebd4bdf369dfe9d11e677de788e6c2fbd9fea1fd96e40b564ebc1"
+      ],
+      "mpv_c05_n100_i01|extreme_point_best_fit": [
+        "f9a7567701cb801b934dba0545c767b30fcb104ea31a0e56a38d885588b44225"
+      ],
+      "mpv_c05_n100_i01|extreme_point_ffd": [
+        "d0256146d93dea5aeb80cd004828c943056907f5c2fb669415d550153c70f446"
+      ],
+      "mpv_c06_n020_i01|extreme_point_best_fit": [
+        "844ae94611b6420c27e4ebe6c8feb1a0897cd9411c7d81ea44c0eafcec149473"
+      ],
+      "mpv_c06_n020_i01|extreme_point_ffd": [
+        "70e4b4fa439a6fd04c24194b16944a91ceda945fc444b930b09eaccd8f9dbd98"
+      ],
+      "mpv_c06_n050_i01|extreme_point_best_fit": [
+        "91ef476e68a747d9fcb40d4e8be2143173e731c84df482f61f13b68190fab18c"
+      ],
+      "mpv_c06_n050_i01|extreme_point_ffd": [
+        "9db3ff6ae0124190895d002b01a13718f2fbd2843e77b82a9927d0007b3e74a2"
+      ],
+      "mpv_c06_n100_i01|extreme_point_best_fit": [
+        "d853d2ff38c91c763d47e5b6e8cc8df3fdbb870284003bbc5dada73692b9823b"
+      ],
+      "mpv_c06_n100_i01|extreme_point_ffd": [
+        "8eb922cfdf0cf50f7a9ea6bd2ad26059196f00862b8a634629f87203106da126"
+      ],
+      "mpv_c07_n020_i01|extreme_point_best_fit": [
+        "eb83752fa0ec6044eeed8d266e333c280c13887e234aeda4eab9489cf4104979"
+      ],
+      "mpv_c07_n020_i01|extreme_point_ffd": [
+        "b18dd4aece2c839239a537173a3ff93bcb6c498562eca2e3bd572f40505060c2"
+      ],
+      "mpv_c07_n050_i01|extreme_point_best_fit": [
+        "5ecc06e6fe158f6d2fe16fa780648f7742eba4b96c2fe9cde0020bbc895c9088"
+      ],
+      "mpv_c07_n050_i01|extreme_point_ffd": [
+        "5e449b68aec87cf25dbb1a201a533f11b045a7b618626c22b5219c79b2cffbea"
+      ],
+      "mpv_c07_n100_i01|extreme_point_best_fit": [
+        "35b38a537b629ce6993d7e4f67dc3fa13177421184fbe852ba112c8416161ab9"
+      ],
+      "mpv_c07_n100_i01|extreme_point_ffd": [
+        "0d9bcfb884b173420cd3876eecb64f4f5e75ec06843b076eede4c0c2316fec36"
+      ],
+      "mpv_c08_n020_i01|extreme_point_best_fit": [
+        "9e52e086851e22be86b9c955e830e825bc0ebb5623d1b7d5f2862cbe3249296f"
+      ],
+      "mpv_c08_n020_i01|extreme_point_ffd": [
+        "52f270f658ce72f8617dc8318b5942d2340e629de93323a02f7a6e389dcca4b3"
+      ],
+      "mpv_c08_n050_i01|extreme_point_best_fit": [
+        "5f6a48b6fce48407a52aded198d3c594077c03bccb2d67b1a843107c568eb836"
+      ],
+      "mpv_c08_n050_i01|extreme_point_ffd": [
+        "ed7258cd2ad103929f73a7f71f5c382f95a916d752b32c20848ee7bfc61d6363"
+      ],
+      "mpv_c08_n100_i01|extreme_point_best_fit": [
+        "d794011278412547ff39aa5f59e2e07dad40ab7433ee49d919ca7ddce0b0e8b9"
+      ],
+      "mpv_c08_n100_i01|extreme_point_ffd": [
+        "1bf10fd78b45c1d292a149e72b82be0fcfa26ded13f5520349029191687d7679"
+      ],
+      "mpv_c09_n020_i01|extreme_point_best_fit": [
+        "1d6634a7c0ce92357ba3e3bfe870fab60549e88f8052c0adbe5fe3d4f1e29563"
+      ],
+      "mpv_c09_n020_i01|extreme_point_ffd": [
+        "7866061252962b094936a8a9c85b1b7814059ef8bc5f274d2a3864d243295138"
+      ],
+      "mpv_c09_n050_i01|extreme_point_best_fit": [
+        "bc7b21e711f8f16a47e2cb0169e2deedde675d11f780835e26e9448241df277e"
+      ],
+      "mpv_c09_n050_i01|extreme_point_ffd": [
+        "d5e17e5334dafe359f6b9ea9694bd8fbd06aaaf48031ce1b69388c3aa43e3f12"
+      ],
+      "mpv_c09_n100_i01|extreme_point_best_fit": [
+        "c70058c226d99148981f52ba32aa1687f14880c3504d9874ea982f7438339714"
+      ],
+      "mpv_c09_n100_i01|extreme_point_ffd": [
+        "091a8a0da07df84c11f22096608ca254b8afdf78f46643f10ba3bd4ea5c00c7b"
+      ]
+    },
+    "reference_kinds": [
+      "best_observed"
+    ],
+    "repeat_counts": [
+      2
+    ],
+    "results_checksum": "45b7607950655c7f094b25995502c8e7533460e33c9b75c795b2034f1ebf2088",
+    "row_count": 108,
+    "run_dir": "outputs/level_02/runs/20260812T071149276548Z__level_02__benchmark_corpus__level_02_mpv_fixed_orientation_acceptance_v1__seed42",
+    "scenario_count": 27,
+    "successful_row_count": 108,
+    "telemetry_complete": true,
+    "termination_reasons": [
+      "already_at_lower_bound",
+      "heuristic_consolidation_failed",
+      "valid_consolidated"
+    ]
+  },
+  "mpv_external_best_known_comparison_allowed": false,
+  "mpv_protocol_checks": {
+    "algorithms_best_fit_and_ffd": true,
+    "best_fit_pairwise_outcomes_1_25_1": true,
+    "canonical_best_observed_reference": true,
+    "case_count_27": true,
+    "dataset_family_is_mpv": true,
+    "deterministic_signature_and_objective": true,
+    "execution_count_108": true,
+    "no_legacy_reference_kind": true,
+    "objective_null_on_failure": true,
+    "one_fingerprint_per_case": true,
+    "one_item_checksum_per_case": true,
+    "successful_and_independently_valid": true,
+    "telemetry_peak_memory_and_termination_complete": true,
+    "two_repeats_per_case_algorithm": true
+  },
+  "mpv_semantics": "fixed_orientation_with_level_02_exact_support",
+  "objective_semantics": "used_container_count_then_total_container_cost",
+  "promotion_inventory_orchestration_to_level_03_allowed": true,
+  "reference_semantics": {
+    "best_known": "legacy label; readable but not accepted for new Level 2 evidence",
+    "best_observed": "best valid objective observed for the same input fingerprint in this corpus run"
+  },
+  "schema_version": "1.1",
+  "status": "PASS"
+}

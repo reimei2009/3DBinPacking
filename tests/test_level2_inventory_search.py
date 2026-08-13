@@ -32,7 +32,10 @@ def _settings(*, enabled: bool = True) -> dict:
     }
 
 
-@pytest.mark.parametrize("algorithm_id", ["extreme_point_best_fit", "extreme_point_ffd"])
+@pytest.mark.parametrize(
+    "algorithm_id",
+    ["extreme_point_best_fit", "extreme_point_ffd", "maximal_space_best_fit"],
+)
 def test_level2_inventory_search_uses_full_catalog_and_preserves_exact_support(algorithm_id: str) -> None:
     items = [Item("I1", 20, 20, 10, 1)]
 

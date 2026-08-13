@@ -26,9 +26,11 @@ profiles:
     config_file: config/level_02/experiments/inventory_items_1000_fleet_500.yaml
     generated: true
     expected_item_count: 1000
+    dataset_profile_id: level_02_inventory_items_1000_fleet_500_t10_v1
     expected_physical_container_count: 500
     expected_equivalent_type_count: 10
     inventory_search_default: true
+    default: true
     item_count_presets: [20, 50, 100, 300, 450, 500, 1000]
     maximum_used_presets: [1, 2, 3, 5, 10, 20, 50, 100]
     generation_command: >-
@@ -46,3 +48,17 @@ profiles:
     generation_command: >-
       .\.venv\Scripts\python.exe .\scripts\generate_synthetic_instances.py
       --profile config\synthetic\fleet_5000_t25.yaml
+  solver_research_i20000_f5000:
+    label_vi: "Kho nghiên cứu lớn — tối đa 20.000 kiện / 5.000 container"
+    label_en: "Large research fleet — up to 20,000 items / 5,000 containers"
+    config_file: config/level_02/experiments/inventory_items_20000_fleet_5000.yaml
+    generated: true
+    expected_item_count: 20000
+    dataset_profile_id: level_02_solver_research_i20000_f5000_v1
+    expected_physical_container_count: 5000
+    expected_equivalent_type_count: 1
+    inventory_search_default: true
+    generation_manifest: data/interim/synthetic/level_02_solver_research_i20000_f5000_v1/generation_manifest.json
+    requires_web_gate: data/interim/synthetic/level_02_solver_research_i20000_f5000_v1/web_qualification.json
+    generation_command: >-
+      .\.venv\Scripts\python.exe .\scripts\materialize_level2_solver_research.py

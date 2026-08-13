@@ -5,6 +5,8 @@ from __future__ import annotations
 import hashlib
 import importlib.metadata
 import platform
+from copy import deepcopy
+from functools import lru_cache
 from pathlib import Path
 import subprocess
 import sys
@@ -74,7 +76,9 @@ def dependency_versions() -> dict[str, str]:
     return values
 
 
-def runtime_metadata(root: Path) -> dict:
+@lru_cache(maxsize=8)
+def _runtime_metadata_snapshot(root_value: str) -> dict:
+    root = Path(root_value)
     return {
         "git_commit": git_commit(root),
         "git_dirty": git_dirty(root),
@@ -84,3 +88,13 @@ def runtime_metadata(root: Path) -> dict:
         "dependency_versions": dependency_versions(),
         "command": [sys.executable, *sys.argv],
     }
+
+
+def runtime_metadata(root: Path) -> dict:
+    """Return one defensive provenance snapshot per project root and process."""
+    return deepcopy(_runtime_metadata_snapshot(str(root.resolve())))
+
+
+def clear_runtime_metadata_cache() -> None:
+    """Clear process-local provenance state for tests or explicit worker reloads."""
+    _runtime_metadata_snapshot.cache_clear()

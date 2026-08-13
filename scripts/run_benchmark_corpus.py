@@ -1,4 +1,4 @@
-"""Chạy corpus benchmark Level 1 có tên và điều khiển bằng cấu hình."""
+"""Chạy corpus benchmark có tên và điều khiển bằng cấu hình."""
 
 from __future__ import annotations
 
@@ -17,10 +17,25 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--corpus", type=Path,
         default=Path("config/level_01/benchmarks/research_corpus.yaml"),
-        help="Benchmark corpus YAML path, relative to the project root unless absolute",
+        help="Đường dẫn YAML corpus benchmark, tương đối với project root nếu không tuyệt đối",
+    )
+    parser.add_argument(
+        "--recover-from", type=Path,
+        help="Run directory of an immutable corpus artifact to recover",
+    )
+    parser.add_argument(
+        "--rerun-failed-only", action="store_true",
+        help="Reuse independently valid rows and rerun only failed rows",
     )
     args = parser.parse_args(argv)
-    result = run_benchmark_corpus(args.corpus, project_root=ROOT)
+    if bool(args.recover_from) != bool(args.rerun_failed_only):
+        parser.error("--recover-from and --rerun-failed-only must be used together")
+    result = run_benchmark_corpus(
+        args.corpus,
+        project_root=ROOT,
+        recover_from=args.recover_from,
+        rerun_failed_only=args.rerun_failed_only,
+    )
     print("\n=== BENCHMARK CORPUS SUMMARY ===")
     preview = [
         "case_id", "group", "difficulty", "algorithm", "success_rate",

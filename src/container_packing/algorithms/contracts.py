@@ -20,6 +20,42 @@ class AlgorithmOutcome:
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
+@dataclass(frozen=True, order=True)
+class OfficialObjective:
+    """Mục tiêu lexicographic chính thức, độc lập kích thước catalog."""
+
+    used_container_count: int
+    total_container_cost: float
+
+    def as_dict(self) -> dict[str, int | float]:
+        return {
+            "used_container_count": self.used_container_count,
+            "total_container_cost": self.total_container_cost,
+        }
+
+
+@dataclass(frozen=True, order=True)
+class SecondarySearchScore:
+    """Tie-break chuẩn hóa; giá trị nhỏ hơn tốt hơn.
+
+    Score này chỉ có ý nghĩa sau khi candidate complete đã qua independent
+    validation. Nó không được phép thay đổi thứ tự objective chính thức.
+    """
+
+    negative_utilization_concentration: float
+    internal_void_ratio: float
+    negative_minimum_support_margin: float
+    placement_signature: str
+
+    def as_dict(self) -> dict[str, float | str]:
+        return {
+            "utilization_concentration": -self.negative_utilization_concentration,
+            "internal_void_ratio": self.internal_void_ratio,
+            "minimum_support_margin": -self.negative_minimum_support_margin,
+            "placement_signature": self.placement_signature,
+        }
+
+
 class ConstructionTerminationReason(StrEnum):
     """Lý do một construction attempt kết thúc."""
 
@@ -127,29 +163,17 @@ class ConstructionAttemptResult(Sequence[Placement]):
 
 @dataclass(frozen=True)
 class ValidatedIncumbent:
-    """Nghiệm complete đã qua independent validation."""
+    """Bản ghi canonical của candidate complete đã qua independent validation."""
 
-    placements: tuple[Placement, ...]
-    used_container_ids: tuple[str, ...]
-    used_container_count: int
-    total_cost: float
-    compactness_score: float
+    outcome: AlgorithmOutcome
+    objective: OfficialObjective
     placement_signature: str
-    validation_evidence: Any
-
-    @property
-    def objective_key(self) -> tuple[float | int | str, ...]:
-        return (
-            self.used_container_count,
-            self.total_cost,
-            self.compactness_score,
-            self.placement_signature,
-        )
+    secondary_score: SecondarySearchScore | None = None
 
 
 @dataclass
 class SearchBudget:
-    """Budget dùng chung; checkpoint này mới khóa contract, chưa orchestration."""
+    """Budget dùng chung cho construction, repair và validation reserve."""
 
     search_deadline_monotonic: float
     total_deadline_monotonic: float
@@ -205,8 +229,10 @@ class SearchBudget:
         self.attempts += 1
         return self.attempts <= self.max_attempts
 
-    def record_subset(self) -> bool:
-        self.subsets += 1
+    def record_subset(self, count: int = 1) -> bool:
+        if count < 0:
+            raise ValueError("subset count cannot be negative")
+        self.subsets += count
         return self.subsets <= self.max_subsets
 
     def record_item_order(self) -> bool:

@@ -19,12 +19,15 @@ def test_registry_only_exposes_runnable_implementations():
         "level_01", "level_02", "level_03", "level_04", "level_05", "level_06", "level_07", "level_08",
     ]
     assert [value.algorithm_id for value in list_algorithms(level_id="level_01")] == [
-        "extreme_point_best_fit", "extreme_point_ffd", "extreme_point_ffd_gap_fill", "extreme_point_hill_climbing",
+        "extreme_point_best_fit", "extreme_point_best_fit_projected_ep",
+        "extreme_point_ffd", "extreme_point_ffd_gap_fill",
+        "extreme_point_ffd_projected_ep", "extreme_point_hill_climbing",
         "extreme_point_simulated_annealing", "maximal_space_best_fit", "milp_big_m",
     ]
     assert get_algorithm("milp_big_m").family == "exact_milp"
     assert get_level("level_01").supported_algorithms == (
-            "milp_big_m", "extreme_point_best_fit", "extreme_point_ffd", "extreme_point_ffd_gap_fill", "extreme_point_hill_climbing",
+            "milp_big_m", "extreme_point_best_fit", "extreme_point_ffd", "extreme_point_ffd_gap_fill",
+            "extreme_point_best_fit_projected_ep", "extreme_point_ffd_projected_ep", "extreme_point_hill_climbing",
         "extreme_point_simulated_annealing", "maximal_space_best_fit",
     )
     assert [value.algorithm_id for value in list_algorithms(level_id="level_02")] == [

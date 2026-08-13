@@ -9,22 +9,26 @@ from typing import Any, Protocol
 
 from scipy.optimize import OptimizeResult
 
-from ..contracts import AlgorithmOutcome
+from ..contracts import AlgorithmOutcome, SearchBudget
 from ...schemas import Container, Item, Placement, SolveResult
 from .configuration import ContainerSearchConfiguration
 from .inventory import NormalizedContainerInventory, normalize_container_inventory
 from .inventory_consolidation import (
     BoundedInventoryConsolidator,
-    CandidateValidator,
     SupportClosureProvider,
     inventory_item_order,
 )
+from .incumbent import CandidateValidator, ValidatedIncumbentStore
+from .secondary_score import calculate_secondary_search_score
 from .precheck import (
     assess_capacity_within_container_limit,
     estimate_container_lower_bound,
     run_hard_precheck,
 )
-from .subset_generation import LazyRankedContainerSubsetPolicy
+from .subset_generation import (
+    LazyRankedContainerSubsetPolicy,
+    midpoint_cardinality_ladder,
+)
 
 
 class InventoryConstructiveExecutor(Protocol):
@@ -55,6 +59,8 @@ class InventorySearchRequest:
     precheck_failure_context: str = "inventory instance"
     support_closure_provider: SupportClosureProvider | None = None
     candidate_validator: CandidateValidator | None = None
+    secondary_support_threshold: float | None = None
+    secondary_support_epsilon_mm: float = 1e-4
 
 
 @dataclass(frozen=True)
@@ -62,6 +68,7 @@ class _ConstructionPortfolioResult:
     outcome: AlgorithmOutcome
     policy_metadata: dict[str, object]
     metadata: dict[str, object]
+    incumbent_store: ValidatedIncumbentStore
 
 
 class InventorySearchOrchestrator:
@@ -91,6 +98,10 @@ class InventorySearchOrchestrator:
                 f"{supported}; disable container_search or select a supported "
                 f"algorithm instead of {request.algorithm_id!r}."
             )
+        if request.candidate_validator is None:
+            raise ValueError(
+                "Inventory-aware search requires an independent candidate_validator"
+            )
 
         pipeline_started = self._clock()
         global_deadline = (
@@ -106,6 +117,31 @@ class InventorySearchOrchestrator:
         construction_deadline = search_deadline
         if search_deadline is not None and search.consolidation.enabled:
             construction_deadline -= search.consolidation.time_limit_seconds
+        budget = None
+        if search_deadline is not None and global_deadline is not None:
+            cardinality_count = max(1, len(search.limits.cardinalities))
+            budget = SearchBudget(
+                search_deadline_monotonic=search_deadline,
+                total_deadline_monotonic=global_deadline,
+                max_attempts=max(
+                    1,
+                    len(search.construction_item_order_variants)
+                    * cardinality_count,
+                ),
+                max_subsets=max(
+                    1, cardinality_count * search.max_candidates_per_count,
+                ),
+                max_item_orders=max(1, len(search.construction_item_order_variants)),
+                max_container_orders=1,
+                # Core constructors expose evaluated-candidate telemetry but do
+                # not yet share one configurable global candidate cap. Keep the
+                # time/subset/repair guards authoritative in this checkpoint.
+                max_candidate_evaluations=2**63 - 1,
+                max_repair_attempts=max(1, search.consolidation.max_candidates),
+                max_no_improvement_attempts=max(1, search.consolidation.max_candidates),
+                started_at_monotonic=pipeline_started,
+                _clock=self._clock,
+            )
 
         phase_started = self._clock()
         inventory = normalize_container_inventory(request.containers)
@@ -139,7 +175,6 @@ class InventorySearchOrchestrator:
             "hard_precheck_valid": precheck.valid and capacity_limit.valid,
             "hard_precheck_issue_count": len(all_precheck_issues),
             "hard_precheck_issues": [asdict(value) for value in all_precheck_issues],
-            "hide_objective_when_invalid": True,
             "inventory_search_phase_runtime_seconds": {
                 "normalization": normalization_seconds,
                 "hard_precheck": precheck_seconds,
@@ -151,10 +186,29 @@ class InventorySearchOrchestrator:
             return self._precheck_failure(request, shared_metadata)
 
         construction_started = self._clock()
+        incumbent_store = ValidatedIncumbentStore(
+            required_item_ids=[value.item_id for value in request.items],
+            containers=request.containers,
+            validator=request.candidate_validator,
+            secondary_score_factory=(
+                None
+                if not search.secondary_search_score.enabled
+                else lambda placements: calculate_secondary_search_score(
+                    placements,
+                    request.containers,
+                    support_threshold=request.secondary_support_threshold,
+                    support_epsilon_mm=request.secondary_support_epsilon_mm,
+                )
+            ),
+        )
         construction = self._run_construction_portfolio(
             request=request,
             executor=executor,
             search_deadline=construction_deadline,
+            incumbent_store=incumbent_store,
+            search_budget=budget,
+            inventory=inventory,
+            aggregate_lower_bound=lower_bound.aggregate_lower_bound,
         )
         outcome = construction.outcome
         baseline_policy_metadata = construction.policy_metadata
@@ -170,6 +224,8 @@ class InventorySearchOrchestrator:
             global_deadline_monotonic=search_deadline,
             support_closure_provider=request.support_closure_provider,
             candidate_validator=request.candidate_validator,
+            incumbent_store=construction.incumbent_store,
+            search_budget=budget,
         )
         outcome = consolidation.outcome
         consolidated = (
@@ -184,6 +240,8 @@ class InventorySearchOrchestrator:
             **shared_metadata,
             **construction.metadata,
             **consolidation.metadata,
+            **construction.incumbent_store.metadata(),
+            "shared_search_budget": None if budget is None else budget.snapshot(),
             "container_consolidation_baseline_subset_evidence": baseline_policy_metadata,
         }
         final_metadata["selected_inventory_type_distribution"] = (
@@ -197,6 +255,13 @@ class InventorySearchOrchestrator:
             ),
             "total_search": self._clock() - pipeline_started,
         }
+        final_metadata["inventory_search_termination_reason"] = (
+            construction.metadata["inventory_construction_termination_reason"]
+            if construction.incumbent_store.outcome is None
+            else consolidation.metadata[
+                "container_consolidation_termination_reason"
+            ]
+        )
         if outcome.solve.status in {"INFEASIBLE_HEURISTIC", "TIME_LIMIT"}:
             _add_incomplete_diagnostics(
                 final_metadata,
@@ -218,11 +283,40 @@ class InventorySearchOrchestrator:
         request: InventorySearchRequest,
         executor: InventoryConstructiveExecutor,
         search_deadline: float | None,
+        incumbent_store: ValidatedIncumbentStore,
+        search_budget: SearchBudget | None,
+        inventory: NormalizedContainerInventory,
+        aggregate_lower_bound: int,
     ) -> "_ConstructionPortfolioResult":
         variants = request.configuration.construction_item_order_variants
+        acquisition = request.configuration.incumbent_acquisition
+        use_acquisition = (
+            acquisition.enabled
+            and inventory.physical_container_count
+            > request.configuration.exhaustive_max_containers
+        )
+        acquisition_ladder = (
+            midpoint_cardinality_ladder(
+                max(
+                    aggregate_lower_bound,
+                    request.configuration.limits.initial_used_container_count,
+                ),
+                request.configuration.limits.max_used_container_count,
+            )
+            if use_acquisition else ()
+        )
         outcomes: list[tuple[str, AlgorithmOutcome, dict[str, object]]] = []
         variant_rows: list[dict[str, object]] = []
+        acquired_cardinality: int | None = None
+        complete_tie_break_portfolio = (
+            request.configuration.secondary_search_score.enabled
+            and request.configuration.secondary_search_score.complete_first_cardinality_portfolio
+        )
         for index, variant in enumerate(variants):
+            if search_budget is not None:
+                if search_budget.search_time_exhausted():
+                    break
+                search_budget.record_item_order()
             now = self._clock()
             if search_deadline is not None and now >= search_deadline:
                 break
@@ -230,48 +324,96 @@ class InventorySearchOrchestrator:
             if search_deadline is not None:
                 remaining_variants = len(variants) - index
                 phase_deadline = now + (search_deadline - now) / remaining_variants
-            policy = LazyRankedContainerSubsetPolicy(
-                request.configuration.limits,
-                exhaustive_max_containers=request.configuration.exhaustive_max_containers,
-                max_candidates_per_count=request.configuration.max_candidates_per_count,
-                neighborhood_width=request.configuration.neighborhood_width,
-                composition_beam_width=request.configuration.composition_beam_width,
-                soft_volume_buffer_ratio=request.configuration.soft_volume_buffer_ratio,
-                deadline_monotonic=phase_deadline,
-                monotonic_clock=self._clock,
+            target_cardinalities: tuple[int | None, ...] = (
+                (acquired_cardinality,)
+                if acquired_cardinality is not None
+                else tuple(acquisition_ladder) if use_acquisition else (None,)
             )
-            selected_settings = dict(request.settings)
-            if variant != "current":
-                selected_settings["item_order_override"] = inventory_item_order(
-                    request.items, variant,
+            for target_cardinality in target_cardinalities:
+                if search_budget is not None:
+                    if not search_budget.can_start_attempt():
+                        break
+                    search_budget.record_attempt()
+                if phase_deadline is not None and self._clock() >= phase_deadline:
+                    break
+                policy = LazyRankedContainerSubsetPolicy(
+                    request.configuration.limits,
+                    exhaustive_max_containers=request.configuration.exhaustive_max_containers,
+                    max_candidates_per_count=(
+                        acquisition.max_subsets_per_cardinality
+                        if use_acquisition
+                        else request.configuration.max_candidates_per_count
+                    ),
+                    neighborhood_width=request.configuration.neighborhood_width,
+                    composition_beam_width=request.configuration.composition_beam_width,
+                    soft_volume_buffer_ratio=request.configuration.soft_volume_buffer_ratio,
+                    deadline_monotonic=phase_deadline,
+                    monotonic_clock=self._clock,
+                    candidate_mode=(
+                        "incumbent_acquisition" if use_acquisition else "portfolio"
+                    ),
+                    cardinalities_override=(
+                        None
+                        if target_cardinality is None
+                        else (target_cardinality,)
+                    ),
                 )
-            if phase_deadline is not None:
-                selected_settings["constructive_deadline_monotonic"] = phase_deadline
-            started = self._clock()
-            outcome = executor(
-                request.items,
-                request.containers,
-                selected_settings,
-                container_subset_policy=policy,
-            )
-            policy_metadata = policy.metadata()
-            outcomes.append((variant, outcome, policy_metadata))
-            variant_rows.append({
-                "item_order": variant,
-                "status": outcome.solve.status,
-                "runtime_seconds": self._clock() - started,
-                "candidate_subsets_evaluated": outcome.metadata.get(
-                    "candidate_subsets_evaluated", 0,
-                ),
-                "packing_attempts": outcome.metadata.get("packing_attempts", 0),
-                "best_partial_placement_count": outcome.metadata.get(
-                    "best_partial_placement_count", len(outcome.placements),
-                ),
-                "policy": policy_metadata,
-            })
-            if outcome.solve.status == "FEASIBLE":
-                # Cardinality và composition trong mỗi policy đã được xếp hạng;
-                # nghiệm complete đầu tiên giữ đúng semantics heuristic hiện tại.
+                selected_settings = dict(request.settings)
+                if variant != "current":
+                    selected_settings["item_order_override"] = inventory_item_order(
+                        request.items, variant,
+                    )
+                if phase_deadline is not None:
+                    selected_settings["constructive_deadline_monotonic"] = phase_deadline
+                started = self._clock()
+                outcome = executor(
+                    request.items,
+                    request.containers,
+                    selected_settings,
+                    container_subset_policy=policy,
+                )
+                policy_metadata = policy.metadata()
+                if search_budget is not None:
+                    search_budget.record_subset(int(
+                        outcome.metadata.get("candidate_subsets_evaluated", 0)
+                    ))
+                    search_budget.record_candidate(int(
+                        outcome.metadata.get("candidate_feasibility_checks", 0)
+                    ))
+                outcomes.append((variant, outcome, policy_metadata))
+                accepted_as_incumbent = incumbent_store.consider(outcome)
+                variant_rows.append({
+                    "phase": (
+                        "incumbent_acquisition" if use_acquisition else "portfolio"
+                    ),
+                    "target_cardinality": target_cardinality,
+                    "item_order": variant,
+                    "status": outcome.solve.status,
+                    "runtime_seconds": self._clock() - started,
+                    "candidate_subsets_evaluated": outcome.metadata.get(
+                        "candidate_subsets_evaluated", 0,
+                    ),
+                    "packing_attempts": outcome.metadata.get("packing_attempts", 0),
+                    "best_partial_placement_count": outcome.metadata.get(
+                        "best_partial_placement_count", len(outcome.placements),
+                    ),
+                    "independent_validation_status": (
+                        "VALID" if accepted_as_incumbent
+                        else "NOT_BETTER_OR_INVALID"
+                        if outcome.solve.status == "FEASIBLE"
+                        else "NOT_RUN"
+                    ),
+                    "policy": policy_metadata,
+                })
+                if accepted_as_incumbent:
+                    if acquired_cardinality is None:
+                        acquired_cardinality = (
+                            incumbent_store.objective.used_container_count
+                            if incumbent_store.objective is not None
+                            else target_cardinality
+                        )
+                    break
+            if incumbent_store.outcome is not None and not complete_tie_break_portfolio:
                 break
 
         if not outcomes:
@@ -282,10 +424,12 @@ class InventorySearchOrchestrator:
                     "inventory_construction_variants_attempted": [],
                     "inventory_construction_termination_reason": "search_time_limit",
                 },
+                incumbent_store=incumbent_store,
             )
-        complete = [value for value in outcomes if value[1].solve.status == "FEASIBLE"]
-        if complete:
-            selected = min(complete, key=lambda value: _outcome_rank(value[1], request.containers))
+        if incumbent_store.outcome is not None:
+            selected = next(
+                value for value in outcomes if value[1] is incumbent_store.outcome
+            )
             termination = "valid_solution_found"
         else:
             selected = max(
@@ -315,6 +459,21 @@ class InventorySearchOrchestrator:
                 "inventory_construction_variants_attempted": variant_rows,
                 "inventory_construction_termination_reason": termination,
                 "inventory_construction_variant_count": len(variant_rows),
+                "incumbent_acquisition_used": use_acquisition,
+                "incumbent_acquisition_cardinality_ladder": list(
+                    acquisition_ladder
+                ),
+                "incumbent_acquisition_attempt_count": sum(
+                    row["phase"] == "incumbent_acquisition"
+                    for row in variant_rows
+                ),
+                "secondary_search_score_portfolio_completed": bool(
+                    complete_tie_break_portfolio
+                    and incumbent_store.outcome is not None
+                ),
+                "secondary_search_score_first_valid_cardinality": (
+                    acquired_cardinality
+                ),
                 "container_type_compositions_evaluated_total": sum(
                     int(row["policy"].get("container_subset_candidates_generated", 0))
                     for row in variant_rows
@@ -324,6 +483,7 @@ class InventorySearchOrchestrator:
                     for row in variant_rows
                 ),
             },
+            incumbent_store=incumbent_store,
         )
 
     @staticmethod

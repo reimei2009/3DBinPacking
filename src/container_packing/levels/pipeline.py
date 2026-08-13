@@ -8,6 +8,7 @@ from time import perf_counter
 from typing import Any, Callable
 
 from ..algorithms.contracts import AlgorithmOutcome
+from ..algorithms.search.secondary_score import calculate_secondary_search_score
 from ..data_loader import load_config, load_containers, load_items, merge_config
 from ..dataset_usage import DatasetExecutionIntent, validate_dataset_usage
 from ..instance_data import prepare_instance
@@ -74,6 +75,7 @@ def run_configured_level(
     item_selection_strategy: str | None = None,
     item_selection_seed: int | None = None,
 ) -> RunResult:
+    pipeline_started = perf_counter()
     config_file = Path(config_path).resolve()
     config = load_config(config_file)
     config = merge_config(config, dict(config_overrides or {}))
@@ -105,6 +107,7 @@ def run_configured_level(
     containers_path = _resolve_path(root, manifest["containers_csv"])
     items, containers = load_items(items_path), load_containers(containers_path)
     strategy.validate_instance(items, containers, int(manifest["n_items"]))
+    data_preparation_seconds = perf_counter() - pipeline_started
     tolerance = float(config.get("validation", {}).get("coordinate_tolerance_mm", 1e-4))
     overrides = dict(algorithm_parameters or {})
     if algorithm_id == "milp_big_m":
@@ -168,11 +171,26 @@ def run_configured_level(
             if solve.status == "INFEASIBLE_HEURISTIC" else None
         ),
         "time_limit_seconds": config.get("solver", {}).get("time_limit_seconds") if algorithm_id == "milp_big_m" else None,
-        "solver_message": solve.message, "objective_value": solve.objective_value,
+        "solver_message": solve.message,
         **outcome.metadata,
+        # Các trường objective authoritative phải nằm sau metadata của solver để
+        # adapter không thể vô tình ghi đè final-validation contract.
+        "objective_value": solve.objective_value,
+        "encoded_solver_objective": solve.objective_value,
+        "official_objective": None,
+        "official_secondary_search_score": None,
+        # KPI quan sát luôn được tính từ nghiệm cuối đã qua independent validator.
+        # Nó không tham gia lựa chọn incumbent khi secondary_search_score bị tắt.
+        "diagnostic_secondary_search_score": None,
+        "objective_reported": False,
         # The orchestration timer covers every phase invoked by the strategy.
         # Adapter-local timers remain phase diagnostics and must not overwrite it.
         "algorithm_runtime_seconds": runtime,
+        "pipeline_phase_runtime_seconds": {
+            "data_preparation": data_preparation_seconds,
+            "algorithm": runtime,
+            "independent_validation": 0.0,
+        },
         "level": strategy.level_number,
         "items_data_status": "public benchmark sample",
         "cost_note": "Synthetic comparison score; not a real freight price.",
@@ -198,11 +216,23 @@ def run_configured_level(
         **strategy.metadata_defaults,
     }
     if solve.status not in {"OPTIMAL", "FEASIBLE", "FEASIBLE_TIME_LIMIT"} or len(placements) != len(items):
+        if metadata.get("objective_value") is not None:
+            metadata["candidate_objective_value"] = metadata["objective_value"]
+        metadata["objective_value"] = None
+        metadata["pipeline_runtime_seconds"] = perf_counter() - pipeline_started
         if write_outputs and run_dir is not None:
             write_status_outputs(run_dir, metadata, config, items_path=items_path, containers_path=containers_path, project_root=root)
-        return RunResult(solve, [], None, metadata)
+        returned_solve = SolveResult(
+            solve.status, solve.message, None, solve.vector, solve.raw_result,
+        )
+        return RunResult(returned_solve, [], None, metadata)
 
+    validation_started = perf_counter()
     bundle = strategy.validate_solution(items, containers, placements, config)
+    validation_seconds = perf_counter() - validation_started
+    metadata["pipeline_phase_runtime_seconds"][
+        "independent_validation"
+    ] = validation_seconds
     if outcome.metadata.get("model_support_audit_valid") is False:
         audit_issue = ValidationIssue(
             "MODEL_SUPPORT_MISMATCH",
@@ -223,9 +253,10 @@ def run_configured_level(
         )
     selected = sorted({placement.container_id for placement in placements})
     container_map = {container.container_id: container for container in containers}
+    total_container_cost = sum(container_map[value].cost for value in selected)
     metadata.update({
         "container_count": len(selected), "selected_containers": selected,
-        "total_container_cost": sum(container_map[value].cost for value in selected),
+        "total_container_cost": total_container_cost,
         "validation_valid": bundle.result.valid,
         **bundle.metadata,
     })
@@ -240,23 +271,55 @@ def run_configured_level(
     if not bundle.result.valid:
         metadata["status"] = "INVALID_SOLUTION"
         metadata["failure_class"] = "VALIDATION_FAILED"
-        returned_solve = solve
-        if (
-            outcome.metadata.get("hide_objective_when_invalid")
-            or strategy.metadata_defaults.get("hide_objective_when_invalid")
-        ):
-            metadata["candidate_objective_value"] = metadata.get("objective_value")
-            metadata["objective_value"] = None
-            metadata["objective_reported"] = False
-            returned_solve = SolveResult(
-                "INVALID_SOLUTION", "Independent final validation rejected the constructed candidate.",
-                None, solve.vector, solve.raw_result,
-            )
+        metadata["candidate_objective_value"] = metadata.get("objective_value")
+        metadata["objective_value"] = None
+        metadata["official_objective"] = None
+        metadata["official_secondary_search_score"] = None
+        metadata["diagnostic_secondary_search_score"] = None
+        metadata["objective_reported"] = False
+        metadata["pipeline_runtime_seconds"] = perf_counter() - pipeline_started
+        returned_solve = SolveResult(
+            "INVALID_SOLUTION", "Independent final validation rejected the constructed candidate.",
+            None, solve.vector, solve.raw_result,
+        )
         if write_outputs and run_dir is not None:
             write_run_outputs(run_dir, placements, containers, metadata, bundle.result, config, **output_arguments)
             if strategy.post_write_hook is not None:
                 strategy.post_write_hook(run_dir, items, containers, placements, config, metadata, bundle)
         return RunResult(returned_solve, placements, bundle.result, metadata)
+    if solve.status == "FEASIBLE_TIME_LIMIT":
+        metadata["candidate_objective_value"] = metadata.get("objective_value")
+        metadata["objective_value"] = None
+        metadata["official_objective"] = None
+        metadata["official_secondary_search_score"] = None
+        metadata["diagnostic_secondary_search_score"] = None
+        metadata["objective_reported"] = False
+        solve = SolveResult(
+            solve.status, solve.message, None, solve.vector, solve.raw_result,
+        )
+    else:
+        metadata["official_objective"] = {
+            "used_container_count": len(selected),
+            "total_container_cost": total_container_cost,
+        }
+        metadata["official_secondary_search_score"] = metadata.get(
+            "validated_incumbent_secondary_score"
+        )
+        if level_id in {"level_01", "level_02"}:
+            support = config.get("support", {})
+            metadata["diagnostic_secondary_search_score"] = (
+                calculate_secondary_search_score(
+                    placements,
+                    containers,
+                    support_threshold=(
+                        None if level_id == "level_01"
+                        else float(support.get("threshold", 0.8))
+                    ),
+                    support_epsilon_mm=float(support.get("epsilon_mm", 1e-4)),
+                ).as_dict()
+            )
+        metadata["objective_reported"] = True
+    metadata["pipeline_runtime_seconds"] = perf_counter() - pipeline_started
     if write_outputs and run_dir is not None:
         write_run_outputs(run_dir, placements, containers, metadata, bundle.result, config, **output_arguments)
         if strategy.post_write_hook is not None:

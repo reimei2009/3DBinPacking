@@ -1,0 +1,270 @@
+{
+  "all_successful": true,
+  "deterministic": true,
+  "diagnostic_note": "diagnostic_secondary_score chỉ là KPI quan sát hoặc tie-break sau objective chính thức; không được dùng để đổi số container hoặc chi phí.",
+  "encoded_solver_objective_role": "legacy_compatibility_only",
+  "kpi_comparisons": [
+    {
+      "algorithm": "extreme_point_best_fit",
+      "baseline_objective": [
+        4,
+        8000.0
+      ],
+      "candidate_objective": [
+        4,
+        8000.0
+      ],
+      "diagnostic_secondary_score": {
+        "internal_void_ratio": 0.09543838340625506,
+        "minimum_support_margin": 0.1795918367346938,
+        "utilization_concentration": 0.46292755739742014
+      },
+      "item_count": 100,
+      "item_selection_seed": 101,
+      "item_selection_strategy": "stable_random",
+      "outcome": "TIE",
+      "runtime_ratio_to_control": 1.1462015314518157
+    },
+    {
+      "algorithm": "extreme_point_best_fit",
+      "baseline_objective": [
+        12,
+        24000.0
+      ],
+      "candidate_objective": [
+        11,
+        22000.0
+      ],
+      "diagnostic_secondary_score": {
+        "internal_void_ratio": 0.09090078083705308,
+        "minimum_support_margin": 0.15918367346938767,
+        "utilization_concentration": 0.542774607481467
+      },
+      "item_count": 300,
+      "item_selection_seed": 101,
+      "item_selection_strategy": "stable_random",
+      "outcome": "WIN",
+      "runtime_ratio_to_control": 1.707389211939375
+    },
+    {
+      "algorithm": "maximal_space_best_fit",
+      "baseline_objective": [
+        4,
+        8000.0
+      ],
+      "candidate_objective": [
+        4,
+        8000.0
+      ],
+      "diagnostic_secondary_score": {
+        "internal_void_ratio": 0.09462010435909901,
+        "minimum_support_margin": 0.033333333333333326,
+        "utilization_concentration": 0.44349437227635635
+      },
+      "item_count": 100,
+      "item_selection_seed": 101,
+      "item_selection_strategy": "stable_random",
+      "outcome": "TIE",
+      "runtime_ratio_to_control": 1.0563110703833511
+    },
+    {
+      "algorithm": "maximal_space_best_fit",
+      "baseline_objective": [
+        12,
+        24000.0
+      ],
+      "candidate_objective": [
+        11,
+        22000.0
+      ],
+      "diagnostic_secondary_score": {
+        "internal_void_ratio": 0.08183014251410557,
+        "minimum_support_margin": 0.012499999999999956,
+        "utilization_concentration": 0.5425329124148356
+      },
+      "item_count": 300,
+      "item_selection_seed": 101,
+      "item_selection_strategy": "stable_random",
+      "outcome": "WIN",
+      "runtime_ratio_to_control": 1.4450309563084256
+    }
+  ],
+  "level": "level_02",
+  "mes_fast_comparator": {
+    "nonworse_official_objective": true,
+    "p95_runtime_ratio_to_best_fit": 0.7687460373370905
+  },
+  "official_objective": "used_container_count_then_total_container_cost",
+  "promotion": {
+    "kpi_promotion": "PENDING_KPI_500_GATE",
+    "mes_fast_comparator": "PASS",
+    "repair_fallback": "PASS"
+  },
+  "repair_comparisons": [
+    {
+      "algorithm": "extreme_point_best_fit",
+      "baseline_objective": [
+        4,
+        8000.0
+      ],
+      "candidate_objective": [
+        4,
+        8000.0
+      ],
+      "diagnostic_secondary_score": {
+        "internal_void_ratio": 0.07837168432993032,
+        "minimum_support_margin": 0.17916666666666659,
+        "utilization_concentration": 0.42729293657271705
+      },
+      "item_count": 100,
+      "item_selection_seed": 101,
+      "item_selection_strategy": "stable_random",
+      "outcome": "TIE",
+      "runtime_ratio_to_control": 3.957734988398265
+    },
+    {
+      "algorithm": "extreme_point_best_fit",
+      "baseline_objective": [
+        12,
+        24000.0
+      ],
+      "candidate_objective": [
+        11,
+        22000.0
+      ],
+      "diagnostic_secondary_score": {
+        "internal_void_ratio": 0.09217812206655765,
+        "minimum_support_margin": 0.15918367346938767,
+        "utilization_concentration": 0.5414743345753249
+      },
+      "item_count": 300,
+      "item_selection_seed": 101,
+      "item_selection_strategy": "stable_random",
+      "outcome": "WIN",
+      "runtime_ratio_to_control": 22.228756254275492
+    },
+    {
+      "algorithm": "extreme_point_best_fit",
+      "baseline_objective": [
+        20,
+        40000.0
+      ],
+      "candidate_objective": [
+        19,
+        38000.0
+      ],
+      "diagnostic_secondary_score": {
+        "internal_void_ratio": 0.06084647422152854,
+        "minimum_support_margin": 0.0,
+        "utilization_concentration": 0.5189435025183471
+      },
+      "item_count": 500,
+      "item_selection_seed": 101,
+      "item_selection_strategy": "stable_random",
+      "outcome": "WIN",
+      "runtime_ratio_to_control": 11.709633089349085
+    },
+    {
+      "algorithm": "maximal_space_best_fit",
+      "baseline_objective": [
+        4,
+        8000.0
+      ],
+      "candidate_objective": [
+        4,
+        8000.0
+      ],
+      "diagnostic_secondary_score": {
+        "internal_void_ratio": 0.07056876746070329,
+        "minimum_support_margin": 0.1795918367346938,
+        "utilization_concentration": 0.4381353477150727
+      },
+      "item_count": 100,
+      "item_selection_seed": 101,
+      "item_selection_strategy": "stable_random",
+      "outcome": "TIE",
+      "runtime_ratio_to_control": 2.57604790103108
+    },
+    {
+      "algorithm": "maximal_space_best_fit",
+      "baseline_objective": [
+        12,
+        24000.0
+      ],
+      "candidate_objective": [
+        11,
+        22000.0
+      ],
+      "diagnostic_secondary_score": {
+        "internal_void_ratio": 0.08162083504957204,
+        "minimum_support_margin": 0.012499999999999956,
+        "utilization_concentration": 0.5410699343103279
+      },
+      "item_count": 300,
+      "item_selection_seed": 101,
+      "item_selection_strategy": "stable_random",
+      "outcome": "WIN",
+      "runtime_ratio_to_control": 21.630288642994458
+    },
+    {
+      "algorithm": "maximal_space_best_fit",
+      "baseline_objective": [
+        20,
+        40000.0
+      ],
+      "candidate_objective": [
+        19,
+        38000.0
+      ],
+      "diagnostic_secondary_score": {
+        "internal_void_ratio": 0.08644226437752134,
+        "minimum_support_margin": 0.0,
+        "utilization_concentration": 0.5172879173507322
+      },
+      "item_count": 500,
+      "item_selection_seed": 101,
+      "item_selection_strategy": "stable_random",
+      "outcome": "WIN",
+      "runtime_ratio_to_control": 22.867779384022867
+    }
+  ],
+  "runs": [
+    {
+      "all_successful": true,
+      "dataset_checksums": {
+        "containers": "a5fa894c8fb1ac8489f7668eb983e272fb141795a6042ad09dc9c596558df4bf",
+        "items": "6fd7a13a0e8a8d4495f5202b9e7273df0a8351de0f7b0ab3b73599cf78adeb29"
+      },
+      "deterministic": true,
+      "label": "control",
+      "results_checksum": "53b8c1e56846b2ad8420ae54f30597859a27dce8690d8d0e8a33038e19ae59e1",
+      "row_count": 24,
+      "run_dir": "outputs/level_02/runs/20260810T105236464370Z__level_02__benchmark__seed42"
+    },
+    {
+      "all_successful": true,
+      "dataset_checksums": {
+        "containers": "a5fa894c8fb1ac8489f7668eb983e272fb141795a6042ad09dc9c596558df4bf",
+        "items": "6fd7a13a0e8a8d4495f5202b9e7273df0a8351de0f7b0ab3b73599cf78adeb29"
+      },
+      "deterministic": true,
+      "label": "kpi",
+      "results_checksum": "c7f0f6ebd5a15907f81c2a2e8f9084faaa1ce032fa9268ba9cca6c8a62a6006b",
+      "row_count": 16,
+      "run_dir": "outputs/level_02/runs/20260810T110457666293Z__level_02__benchmark__seed42"
+    },
+    {
+      "all_successful": true,
+      "dataset_checksums": {
+        "containers": "a5fa894c8fb1ac8489f7668eb983e272fb141795a6042ad09dc9c596558df4bf",
+        "items": "6fd7a13a0e8a8d4495f5202b9e7273df0a8351de0f7b0ab3b73599cf78adeb29"
+      },
+      "deterministic": true,
+      "label": "repair",
+      "results_checksum": "7de18030b5811cab36e08207a52e15b8488f3cd5be73252e82ee3b0db7cd7704",
+      "row_count": 24,
+      "run_dir": "outputs/level_02/runs/20260810T110849513605Z__level_02__benchmark__seed42"
+    }
+  ],
+  "schema_version": "1.0"
+}

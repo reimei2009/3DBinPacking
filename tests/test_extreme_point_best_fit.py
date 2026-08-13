@@ -38,6 +38,13 @@ def test_best_fit_is_deterministic_and_respects_payload():
     first = solve_level1(items, containers)
     second = solve_level1(items, containers)
     assert first.placements == second.placements
+    assert [
+        (value.item_id, value.container_id, value.x_mm, value.y_mm, value.z_mm)
+        for value in first.placements
+    ] == [
+        ("A", "C1", 0.0, 0.0, 0.0),
+        ("B", "C2", 0.0, 0.0, 0.0),
+    ]
     assert {value.container_id for value in first.placements} == {"C1", "C2"}
     assert validate_solution(items, containers, first.placements).valid
 
@@ -55,6 +62,19 @@ def test_best_fit_rejects_invalid_subset_limit():
     items, containers = compactness_fixture()
     with pytest.raises(ValueError, match="subset_enumeration_limit"):
         solve_level1(items, containers, {"subset_enumeration_limit": 0})
+
+
+def test_secondary_scoring_disabled_keeps_best_fit_placement_signature() -> None:
+    items, containers = compactness_fixture()
+    baseline = solve_level1(items, containers)
+    explicitly_disabled = solve_level1(items, containers, {
+        "container_search": {
+            "secondary_search_score": {"enabled": False},
+        },
+    })
+
+    assert explicitly_disabled.placements == baseline.placements
+    assert "candidate_secondary_scoring_policy" not in explicitly_disabled.metadata
 
 
 def test_best_fit_uses_horizontal_orientation_when_fixed_orientation_cannot_fit():

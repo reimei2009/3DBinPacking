@@ -6,6 +6,11 @@ Số thuật toán đã tăng đến mức ma trận item/container ad-hoc khôn
 
 Benchmark matrix thông thường vẫn được hỗ trợ. Hai luồng tái sử dụng experiment runner, independent validator, metric, output isolation, manifest và seed semantics hiện có. Corpus chỉ thêm phân loại reference và quality gap, không thay solver hoặc constraint Level 1.
 
-Chỉ kết quả exact `OPTIMAL` được dùng làm objective `proven_optimal`. Case lớn dùng nhãn yếu hơn là `best_known`. Tương tự, chỉ exact `INFEASIBLE` chứng minh bất khả thi; heuristic failure không phải chứng minh.
+Chỉ kết quả exact `OPTIMAL` được dùng làm objective `proven_optimal`. Khi không có
+bằng chứng exact, nghiệm hợp lệ tốt nhất quan sát được trên cùng input fingerprint
+dùng nhãn `best_observed`. Nhãn này không phải best-known học thuật và không chứng
+minh tối ưu. Artifact lịch sử mang nhãn `best_known` vẫn đọc được nhưng được coi là
+legacy. Tương tự, chỉ exact `INFEASIBLE` chứng minh bất khả thi; heuristic failure
+không phải chứng minh.
 
 Checkpoint này expose corpus qua CLI và artifact bất biến. Streamlit chưa đọc corpus trực tiếp; việc promote lên UI cần acceptance riêng để không trộn schema corpus với benchmark matrix hiện tại.

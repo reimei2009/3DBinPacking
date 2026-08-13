@@ -12,6 +12,10 @@ from .provenance import sha256_file
 
 
 SUPPORTED_GENERATOR_ID = "empirical_template_physical_instances_v1"
+SUPPORTED_GENERATOR_IDS = frozenset({
+    SUPPORTED_GENERATOR_ID,
+    "solver_research_subset_v1",
+})
 SUPPORTED_SCHEMA_VERSION = "2.0"
 
 
@@ -53,10 +57,10 @@ def validate_generation_manifest_files(
     """Validate one generation manifest and checksums for selected declared files."""
     resolved_manifest = Path(manifest_path).resolve()
     manifest = _load_manifest(resolved_manifest)
-    if manifest.get("generator_id") != SUPPORTED_GENERATOR_ID:
+    if manifest.get("generator_id") not in SUPPORTED_GENERATOR_IDS:
         raise ValueError(
             f"Unsupported generated dataset generator_id {manifest.get('generator_id')!r}; "
-            f"expected {SUPPORTED_GENERATOR_ID!r}"
+            f"expected one of {sorted(SUPPORTED_GENERATOR_IDS)!r}"
         )
     if str(manifest.get("schema_version")) != SUPPORTED_SCHEMA_VERSION:
         raise ValueError(
