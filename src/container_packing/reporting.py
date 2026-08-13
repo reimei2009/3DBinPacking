@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
+import time
 from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
@@ -19,14 +21,38 @@ from .visualization.plotly_3d import write_html_views
 from .visualization.scene_schema import build_scene
 
 OUTPUT_SCHEMA_VERSION = "1.0"
+ATOMIC_WRITE_RETRY_DELAYS_SECONDS = (0.05, 0.10, 0.20, 0.40)
+
+
+class AtomicPublishError(OSError):
+    """Raised when a complete temporary artifact cannot be published atomically."""
+
+
+def _replace_with_retry(temporary: Path, target: Path) -> None:
+    attempts = len(ATOMIC_WRITE_RETRY_DELAYS_SECONDS) + 1
+    for attempt in range(attempts):
+        try:
+            temporary.replace(target)
+            return
+        except PermissionError as exc:
+            if attempt == attempts - 1:
+                raise AtomicPublishError(
+                    f"Cannot publish artifact {target} after {attempts} attempts; "
+                    f"the complete temporary file is preserved at {temporary}"
+                ) from exc
+            time.sleep(ATOMIC_WRITE_RETRY_DELAYS_SECONDS[attempt])
 
 
 def write_text(path: str | Path, value: str) -> None:
     """Atomically replace a small text artifact within its destination folder."""
     target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
     temporary = target.with_suffix(target.suffix + ".tmp")
-    temporary.write_text(value, encoding="utf-8")
-    temporary.replace(target)
+    with temporary.open("w", encoding="utf-8", newline="") as stream:
+        stream.write(value)
+        stream.flush()
+        os.fsync(stream.fileno())
+    _replace_with_retry(temporary, target)
 
 
 def write_placements(path: str | Path, placements: list[Placement]) -> None:

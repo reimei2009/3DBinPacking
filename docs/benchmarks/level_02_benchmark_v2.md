@@ -189,6 +189,26 @@ Không tạo report tổng hợp khi mới có một hoặc hai tầng. V2 chỉ
 sau khi report trên trả `PASS`; việc promote và đánh dấu V1 `superseded` là một
 checkpoint riêng.
 
+### Recovery có kiểm soát
+
+Nếu một execution thất bại do publish artifact nhưng các execution còn lại hợp lệ,
+không sửa trực tiếp output cũ và không chép file `.tmp` thành bằng chứng. Chạy:
+
+```powershell
+.\.venv\Scripts\python.exe .\scripts\run_benchmark_corpus.py `
+  --corpus <protocol-corpus.yaml> `
+  --recover-from <run-directory-cu> `
+  --rerun-failed-only
+```
+
+Runner chỉ giữ row independently `VALID`, xác minh request/provenance trùng khớp và
+chạy lại các row còn thiếu trong một run directory mới. Manifest recovery ghi rõ
+số execution được kế thừa, số execution chạy lại và checksum artifact nguồn.
+
+Gate ngày 2026-08-13 đã hoàn thành `84 bài / 756 lượt / 756 VALID`, với `252/252`
+nhóm case–algorithm deterministic. Report bất biến nằm tại
+`docs/reports/manual/level_02_stratified_benchmark_v2_20260813.{json,md}`.
+
 ## Chạy thủ công
 
 ```powershell

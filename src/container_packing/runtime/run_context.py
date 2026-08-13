@@ -56,6 +56,17 @@ def create_benchmark_corpus_directory(
     return run_id, run_dir
 
 
+def create_benchmark_profile_directory(
+    root: Path, level_id: str, seed: int,
+) -> tuple[str, Path]:
+    """Create an isolated diagnostic profile run outside benchmark ranking."""
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+    run_id = f"{timestamp}__{level_id}__benchmark_profile__seed{seed}"
+    run_dir = root / level_id / "runs" / run_id
+    run_dir.mkdir(parents=True, exist_ok=False)
+    return run_id, run_dir
+
+
 def create_parameter_sweep_directory(
     root: Path, level_id: str, algorithm_id: str, seeds: Sequence[int],
 ) -> tuple[str, Path]:

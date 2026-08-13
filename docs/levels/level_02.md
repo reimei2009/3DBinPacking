@@ -97,6 +97,17 @@ thuật toán qua ba repeat. Ba tầng không bị gộp thống kê: random dù
 phối, stress dùng kiểm tra sức chịu đựng, prefix dùng phát hiện hồi quy. V1 tiếp tục
 là canonical cho đến khi V2 hoàn thành đủ 84 bài/756 lượt và qua promotion gate.
 
+Gate V2 ngày 2026-08-13 đã đạt đủ 84 bài, 756 lượt `VALID` và 252/252 nhóm
+deterministic. Tầng random có 3 thắng/57 hòa/0 thua của FFD và 6 thắng/53 hòa/1
+thua của MES khi so với Best Fit. Stress và prefix vẫn được báo riêng. Evidence nằm
+tại `docs/reports/manual/level_02_stratified_benchmark_v2_20260813.{json,md}`;
+việc đổi registry canonical là checkpoint quản trị riêng, không rewrite V1.
+
+Sau khi cả ba tầng V2 trả `PASS`, quy trình
+[profiling runtime Level 2](../benchmarks/level_02_runtime_profiling.md) đo phase từ
+telemetry chính thức và dùng `cProfile` trên một tập chẩn đoán nhỏ. Run profiling
+không tham gia objective, WIN/TIE/LOSS hoặc evidence canonical.
+
 Profile 500 và 5.000 container là catalog nghiên cứu generated, có provenance
 và fingerprint riêng. Dữ liệu processed/manifest/output của chúng luôn nằm
 trong namespace Level 2; không dùng output Level 1 làm input ẩn.

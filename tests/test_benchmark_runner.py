@@ -232,6 +232,100 @@ def test_configured_corpus_keeps_exact_reference_and_infeasibility_semantics(
     assert manifest["successful_execution_count"] == 4
 
 
+def _recovery_fixture(
+    root: Path, tmp_path: Path,
+) -> tuple[Path, Path]:
+    config = load_config(root / "config/level_01/default.yaml")
+    config["paths"]["raw_items_csv"] = str(
+        root / "data/raw/dataset_small_items_original.csv"
+    )
+    config["paths"]["processed_dir"] = str(tmp_path / "processed/level_01")
+    config["paths"]["manifest_json"] = str(
+        tmp_path / "processed/level_01/latest_manifest.json"
+    )
+    config["paths"]["output_root"] = str(tmp_path / "outputs")
+    config_path = tmp_path / "recovery_level_01.yaml"
+    config_path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
+    corpus_path = tmp_path / "recovery_corpus.yaml"
+    corpus_path.write_text(yaml.safe_dump({
+        "schema_version": "1.0", "corpus_id": "recovery_corpus",
+        "level_id": "level_01", "environment": "local",
+        "seeds": [42], "repeats": 2, "default_config": str(config_path),
+        "cases": [{
+            "case_id": "recovery_i1_c1", "item_count": 1,
+            "container_count": 1, "expected_outcome": "feasible",
+            "algorithms": ["extreme_point_ffd"],
+        }],
+    }, sort_keys=False), encoding="utf-8")
+    return config_path, corpus_path
+
+
+def test_corpus_recovery_reuses_valid_rows_and_reruns_only_failure(
+    root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _config_path, corpus_path = _recovery_fixture(root, tmp_path)
+    source = run_benchmark_corpus(corpus_path, project_root=root)
+    results_path = source.run_dir / "benchmark/results.csv"
+    results = pd.read_csv(results_path)
+    failed_index = results.index[results["repeat"].eq(2)][0]
+    for column, value in {
+        "status": "ERROR", "success": False, "validation_valid": False,
+        "expectation_met": False, "objective_value": None,
+        "official_objective": None, "used_container_count": None,
+        "total_container_cost": None, "placement_signature": None,
+    }.items():
+        results.loc[failed_index, column] = value
+    results.to_csv(results_path, index=False)
+
+    import container_packing.benchmarks.corpus as corpus_module
+    original_execute = corpus_module.execute_experiment_case
+    executed: list[int] = []
+
+    def tracking_execute(request, repeat_index):
+        executed.append(repeat_index)
+        return original_execute(request, repeat_index)
+
+    monkeypatch.setattr(corpus_module, "execute_experiment_case", tracking_execute)
+    recovered = run_benchmark_corpus(
+        corpus_path, project_root=root, recover_from=source.run_dir,
+        rerun_failed_only=True,
+    )
+
+    assert executed == [2]
+    assert recovered.successful
+    assert recovered.results["success"].all()
+    assert set(recovered.results["recovery_execution_action"]) == {
+        "reused_valid", "rerun_failed",
+    }
+    manifest = json.loads(
+        (recovered.run_dir / "manifest.json").read_text(encoding="utf-8")
+    )
+    assert manifest["recovery_mode"] is True
+    assert manifest["recovery"]["reused_execution_count"] == 1
+    assert manifest["recovery"]["rerun_execution_count"] == 1
+    assert manifest["recovery"]["run_id"] == source.run_id
+
+
+def test_corpus_recovery_rejects_provenance_mismatch_before_execution(
+    root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _config_path, corpus_path = _recovery_fixture(root, tmp_path)
+    source = run_benchmark_corpus(corpus_path, project_root=root)
+    payload = yaml.safe_load(corpus_path.read_text(encoding="utf-8"))
+    payload["cases"][0]["item_count"] = 2
+    corpus_path.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
+    monkeypatch.setattr(
+        "container_packing.benchmarks.corpus.execute_experiment_case",
+        lambda *_args, **_kwargs: pytest.fail("executor must not run on provenance mismatch"),
+    )
+
+    with pytest.raises(ValueError, match="provenance does not match"):
+        run_benchmark_corpus(
+            corpus_path, project_root=root, recover_from=source.run_dir,
+            rerun_failed_only=True,
+        )
+
+
 def test_corpus_case_supports_selection_and_dataset_identity(root: Path, tmp_path: Path) -> None:
     corpus_path = tmp_path / "corpus.yaml"
     corpus_path.write_text(yaml.safe_dump({

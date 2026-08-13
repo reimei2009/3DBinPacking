@@ -83,7 +83,7 @@ def _read_run(run_dir: Path, stratum: str) -> tuple[dict[str, Any], pd.DataFrame
         errors.append("objective hoặc placement signature không deterministic")
     return {
         "stratum": stratum,
-        "run_dir": str(run_dir.resolve()),
+        "run_dir": run_dir.as_posix(),
         "corpus_id": manifest.get("corpus_id"),
         "case_count": int(results["case_id"].nunique()),
         "execution_count": len(results),

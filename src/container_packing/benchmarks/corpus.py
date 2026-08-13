@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from copy import deepcopy
+import json
 import re
 from typing import Any
 
@@ -89,10 +90,11 @@ class BenchmarkCorpusResult:
     summary: pd.DataFrame
     ranking: pd.DataFrame
     references: pd.DataFrame
+    status: str
 
     @property
     def successful(self) -> bool:
-        return bool(len(self.results)) and bool(self.results["expectation_met"].all())
+        return self.status == "SUCCESS"
 
 
 def _resolve(root: Path, value: str | Path) -> Path:
@@ -335,9 +337,93 @@ def build_selection_overlap(
     return pd.DataFrame(records, columns=columns)
 
 
+_DERIVED_RESULT_COLUMNS = {
+    "reference_kind", "reference_algorithm", "reference_status",
+    "reference_objective_value", "objective_gap_absolute", "objective_gap_percent",
+}
+
+
+def _execution_key(row: dict[str, Any] | pd.Series) -> tuple[str, str, int, int]:
+    return (
+        str(row["case_id"]), str(row["algorithm"]),
+        int(row["random_seed"]), int(row["repeat"]),
+    )
+
+
+def _row_is_reusable(row: pd.Series) -> bool:
+    if not bool(row.get("expectation_met", False)):
+        return False
+    if str(row.get("expected_outcome", "feasible")) == "feasible":
+        return bool(row.get("success", False)) and bool(row.get("validation_valid", False))
+    return str(row.get("observed_outcome", "")) == "infeasible"
+
+
+def _load_recovery_source(
+    source_run_dir: Path, resolved_payload: dict[str, Any],
+) -> tuple[dict[tuple[str, str, int, int], dict[str, Any]], dict[str, Any]]:
+    source = source_run_dir.resolve()
+    manifest_path = source / "manifest.json"
+    request_path = source / "benchmark" / "request.json"
+    results_path = source / "benchmark" / "results.csv"
+    if not all(path.is_file() for path in (manifest_path, request_path, results_path)):
+        raise ValueError(
+            f"Recovery source {source} must contain manifest.json, "
+            "benchmark/request.json and benchmark/results.csv"
+        )
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    request = json.loads(request_path.read_text(encoding="utf-8"))
+    if manifest.get("run_type") != "benchmark_corpus":
+        raise ValueError("Recovery source is not a benchmark_corpus artifact")
+    request_signature = json.dumps(request, sort_keys=True, separators=(",", ":"))
+    resolved_signature = json.dumps(
+        resolved_payload, sort_keys=True, separators=(",", ":"), default=str,
+    )
+    if request_signature != resolved_signature:
+        raise ValueError(
+            "Recovery source provenance does not match the current corpus request; "
+            "dataset, cases, limits and configuration must remain identical"
+        )
+    frame = pd.read_csv(results_path)
+    expected_count = sum(
+        len(str(case["algorithms"]).split(",")) * len(resolved_payload["seeds"])
+        * int(resolved_payload["repeats"])
+        for case in resolved_payload["cases"]
+    )
+    if len(frame) != expected_count:
+        raise ValueError(
+            f"Recovery source contains {len(frame)} executions; expected {expected_count}"
+        )
+    rows: dict[tuple[str, str, int, int], dict[str, Any]] = {}
+    for _, value in frame.iterrows():
+        key = _execution_key(value)
+        if key in rows:
+            raise ValueError(f"Recovery source contains duplicate execution key {key}")
+        if _row_is_reusable(value):
+            row = {
+                column: item for column, item in value.to_dict().items()
+                if column not in _DERIVED_RESULT_COLUMNS
+            }
+            row["recovered_from_corpus_run_id"] = manifest.get("run_id")
+            row["recovery_execution_action"] = "reused_valid"
+            rows[key] = row
+    return rows, {
+        "run_dir": str(source),
+        "run_id": manifest.get("run_id"),
+        "manifest_checksum": sha256_file(manifest_path),
+        "request_checksum": sha256_file(request_path),
+        "results_checksum": sha256_file(results_path),
+        "source_execution_count": len(frame),
+        "reusable_execution_count": len(rows),
+    }
+
+
 def run_benchmark_corpus(
     corpus_path: str | Path, *, project_root: str | Path | None = None,
+    recover_from: str | Path | None = None,
+    rerun_failed_only: bool = False,
 ) -> BenchmarkCorpusResult:
+    if bool(recover_from) != bool(rerun_failed_only):
+        raise ValueError("recover_from and rerun_failed_only must be provided together")
     root = Path(project_root).resolve() if project_root is not None else find_project_root()
     corpus = load_benchmark_corpus(corpus_path, project_root=root)
     configs = {case.config_path for case in corpus.cases}
@@ -405,6 +491,12 @@ def run_benchmark_corpus(
         "repeats": corpus.repeats,
         "cases": case_catalog.to_dict(orient="records"),
     }
+    reusable_rows: dict[tuple[str, str, int, int], dict[str, Any]] = {}
+    recovery_evidence: dict[str, Any] | None = None
+    if recover_from is not None:
+        reusable_rows, recovery_evidence = _load_recovery_source(
+            _resolve(root, recover_from), resolved_payload,
+        )
     resolved_config_path = run_dir / "resolved_config.yaml"
     write_text(resolved_config_path, yaml.safe_dump(resolved_payload, sort_keys=False, allow_unicode=True))
     write_json(benchmark_dir / "request.json", resolved_payload)
@@ -482,6 +574,19 @@ def run_benchmark_corpus(
         for algorithm_id in case.algorithms:
             for random_seed in corpus.seeds:
                 for repeat_index in range(1, corpus.repeats + 1):
+                    execution_key = (
+                        case.case_id, algorithm_id, int(random_seed), int(repeat_index),
+                    )
+                    reused = reusable_rows.get(execution_key)
+                    if reused is not None:
+                        reused["corpus_run_id"] = run_id
+                        rows.append(reused)
+                        append_event(
+                            log_path, "benchmark_corpus_case_reused",
+                            case_id=case.case_id, algorithm=algorithm_id,
+                            random_seed=random_seed, repeat=repeat_index,
+                        )
+                        continue
                     request = ExperimentRequest(
                         level_id=corpus.level_id,
                         algorithm_id=algorithm_id,
@@ -495,6 +600,9 @@ def run_benchmark_corpus(
                         config_overrides=case.config_overrides,
                     )
                     row = execute_experiment_case(request, repeat_index)
+                    if recovery_evidence is not None:
+                        row["recovered_from_corpus_run_id"] = recovery_evidence["run_id"]
+                        row["recovery_execution_action"] = "rerun_failed"
                     observed = _observed_outcome(str(row["status"]), bool(row["success"]))
                     row.update({
                         "corpus_id": corpus.corpus_id,
@@ -527,7 +635,10 @@ def run_benchmark_corpus(
                     rows.append(row)
                     append_event(log_path, "benchmark_corpus_case_completed", **row)
 
-    results = annotate_reference_gaps(pd.DataFrame(rows), instance_keys=("case_id",))
+    raw_results = pd.DataFrame(rows).drop(
+        columns=list(_DERIVED_RESULT_COLUMNS), errors="ignore",
+    )
+    results = annotate_reference_gaps(raw_results, instance_keys=("case_id",))
     group_keys = ("case_id", "group", "difficulty", "expected_outcome")
     summary = aggregate_results(results, extra_group_keys=group_keys)
     expectation = results.groupby(
@@ -590,7 +701,15 @@ def run_benchmark_corpus(
     })
 
     successful = int(results["expectation_met"].sum())
-    status = "SUCCESS" if successful == len(results) else ("PARTIAL" if successful else "FAILED")
+    recovery_deterministic = bool(
+        recovery_evidence is None
+        or (
+            len(determinism_evidence) > 0
+            and determinism_evidence["deterministic"].fillna(False).astype(bool).all()
+        )
+    )
+    complete = successful == len(results) and recovery_deterministic
+    status = "SUCCESS" if complete else ("PARTIAL" if successful else "FAILED")
     config_checksums = {str(path): sha256_file(path) for path in sorted(configs)}
     manifest = {
         "schema_version": OUTPUT_SCHEMA_VERSION,
@@ -614,6 +733,17 @@ def run_benchmark_corpus(
         "dataset_profiles": dataset_profiles,
         "resolved_config_checksum": sha256_file(resolved_config_path),
         "source_runs": [value for value in results["experiment_run_dir"].dropna().tolist()],
+        "recovery_mode": recovery_evidence is not None,
+        "recovery": None if recovery_evidence is None else {
+            **recovery_evidence,
+            "reused_execution_count": int(
+                (results.get("recovery_execution_action") == "reused_valid").sum()
+            ),
+            "rerun_execution_count": int(
+                (results.get("recovery_execution_action") == "rerun_failed").sum()
+            ),
+            "deterministic": recovery_deterministic,
+        },
         "artifacts": {
             "canonical": [
                 "manifest.json", "resolved_config.yaml", "benchmark/request.json",
@@ -650,5 +780,5 @@ def run_benchmark_corpus(
         executions=len(results), expectations_met=successful,
     )
     return BenchmarkCorpusResult(
-        corpus.corpus_id, run_id, run_dir, results, summary, ranking, references,
+        corpus.corpus_id, run_id, run_dir, results, summary, ranking, references, status,
     )

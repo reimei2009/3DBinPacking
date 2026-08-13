@@ -1,0 +1,63 @@
+{
+  "schema_version": "1.0",
+  "report_id": "level_02_stratified_benchmark_v2_candidate",
+  "created_at_utc": "2026-08-13T09:34:43.870466+00:00",
+  "status": "PASS",
+  "promotion_to_canonical_allowed": true,
+  "case_count": 84,
+  "execution_count": 756,
+  "strata": [
+    {
+      "stratum": "random_distribution",
+      "run_dir": "outputs/level_02/runs/20260813T091710585874Z__level_02__benchmark_corpus__level_02_generated_1k_500_random_v2_candidate__seed42",
+      "corpus_id": "level_02_generated_1k_500_random_v2_candidate",
+      "case_count": 60,
+      "execution_count": 540,
+      "valid_execution_count": 540,
+      "deterministic_group_count": 180,
+      "errors": [],
+      "passed": true
+    },
+    {
+      "stratum": "stress",
+      "run_dir": "outputs/level_02/runs/20260813T083147346169Z__level_02__benchmark_corpus__level_02_generated_1k_500_stress_v2_candidate__seed42",
+      "corpus_id": "level_02_generated_1k_500_stress_v2_candidate",
+      "case_count": 18,
+      "execution_count": 162,
+      "valid_execution_count": 162,
+      "deterministic_group_count": 54,
+      "errors": [],
+      "passed": true
+    },
+    {
+      "stratum": "prefix_regression",
+      "run_dir": "outputs/level_02/runs/20260813T084434577005Z__level_02__benchmark_corpus__level_02_generated_1k_500_prefix_regression_v2__seed42",
+      "corpus_id": "level_02_generated_1k_500_prefix_regression_v2",
+      "case_count": 6,
+      "execution_count": 54,
+      "valid_execution_count": 54,
+      "deterministic_group_count": 18,
+      "errors": [],
+      "passed": true
+    }
+  ],
+  "random_distribution_pairwise_vs_best_fit": [
+    {
+      "comparator": "extreme_point_ffd",
+      "wins": 3,
+      "ties": 57,
+      "losses": 0
+    },
+    {
+      "comparator": "maximal_space_best_fit",
+      "wins": 6,
+      "ties": 53,
+      "losses": 1
+    }
+  ],
+  "interpretation": {
+    "random_distribution": "Nguồn chính cho kết luận chất lượng tổng quát.",
+    "stress": "Báo riêng; không trộn vào tỷ lệ thắng của random.",
+    "prefix_regression": "Chỉ phát hiện hồi quy theo thứ tự nguồn."
+  }
+}
