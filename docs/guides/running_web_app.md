@@ -175,6 +175,13 @@ runtime trên mỗi kiện và bộ nhớ. Không cộng hoặc lấy trung bìn
 giữa các quy mô khác nhau. Mỗi biểu đồ có chú giải ngay bên dưới về câu hỏi nó trả lời,
 chiều tốt/xấu và giới hạn diễn giải.
 
+Khi các thuật toán có cùng median và khoảng nhỏ nhất–lớn nhất ở một quy mô, biểu đồ
+chất lượng gộp chúng thành một điểm trung tính thay vì vẽ nhiều đường chồng lên nhau.
+Điểm trung tính chỉ nói thống kê theo quy mô giống nhau; WIN/TIE/LOSS và bảng các bài
+tạo khác biệt vẫn là nguồn để kết luận từng bài. Biểu đồ thời gian dùng màu, nét và
+marker riêng; rê chuột theo một quy mô hiển thị đồng thời thời gian thường gặp,
+nhanh nhất–chậm nhất, thời gian mỗi kiện và số lượt chạy của các thuật toán.
+
 Trên Level 2, tab benchmark được chia thành:
 
 - **So sánh tùy chỉnh**: người dùng chọn số kiện, thuật toán, giới hạn container,

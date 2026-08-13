@@ -423,9 +423,17 @@ _render_distribution_dashboard(
     markdown = "\n".join(str(value.value) for value in page.markdown)
     captions = "\n".join(str(value.value) for value in page.caption)
     assert "Các bài tạo khác biệt" in markdown
-    assert "lower bound chưa chứng minh khả thi hình học" in captions
+    assert "cận dưới chưa chứng minh khả thi hình học" in captions
     assert "Chưa hiển thị p95" in captions
     assert "thời gian toàn pipeline" in captions
+    assert "Rê chuột theo một quy mô" in captions
+    page_text = "\n".join(
+        str(value.value) for collection in (page.markdown, page.info, page.success, page.warning)
+        for value in collection
+    )
+    assert "Maximal Empty Spaces" in page_text
+    assert "DeltaGenerator" not in page_text
+    assert "Creator of Delta protobuf messages" not in page_text
 
 
 def test_streamlit_exposes_level4_constructive_algorithms_and_support_threshold(root: Path):

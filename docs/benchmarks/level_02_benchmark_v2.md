@@ -128,6 +128,11 @@ khoảng nhỏ nhất–lớn nhất; không công bố p95 từ số mẫu quá
 dùng số container vượt cận dưới tổng hợp, không lấy trung bình raw số container hoặc
 chi phí giữa bài 20 kiện và bài 500 kiện.
 
+Dashboard không nối các điểm chất lượng thành đường liên tục. Nếu nhiều thuật toán có
+cùng median và min–max tại một quy mô, UI hiển thị một điểm trung tính và liệt kê tất
+cả thuật toán trong tooltip. Runtime vẫn dùng đường xu hướng, với unified hover và
+style riêng để người dùng đối chiếu các thuật toán tại cùng số kiện.
+
 ## Chạy thủ công
 
 ```powershell

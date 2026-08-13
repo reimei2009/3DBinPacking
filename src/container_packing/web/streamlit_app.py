@@ -53,6 +53,11 @@ from container_packing.visualization.plotly_3d import (
 )
 from container_packing.visualization.scene_schema import load_scene
 from container_packing.web.i18n import algorithm_family, text as t
+from container_packing.web.benchmark_charts import (
+    build_quality_gap_figure,
+    build_runtime_figure,
+    summarize_against_baseline,
+)
 
 OPACITY_PRESETS = {"solid": DEFAULT_ITEM_OPACITY, "balanced": 0.75, "xray": 0.30}
 _RUNTIME_UNSET = object()
@@ -1454,6 +1459,17 @@ def _render_distribution_dashboard(
     frame["algorithm_name"] = frame["algorithm"].map(
         lambda value: get_algorithm(str(value)).name_for(language)
     )
+    frame["case_count"] = pd.NA
+    if results is not None and not results.empty:
+        identity_column = "case_id" if "case_id" in results else "scenario_id"
+        if identity_column in results and {"algorithm", "item_count"}.issubset(results.columns):
+            case_counts = (
+                results.groupby(["algorithm", "item_count"], dropna=False)[identity_column]
+                .nunique().rename("case_count").reset_index()
+            )
+            frame = frame.drop(columns=["case_count"]).merge(
+                case_counts, on=["algorithm", "item_count"], how="left", validate="one_to_one",
+            )
     for column in ("runtime_min_seconds", "runtime_max_seconds"):
         if column not in frame:
             frame[column] = frame.get("runtime_p50_seconds")
@@ -1482,22 +1498,12 @@ def _render_distribution_dashboard(
     if results is not None and not results.empty:
         identity = results.get("case_id", results.get("scenario_id", pd.Series(dtype=str)))
         case_count = int(identity.replace("", pd.NA).dropna().nunique())
-    if not baseline_frame.empty and baseline_frame["outcome"].eq("TIE").all():
-        conclusion = (
-            "Các thuật toán hòa về số container và chi phí trên mọi bài đã so sánh."
-            if language == "vi" else "The algorithms tie on container count and cost in every compared case."
-        )
-    elif baseline_frame.empty:
-        conclusion = "Chưa đủ dữ liệu so sánh ghép cặp." if language == "vi" else "Insufficient paired evidence."
-    else:
-        win_count = int(baseline_frame["outcome"].eq("WIN").sum())
-        tie_count = int(baseline_frame["outcome"].eq("TIE").sum())
-        loss_count = int(baseline_frame["outcome"].eq("LOSS").sum())
-        conclusion = (
-            f"Kết quả hỗn hợp so với Best Fit: {win_count} thắng, {tie_count} hòa, {loss_count} thua."
-            if language == "vi" else
-            f"Mixed results versus Best Fit: {win_count} wins, {tie_count} ties, {loss_count} losses."
-        )
+    conclusion, conclusion_details = summarize_against_baseline(
+        outcomes,
+        baseline_algorithm=baseline_algorithm,
+        algorithm_name=lambda value: get_algorithm(value).name_for(language),
+        language=language,
+    )
 
     overview_tab, quality_tab, performance_tab = st.tabs([
         "Kết luận" if language == "vi" else "Conclusion",
@@ -1525,7 +1531,18 @@ def _render_distribution_dashboard(
         else:
             deterministic_label = "Chưa kiểm tra" if language == "vi" else "Not checked"
         cards[3].metric("Tính xác định" if language == "vi" else "Determinism", deterministic_label)
-        st.success(conclusion) if valid_execution_count == execution_count else st.warning(conclusion)
+        if valid_execution_count == execution_count:
+            st.success(conclusion)
+        else:
+            st.warning(conclusion)
+        for detail in conclusion_details:
+            st.markdown(f"- {detail}")
+        if conclusion_details:
+            st.caption(
+                "Khác biệt thời gian chạy không tham gia objective chính thức."
+                if language == "vi" else
+                "Runtime differences do not participate in the official objective."
+            )
         st.caption(
             "Best Fit là mốc đối chiếu, không phải nghiệm tối ưu đã được chứng minh. "
             "Không lấy trung bình số container hoặc objective giữa các quy mô khác nhau."
@@ -1591,36 +1608,16 @@ def _render_distribution_dashboard(
                 "Only cases where at least two algorithms produce different official objectives are shown."
             )
         if "container_gap_lower_bound_median" in frame and frame["container_gap_lower_bound_median"].notna().any():
-            gap = frame.copy()
-            gap["gap_error_plus"] = (
-                gap.get("container_gap_lower_bound_max", gap["container_gap_lower_bound_median"])
-                - gap["container_gap_lower_bound_median"]
-            )
-            gap["gap_error_minus"] = (
-                gap["container_gap_lower_bound_median"]
-                - gap.get("container_gap_lower_bound_min", gap["container_gap_lower_bound_median"])
-            )
             st.plotly_chart(
-            px.line(
-                gap, x="item_count", y="container_gap_lower_bound_median",
-                color="algorithm_name", markers=True,
-                error_y="gap_error_plus", error_y_minus="gap_error_minus",
-                labels={
-                    "item_count": "Số kiện" if language == "vi" else "Items",
-                    "container_gap_lower_bound_median": (
-                        "Số container vượt cận tối thiểu sơ bộ" if language == "vi"
-                        else "Containers above aggregate lower bound"
-                    ),
-                    "algorithm_name": "Thuật toán" if language == "vi" else "Algorithm",
-                },
-                title="Chất lượng nghiệm theo quy mô" if language == "vi" else "Quality by scale",
-            ), width="stretch", config={"displaylogo": False},
-        )
+                build_quality_gap_figure(frame, language=language),
+                width="stretch", config={"displaylogo": False},
+            )
             st.caption(
-                "Điểm là gap trung vị; thanh sai số là min–max giữa các bài cùng quy mô. "
-                "Gap thấp hơn thường tốt hơn, nhưng lower bound chưa chứng minh khả thi hình học."
+                "Điểm trung tính nghĩa là các thuật toán có cùng median và min–max ở quy mô đó; "
+                "điều này không khẳng định mọi bài đều hòa. Điểm riêng thể hiện khác biệt giữa các "
+                "thuật toán. Giá trị thấp hơn thường tốt hơn, nhưng cận dưới chưa chứng minh khả thi hình học."
                 if language == "vi" else
-                "Points are median gaps and error bars are min–max across cases at the same scale. Lower is usually better, but the bound does not prove geometric feasibility."
+                "A neutral point means algorithms share the same median and min–max at that scale; it does not mean every case ties. Separate points show algorithm differences. Lower is usually better, but the bound does not prove geometric feasibility."
             )
         else:
             st.info(
@@ -1629,18 +1626,7 @@ def _render_distribution_dashboard(
             )
     with performance_tab:
         runtime = frame.copy()
-        runtime["runtime_error_plus"] = runtime["runtime_max_seconds"] - runtime["runtime_p50_seconds"]
-        runtime["runtime_error_minus"] = runtime["runtime_p50_seconds"] - runtime["runtime_min_seconds"]
-        runtime_chart = px.line(
-            runtime, x="item_count", y="runtime_p50_seconds", color="algorithm_name",
-            markers=True, log_y=True, error_y="runtime_error_plus", error_y_minus="runtime_error_minus",
-            labels={
-                "item_count": "Số kiện" if language == "vi" else "Items",
-                "runtime_p50_seconds": "Thời gian toàn quy trình thường gặp (giây)" if language == "vi" else "Typical end-to-end runtime (seconds)",
-                "algorithm_name": "Thuật toán" if language == "vi" else "Algorithm",
-            },
-            title="Thời gian toàn quy trình theo quy mô" if language == "vi" else "End-to-end runtime by scale",
-        )
+        runtime_chart = build_runtime_figure(runtime, language=language)
         p95 = runtime[runtime.get("runtime_p95_seconds", pd.Series(index=runtime.index)).notna()]
         for algorithm_name, values in p95.groupby("algorithm_name", sort=True):
             runtime_chart.add_scatter(
@@ -1656,9 +1642,11 @@ def _render_distribution_dashboard(
             )
         st.caption(
             "Đây là thời gian toàn pipeline mà người dùng phải chờ. Điểm là trung vị; thanh sai số "
-            "là min–max. Runtime riêng của thuật toán nằm trong Chi tiết kỹ thuật."
+            "là min–max. Rê chuột theo một quy mô để xem đồng thời mọi thuật toán; bấm tên trong "
+            "chú giải để ẩn/hiện, hoặc bấm đúp để cô lập một thuật toán. Runtime riêng của thuật toán "
+            "nằm trong Chi tiết kỹ thuật."
             if language == "vi" else
-            "This is user-visible end-to-end pipeline time. Points are medians and error bars are min–max; algorithm-only runtime stays in technical details."
+            "This is user-visible end-to-end pipeline time. Points are medians and error bars are min–max. Hover a scale to compare all algorithms; use the legend to hide or isolate traces. Algorithm-only runtime stays in technical details."
         )
 
         reliability = frame.melt(
