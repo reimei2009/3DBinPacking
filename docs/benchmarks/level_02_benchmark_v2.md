@@ -133,6 +133,62 @@ cùng median và min–max tại một quy mô, UI hiển thị một điểm tr
 cả thuật toán trong tooltip. Runtime vẫn dùng đường xu hướng, với unified hover và
 style riêng để người dùng đối chiếu các thuật toán tại cùng số kiện.
 
+## Benchmark V2 phân tầng đang đánh giá
+
+V1 ở trên vẫn là benchmark canonical đã phát hành. V2 hiện là ứng viên nghiên cứu,
+không được âm thầm thay thế hoặc viết lại evidence V1. V2 dùng cùng nguồn 1.000/500
+nhưng tăng độ phủ thành ba tầng độc lập:
+
+| Tầng | Cách tạo bài | Số bài | Số lượt | Vai trò |
+|---|---|---:|---:|---|
+| Random | 6 quy mô × 10 selection seed | 60 | 540 | Kết luận chất lượng tổng quát |
+| Stress | 6 quy mô × 3 cách chọn khó | 18 | 162 | Đánh giá sức chịu đựng |
+| Prefix | 6 quy mô × thứ tự nguồn | 6 | 54 | Phát hiện hồi quy |
+
+Mỗi bài chạy ba thuật toán và lặp lại ba lần. Ba repeat chỉ dùng kiểm tra placement
+signature và dao động runtime; chúng không được tính thành ba bài độc lập.
+
+Tầng stress gồm:
+
+- `largest_volume`: các kiện có thể tích lớn nhất;
+- `heaviest`: các kiện có khối lượng tuyệt đối lớn nhất;
+- `payload_pressure`: các kiện có tỷ lệ khối lượng/thể tích lớn nhất.
+
+Tỷ lệ thắng/hòa/thua chính chỉ lấy từ 60 bài random. Stress và prefix có báo cáo
+riêng, tránh làm lệch phân phối do các bài được lựa chọn có chủ đích. Các mẫu random
+được tái lập bằng seed nhưng không được gọi là dataset độc lập hoàn toàn. Đặc biệt,
+hai mẫu 500 kiện lấy từ nguồn 1.000 kiện chắc chắn có mức chồng lặp đáng kể;
+`selection_overlap.csv` công bố intersection và Jaccard để diễn giải đúng giới hạn.
+
+Ba protocol chạy tuần tự:
+
+```powershell
+.\.venv\Scripts\python.exe .\scripts\run_benchmark_corpus.py `
+  --corpus config\level_02\benchmarks\generated_1k_500_random_candidate.yaml
+
+.\.venv\Scripts\python.exe .\scripts\run_benchmark_corpus.py `
+  --corpus config\level_02\benchmarks\generated_1k_500_stress_candidate.yaml
+
+.\.venv\Scripts\python.exe .\scripts\run_benchmark_corpus.py `
+  --corpus config\level_02\benchmarks\generated_1k_500_prefix_regression.yaml
+```
+
+Sau khi cả ba hoàn thành, report promotion được tạo bằng một command với ba run
+directory cụ thể. Report chỉ trả `PASS` khi đủ 84 bài, 756 lượt, mọi success được
+validator độc lập xác nhận `VALID`, và 252 nhóm bài–thuật toán deterministic.
+
+```powershell
+.\.venv\Scripts\python.exe .\scripts\build_level2_stratified_benchmark_report.py `
+  --random-run-dir <thu-muc-run-random> `
+  --stress-run-dir <thu-muc-run-stress> `
+  --prefix-run-dir <thu-muc-run-prefix> `
+  --output-prefix docs\reports\manual\level_02_benchmark_v2_candidate
+```
+
+Không tạo report tổng hợp khi mới có một hoặc hai tầng. V2 chỉ được đề nghị promote
+sau khi report trên trả `PASS`; việc promote và đánh dấu V1 `superseded` là một
+checkpoint riêng.
+
 ## Chạy thủ công
 
 ```powershell

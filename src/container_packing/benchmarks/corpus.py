@@ -35,6 +35,7 @@ from .distribution import (
     build_repair_comparison,
 )
 from .fingerprint import semantic_input_fingerprint
+from .matrix import expand_corpus_matrix
 from .suites import BenchmarkScenario
 
 _CASE_ID = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
@@ -59,6 +60,12 @@ class CorpusCase:
     config_overrides: dict[str, Any] | None = None
     comparison_group: str | None = None
     variant_id: str | None = None
+    benchmark_stratum: str = "unclassified"
+    volume_lower_bound: int | None = None
+    payload_lower_bound: int | None = None
+    aggregate_lower_bound: int | None = None
+    physical_inventory_count: int | None = None
+    planned_selected_item_ids_checksum: str | None = None
 
 
 @dataclass(frozen=True)
@@ -126,7 +133,7 @@ def load_benchmark_corpus(
     if not isinstance(payload, dict):
         raise ValueError(f"Benchmark corpus {source_path} must contain a YAML mapping")
     schema_version = str(payload.get("schema_version", ""))
-    if schema_version != "1.0":
+    if schema_version not in {"1.0", "1.1"}:
         raise ValueError(f"Unsupported benchmark corpus schema_version: {schema_version!r}")
     corpus_id = str(payload.get("corpus_id", ""))
     if not _CASE_ID.fullmatch(corpus_id):
@@ -140,6 +147,18 @@ def load_benchmark_corpus(
     repeats = _positive(payload.get("repeats", 1), "repeats")
     default_config = payload.get("default_config")
     raw_cases = payload.get("cases")
+    raw_matrix = payload.get("matrix")
+    if raw_cases is not None and raw_matrix is not None:
+        raise ValueError("Benchmark corpus must define cases or matrix, not both")
+    if raw_matrix is not None:
+        if schema_version != "1.1":
+            raise ValueError("Benchmark corpus matrix requires schema_version 1.1")
+        raw_cases = expand_corpus_matrix(
+            raw_matrix,
+            root=root,
+            level_id=level_id,
+            default_config=default_config,
+        )
     if not isinstance(raw_cases, list) or not raw_cases:
         raise ValueError("Benchmark corpus must define one or more cases")
     cases: list[CorpusCase] = []
@@ -211,6 +230,27 @@ def load_benchmark_corpus(
                 str(raw_case["variant_id"]).strip()
                 if raw_case.get("variant_id") else None
             ),
+            benchmark_stratum=str(raw_case.get("benchmark_stratum", "unclassified")),
+            volume_lower_bound=(
+                int(raw_case["volume_lower_bound"])
+                if raw_case.get("volume_lower_bound") is not None else None
+            ),
+            payload_lower_bound=(
+                int(raw_case["payload_lower_bound"])
+                if raw_case.get("payload_lower_bound") is not None else None
+            ),
+            aggregate_lower_bound=(
+                int(raw_case["aggregate_lower_bound"])
+                if raw_case.get("aggregate_lower_bound") is not None else None
+            ),
+            physical_inventory_count=(
+                int(raw_case["physical_inventory_count"])
+                if raw_case.get("physical_inventory_count") is not None else None
+            ),
+            planned_selected_item_ids_checksum=(
+                str(raw_case["planned_selected_item_ids_checksum"])
+                if raw_case.get("planned_selected_item_ids_checksum") else None
+            ),
         ))
         if bool(cases[-1].comparison_group) != bool(cases[-1].variant_id):
             raise ValueError(
@@ -250,6 +290,49 @@ def _ranking(summary: pd.DataFrame) -> pd.DataFrame:
     )
     feasible.insert(0, "rank", feasible.groupby("case_id", sort=False).cumcount() + 1)
     return feasible
+
+
+def build_selection_overlap(
+    selections_by_case: dict[str, dict[str, Any]],
+) -> pd.DataFrame:
+    """Measure overlap between selected item sets without claiming independence."""
+    columns = [
+        "benchmark_stratum", "item_count", "case_a", "case_b",
+        "selection_seed_a", "selection_seed_b", "intersection_count",
+        "union_count", "overlap_fraction_of_case", "jaccard_similarity",
+    ]
+    records: list[dict[str, Any]] = []
+    values = sorted(
+        selections_by_case.values(),
+        key=lambda value: (value["benchmark_stratum"], value["item_count"], value["case_id"]),
+    )
+    for index, left in enumerate(values):
+        if left["item_selection_strategy"] != "stable_random":
+            continue
+        left_ids = set(left["selected_item_ids"])
+        for right in values[index + 1:]:
+            if (
+                right["benchmark_stratum"] != left["benchmark_stratum"]
+                or right["item_count"] != left["item_count"]
+                or right["item_selection_strategy"] != "stable_random"
+            ):
+                continue
+            right_ids = set(right["selected_item_ids"])
+            intersection = len(left_ids & right_ids)
+            union = len(left_ids | right_ids)
+            records.append({
+                "benchmark_stratum": left["benchmark_stratum"],
+                "item_count": left["item_count"],
+                "case_a": left["case_id"],
+                "case_b": right["case_id"],
+                "selection_seed_a": left["item_selection_seed"],
+                "selection_seed_b": right["item_selection_seed"],
+                "intersection_count": intersection,
+                "union_count": union,
+                "overlap_fraction_of_case": intersection / max(1, len(left_ids)),
+                "jaccard_similarity": intersection / max(1, union),
+            })
+    return pd.DataFrame(records, columns=columns)
 
 
 def run_benchmark_corpus(
@@ -296,9 +379,15 @@ def run_benchmark_corpus(
         "config_overrides": case.config_overrides or {},
         "comparison_group": case.comparison_group,
         "variant_id": case.variant_id,
+        "benchmark_stratum": case.benchmark_stratum,
+        "volume_lower_bound": case.volume_lower_bound,
+        "payload_lower_bound": case.payload_lower_bound,
+        "aggregate_lower_bound": case.aggregate_lower_bound,
+        "physical_inventory_count": case.physical_inventory_count,
+        "planned_selected_item_ids_checksum": case.planned_selected_item_ids_checksum,
         "initial_container_count": (
             (case.config_overrides or {}).get("container_search", {}).get(
-                "initial_container_count", case.container_count,
+                "initial_used_container_count", case.container_count,
             )
         ),
         "max_used_container_count": (
@@ -323,6 +412,7 @@ def run_benchmark_corpus(
     append_event(log_path, "benchmark_corpus_started", run_id=run_id, **resolved_payload)
 
     rows: list[dict[str, Any]] = []
+    selections_by_case: dict[str, dict[str, Any]] = {}
     for case in corpus.cases:
         case_config = merge_config(load_config(case.config_path), case.config_overrides or {})
         case_usage = validate_dataset_usage(
@@ -343,6 +433,23 @@ def run_benchmark_corpus(
             raw_items, case.item_count, strategy=case.item_selection_strategy,
             seed=case.item_selection_seed, mapping_path=mapping_path,
         )
+        if (
+            case.planned_selected_item_ids_checksum is not None
+            and selection["selected_item_ids_checksum"]
+            != case.planned_selected_item_ids_checksum
+        ):
+            raise ValueError(
+                f"Corpus case {case.case_id} no longer matches its materialized item "
+                "selection checksum; reload the versioned corpus catalog"
+            )
+        selections_by_case[case.case_id] = {
+            "case_id": case.case_id,
+            "benchmark_stratum": case.benchmark_stratum,
+            "item_count": case.item_count,
+            "item_selection_strategy": case.item_selection_strategy,
+            "item_selection_seed": case.item_selection_seed,
+            "selected_item_ids": tuple(selection["selected_item_ids"]),
+        }
         fingerprint = semantic_input_fingerprint(
             level_id=corpus.level_id, scenario=scenario, config=case_config,
             root=root, selection=selection, dataset_usage=case_usage,
@@ -411,7 +518,12 @@ def run_benchmark_corpus(
                         "comparison_group": case.comparison_group,
                         "benchmark_variant_id": case.variant_id,
                         "comparison_input_fingerprint": comparison_fingerprint,
+                        "benchmark_stratum": case.benchmark_stratum,
                     })
+                    if case.aggregate_lower_bound is not None:
+                        row.setdefault("volume_lower_bound", case.volume_lower_bound)
+                        row.setdefault("payload_lower_bound", case.payload_lower_bound)
+                        row.setdefault("aggregate_lower_bound", case.aggregate_lower_bound)
                     rows.append(row)
                     append_event(log_path, "benchmark_corpus_case_completed", **row)
 
@@ -453,6 +565,7 @@ def run_benchmark_corpus(
     distribution_summary = build_distribution_summary(results)
     determinism_evidence = build_determinism_evidence(results)
     repair_comparison = build_repair_comparison(results)
+    selection_overlap = build_selection_overlap(selections_by_case)
 
     results.to_csv(benchmark_dir / "results.csv", index=False, encoding="utf-8")
     summary.to_csv(benchmark_dir / "summary.csv", index=False, encoding="utf-8")
@@ -469,6 +582,7 @@ def run_benchmark_corpus(
     distribution_summary.to_csv(benchmark_dir / "distribution_summary.csv", index=False, encoding="utf-8")
     determinism_evidence.to_csv(benchmark_dir / "determinism_evidence.csv", index=False, encoding="utf-8")
     repair_comparison.to_csv(benchmark_dir / "repair_comparison.csv", index=False, encoding="utf-8")
+    selection_overlap.to_csv(benchmark_dir / "selection_overlap.csv", index=False, encoding="utf-8")
     write_json(benchmark_dir / "summary.json", {
         "schema_version": OUTPUT_SCHEMA_VERSION,
         "corpus_id": corpus.corpus_id,
@@ -512,6 +626,7 @@ def run_benchmark_corpus(
                 "benchmark/case_algorithm_summary.csv", "benchmark/case_differences.csv",
                 "benchmark/distribution_summary.csv",
                 "benchmark/determinism_evidence.csv", "benchmark/repair_comparison.csv",
+                "benchmark/selection_overlap.csv",
             ],
             "diagnostics": ["logs/run.log"],
         },

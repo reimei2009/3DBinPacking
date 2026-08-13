@@ -78,6 +78,10 @@ _TEXT = {
     "item_selection_volume_stratified": {"vi": "Trải đều theo thể tích", "en": "Volume-stratified subset"},
     "item_selection_largest_volume": {"vi": "Các items thể tích lớn nhất", "en": "Largest-volume items"},
     "item_selection_heaviest": {"vi": "Các items nặng nhất", "en": "Heaviest items"},
+    "item_selection_payload_pressure": {
+        "vi": "Các kiện có khối lượng lớn so với thể tích",
+        "en": "Highest weight-to-volume items",
+    },
     "benchmark_run_button": {"vi": "Chạy benchmark so sánh", "en": "Run comparison benchmark"},
     "benchmark_running": {"vi": "Đang chạy từng thuật toán trên cùng instance và kiểm định độc lập...", "en": "Running each algorithm on the same instance and independently validating..."},
     "benchmark_run_success": {"vi": "Benchmark hoàn tất; tất cả case đều hợp lệ.", "en": "Benchmark completed; all cases are valid."},

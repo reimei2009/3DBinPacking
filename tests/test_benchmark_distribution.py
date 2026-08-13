@@ -94,6 +94,42 @@ def test_cross_scale_summary_keeps_item_counts_separate():
     assert len(summary) == 4
 
 
+def test_distribution_keeps_random_stress_and_regression_strata_separate():
+    random = _rows()
+    random["benchmark_stratum"] = "random_distribution"
+    stress = _rows()
+    stress["case_id"] = "stress-case"
+    stress["scenario_id"] = "stress-case"
+    stress["input_fingerprint"] = "stress-input"
+    stress["benchmark_stratum"] = "stress"
+    regression = _rows()
+    regression["case_id"] = "prefix-case"
+    regression["scenario_id"] = "prefix-case"
+    regression["input_fingerprint"] = "prefix-input"
+    regression["benchmark_stratum"] = "prefix_regression"
+
+    summary = build_distribution_summary(
+        pd.concat([random, stress, regression], ignore_index=True),
+    )
+
+    assert set(summary.benchmark_stratum) == {
+        "random_distribution", "stress", "prefix_regression",
+    }
+    assert len(summary) == 6
+
+
+def test_three_repeats_collapse_to_one_quality_case():
+    repeated = pd.concat([_rows() for _ in range(3)], ignore_index=True)
+    repeated["repeat"] = [1, 1, 2, 2, 3, 3]
+
+    summary = build_case_algorithm_summary(repeated)
+    outcomes = build_pairwise_outcomes(repeated)
+
+    assert len(summary) == 2
+    assert set(summary.repeat_execution_count) == {3}
+    assert len(outcomes) == 1
+
+
 def test_quality_range_is_computed_between_cases_after_repeat_collapse():
     first = pd.concat([_rows(), _rows()], ignore_index=True)
     first["repeat"] = [1, 1, 2, 2]

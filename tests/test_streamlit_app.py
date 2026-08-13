@@ -342,6 +342,7 @@ def test_streamlit_exposes_same_instance_benchmark_controls(root: Path):
     assert selection.options == [
         "Lấy các kiện đầu tiên trong nguồn đang chọn", "Mẫu ngẫu nhiên xác định",
         "Trải đều theo thể tích", "Các items thể tích lớn nhất", "Các items nặng nhất",
+        "Các kiện có khối lượng lớn so với thể tích",
     ]
 
 
@@ -365,6 +366,7 @@ def test_level2_benchmark_catalog_is_separated_for_nontechnical_users(root: Path
         "So sánh tùy chỉnh",
         "Benchmark học thuật MPV",
         "Đánh giá tác động của repair",
+        "Benchmark V2 đang đánh giá",
     }.issubset(expander_labels)
     metric_labels = {value.label for value in page.metric}
     assert {"Nguồn dữ liệu", "Quy mô", "Số bài kiểm tra", "Tổng lượt chạy"}.issubset(

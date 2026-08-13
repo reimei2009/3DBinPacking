@@ -17,7 +17,10 @@ from container_packing.benchmarks.fingerprint import (
     semantic_input_fingerprint,
 )
 from container_packing.benchmarks.suites import BenchmarkScenario, load_benchmark_suite
-from container_packing.benchmarks.corpus import load_benchmark_corpus
+from container_packing.benchmarks.corpus import (
+    build_selection_overlap,
+    load_benchmark_corpus,
+)
 from container_packing.data_loader import load_config
 from container_packing.dataset_usage import DatasetExecutionIntent, validate_dataset_usage
 
@@ -217,7 +220,7 @@ def test_configured_corpus_keeps_exact_reference_and_infeasibility_semantics(
         "case_catalog.csv", "results.csv", "summary.csv", "ranking.csv",
         "references.csv", "case_features.csv", "pairwise_outcomes.csv",
         "distribution_summary.csv", "determinism_evidence.csv",
-        "repair_comparison.csv",
+        "repair_comparison.csv", "selection_overlap.csv",
     ):
         assert (result.run_dir / "benchmark" / name).is_file()
     manifest = json.loads(
@@ -343,6 +346,136 @@ def test_level2_quick_and_distribution_protocols_use_generated_qualified_source(
         assert search["consolidation"]["enabled"] is False
 
 
+def test_level2_stratified_candidate_materializes_84_cases_and_756_executions(
+    root: Path,
+) -> None:
+    paths = {
+        "random_distribution": (
+            "generated_1k_500_random_candidate.yaml", 60, 540,
+        ),
+        "stress": ("generated_1k_500_stress_candidate.yaml", 18, 162),
+        "prefix_regression": (
+            "generated_1k_500_prefix_regression.yaml", 6, 54,
+        ),
+    }
+    cases = []
+    executions = 0
+    for stratum, (filename, expected_cases, expected_executions) in paths.items():
+        corpus = load_benchmark_corpus(
+            root / "config/level_02/benchmarks" / filename,
+            project_root=root,
+        )
+        assert len(corpus.cases) == expected_cases
+        assert corpus.repeats == 3
+        assert {case.benchmark_stratum for case in corpus.cases} == {stratum}
+        actual_executions = (
+            sum(len(case.algorithms) for case in corpus.cases) * corpus.repeats
+        )
+        assert actual_executions == expected_executions
+        cases.extend(corpus.cases)
+        executions += actual_executions
+    assert len(cases) == 84
+    assert executions == 756
+
+
+def test_level2_stratified_candidate_uses_fair_limits_and_selection_contract(
+    root: Path,
+) -> None:
+    random = load_benchmark_corpus(
+        root / "config/level_02/benchmarks/generated_1k_500_random_candidate.yaml",
+        project_root=root,
+    )
+    stress = load_benchmark_corpus(
+        root / "config/level_02/benchmarks/generated_1k_500_stress_candidate.yaml",
+        project_root=root,
+    )
+    prefix = load_benchmark_corpus(
+        root / "config/level_02/benchmarks/generated_1k_500_prefix_regression.yaml",
+        project_root=root,
+    )
+    assert {case.item_selection_seed for case in random.cases} == {
+        101, 211, 307, 401, 503, 601, 701, 809, 907, 1009,
+    }
+    assert {case.item_selection_strategy for case in stress.cases} == {
+        "largest_volume", "heaviest", "payload_pressure",
+    }
+    deadlines = {20: 30, 50: 30, 100: 60, 200: 90, 300: 90, 500: 120}
+    for case in (*random.cases, *stress.cases):
+        search = case.config_overrides["container_search"]
+        assert case.aggregate_lower_bound == max(
+            case.volume_lower_bound, case.payload_lower_bound,
+        )
+        assert case.container_count == case.aggregate_lower_bound
+        assert search["initial_used_container_count"] == case.aggregate_lower_bound
+        assert search["max_used_container_count"] == min(
+            500,
+            max(case.aggregate_lower_bound + 2, ceil(case.aggregate_lower_bound * 1.6)),
+        )
+        assert search["time_limit_seconds"] == deadlines[case.item_count]
+        assert search["consolidation"]["enabled"] is False
+        assert len(case.algorithms) == 3
+        assert case.planned_selected_item_ids_checksum
+
+    for corpus in (random, stress, prefix):
+        checksums_by_scale: dict[int, set[str]] = {}
+        for case in corpus.cases:
+            checksums_by_scale.setdefault(case.item_count, set()).add(
+                str(case.planned_selected_item_ids_checksum),
+            )
+        for item_count, checksums in checksums_by_scale.items():
+            assert len(checksums) == sum(
+                candidate.item_count == item_count for candidate in corpus.cases
+            )
+
+
+def test_selection_overlap_is_explicit_and_does_not_claim_independence() -> None:
+    overlap = build_selection_overlap({
+        "a": {
+            "case_id": "a", "benchmark_stratum": "random_distribution",
+            "item_count": 3, "item_selection_strategy": "stable_random",
+            "item_selection_seed": 101, "selected_item_ids": ("A", "B", "C"),
+        },
+        "b": {
+            "case_id": "b", "benchmark_stratum": "random_distribution",
+            "item_count": 3, "item_selection_strategy": "stable_random",
+            "item_selection_seed": 211, "selected_item_ids": ("B", "C", "D"),
+        },
+    })
+    assert len(overlap) == 1
+    assert overlap.iloc[0].intersection_count == 2
+    assert overlap.iloc[0].overlap_fraction_of_case == pytest.approx(2 / 3)
+    assert overlap.iloc[0].jaccard_similarity == pytest.approx(0.5)
+
+
+def test_matrix_corpus_e2e_keeps_same_input_for_algorithms(
+    root: Path, tmp_path: Path,
+) -> None:
+    corpus_path = tmp_path / "matrix_smoke.yaml"
+    corpus_path.write_text(yaml.safe_dump({
+        "schema_version": "1.1", "corpus_id": "matrix_smoke",
+        "level_id": "level_02", "seeds": [42], "repeats": 1,
+        "default_config": "config/level_02/default.yaml",
+        "matrix": {
+            "case_prefix": "smoke", "benchmark_stratum": "random_distribution",
+            "dataset_family": "matrix_smoke", "algorithms": [
+                "extreme_point_best_fit", "extreme_point_ffd",
+            ],
+            "scales": [{"item_count": 1, "time_limit_seconds": 30, "scale_bucket": "micro"}],
+            "selections": [{"selection_id": "random", "item_selection": "stable_random", "selection_seeds": [101]}],
+            "config_overrides": {"paths": {"output_root": str(tmp_path / "outputs")}},
+        },
+    }, sort_keys=False), encoding="utf-8")
+
+    result = run_benchmark_corpus(corpus_path, project_root=root)
+
+    assert result.successful
+    assert len(result.results) == 2
+    assert result.results.input_fingerprint.nunique() == 1
+    assert result.results.selected_item_ids_checksum.nunique() == 1
+    assert result.results.validation_valid.all()
+    assert (result.run_dir / "benchmark/selection_overlap.csv").is_file()
+
+
 def test_level2_benchmark_catalog_separates_canonical_academic_and_research(root: Path) -> None:
     catalog = load_benchmark_catalog(
         root / "config/level_02/benchmarks/registry.yaml", project_root=root,
@@ -350,6 +483,7 @@ def test_level2_benchmark_catalog_separates_canonical_academic_and_research(root
     assert catalog.get("level_02_generated_canonical_v1").kind == "canonical"
     assert catalog.get("level_02_mpv_acceptance_v1").kind == "academic"
     assert catalog.get("level_02_repair_ab_v1").kind == "research"
+    assert catalog.get("level_02_generated_random_v2_candidate").kind == "research"
     legacy = catalog.get("level_02_capacity_repair_legacy_v1")
     assert legacy.kind == "superseded"
     assert legacy.replacement_id == "level_02_repair_ab_v1"

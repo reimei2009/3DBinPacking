@@ -91,6 +91,12 @@ Evidence canonical phát hành ngày 2026-08-13 nằm tại
 Report xác nhận 24 bài, 144 lượt chạy và 144 nghiệm `VALID`; Best Fit vẫn chỉ là
 baseline đối chiếu, không phải optimum đã chứng minh.
 
+Benchmark V2 phân tầng đang ở trạng thái ứng viên nghiên cứu. Nó giữ nguyên sáu quy
+mô nhưng mở rộng thành 60 bài random, 18 bài stress và 6 bài prefix, mỗi bài chạy ba
+thuật toán qua ba repeat. Ba tầng không bị gộp thống kê: random dùng kết luận phân
+phối, stress dùng kiểm tra sức chịu đựng, prefix dùng phát hiện hồi quy. V1 tiếp tục
+là canonical cho đến khi V2 hoàn thành đủ 84 bài/756 lượt và qua promotion gate.
+
 Profile 500 và 5.000 container là catalog nghiên cứu generated, có provenance
 và fingerprint riêng. Dữ liệu processed/manifest/output của chúng luôn nằm
 trong namespace Level 2; không dùng output Level 1 làm input ẩn.

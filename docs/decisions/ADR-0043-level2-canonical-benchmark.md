@@ -26,3 +26,11 @@ container limits và deadline cho phép đánh giá công bằng, tái lập đ�
 - p50/p95 chỉ có ý nghĩa trên nhiều execution cùng strata quy mô.
 - 750/1.000 item là scale gate thủ công, không làm UI bị khóa mặc định.
 - Config cũ được phân loại trong registry; xóa chỉ sau cleanup audit được duyệt.
+
+## Bổ sung ứng viên V2 — 2026-08-13
+
+Để tăng độ phủ mà vẫn bảo toàn evidence đã phát hành, V2 được tổ chức thành ba corpus
+persist độc lập: random distribution, stress và prefix regression. V2 dùng matrix
+config để sinh case catalog, ba repeat và cùng nguồn 1.000/500. Stress/prefix không
+được nhập vào tỷ lệ thắng của random. V2 ở trạng thái research candidate; chỉ được
+promote bằng report gate sau khi đủ 84 bài/756 lượt và mọi nghiệm thành công `VALID`.

@@ -1,5 +1,29 @@
 schema_version: "1.0"
 benchmarks:
+  - benchmark_id: level_02_generated_random_v2_candidate
+    level_id: level_02
+    kind: research
+    label_vi: "Benchmark V2 ứng viên — phân phối random"
+    description_vi: "60 bài random ở 6 quy mô; đây là tầng chính để đánh giá phân phối."
+    protocol_file: config/level_02/benchmarks/generated_1k_500_random_candidate.yaml
+    run_mode: cli_manual
+    baseline_algorithm: extreme_point_best_fit
+  - benchmark_id: level_02_generated_stress_v2_candidate
+    level_id: level_02
+    kind: research
+    label_vi: "Benchmark V2 ứng viên — stress"
+    description_vi: "18 bài có chủ đích về thể tích, khối lượng và mật độ tải trọng."
+    protocol_file: config/level_02/benchmarks/generated_1k_500_stress_candidate.yaml
+    run_mode: cli_manual
+    baseline_algorithm: extreme_point_best_fit
+  - benchmark_id: level_02_generated_prefix_v2_candidate
+    level_id: level_02
+    kind: research
+    label_vi: "Benchmark V2 ứng viên — hồi quy prefix"
+    description_vi: "6 bài theo thứ tự nguồn để phát hiện hồi quy; không dùng kết luận phân phối."
+    protocol_file: config/level_02/benchmarks/generated_1k_500_prefix_regression.yaml
+    run_mode: cli_manual
+    baseline_algorithm: extreme_point_best_fit
   - benchmark_id: level_02_generated_canonical_v1
     level_id: level_02
     kind: canonical

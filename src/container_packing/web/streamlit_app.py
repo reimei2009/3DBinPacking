@@ -1812,6 +1812,60 @@ def _render_level2_benchmark_catalog(
                 language="powershell",
             )
 
+    candidate_entries = (
+        catalog.get("level_02_generated_random_v2_candidate"),
+        catalog.get("level_02_generated_stress_v2_candidate"),
+        catalog.get("level_02_generated_prefix_v2_candidate"),
+    )
+    candidate_corpora = [
+        load_benchmark_corpus(entry.protocol_file, project_root=root)
+        for entry in candidate_entries
+    ]
+    with st.expander(
+        "Benchmark V2 đang đánh giá" if language == "vi" else "Benchmark V2 candidate",
+        expanded=False,
+    ):
+        st.write(
+            "V2 tăng độ phủ nhưng chưa thay benchmark chuẩn V1. Ba nhóm được chạy và "
+            "đánh giá riêng để stress case không làm lệch kết luận từ các mẫu random."
+            if language == "vi" else
+            "V2 expands coverage but does not replace V1 yet. Its three strata are evaluated separately."
+        )
+        labels = (
+            ("Phân phối random", "Đánh giá tổng quát", 60, 540),
+            ("Tình huống khó", "Đánh giá sức chịu đựng", 18, 162),
+            ("Hồi quy theo nguồn", "Phát hiện thay đổi hành vi", 6, 54),
+        )
+        for entry, candidate, (label, purpose, expected_cases, expected_executions) in zip(
+            candidate_entries, candidate_corpora, labels, strict=True,
+        ):
+            completed = next((
+                run for run in saved_runs
+                if run.suite_id == candidate.corpus_id
+                and run.case_count == expected_cases
+                and run.execution_count == expected_executions
+                and run.successful_execution_count == expected_executions
+                and run.status == "SUCCESS"
+            ), None)
+            columns = st.columns((2, 2, 1, 1))
+            columns[0].markdown(f"**{label}**")
+            columns[1].write(purpose)
+            columns[2].write(f"{expected_cases} bài")
+            columns[3].write("Đạt" if completed else "Chưa chạy")
+        st.caption(
+            "Tổng protocol: 84 bài, 756 lượt. Ba lần lặp chỉ đo nhiễu runtime và "
+            "tính xác định; không được tính thành ba bài độc lập."
+        )
+        with st.expander("Chi tiết kỹ thuật", expanded=False):
+            for entry in candidate_entries:
+                relative = entry.protocol_file.relative_to(root)
+                st.write(entry.label_vi)
+                st.code(
+                    ".\\.venv\\Scripts\\python.exe .\\scripts\\run_benchmark_corpus.py `\n"
+                    f"  --corpus {str(relative).replace('/', chr(92))}",
+                    language="powershell",
+                )
+
     with st.expander("Benchmark học thuật MPV", expanded=False):
         academic = catalog.get("level_02_mpv_acceptance_v1")
         st.write(academic.description_vi)
@@ -2439,6 +2493,12 @@ def _render_benchmark_comparison(
         run_kind_label = "Kiểm tra nhanh" if language == "vi" else "Quick check"
     elif selected.suite_id == "level_02_generated_1k_500_canonical_v1":
         run_kind_label = "Benchmark chuẩn đầy đủ" if language == "vi" else "Full standard benchmark"
+    elif selected.suite_id == "level_02_generated_1k_500_random_v2_candidate":
+        run_kind_label = "Benchmark V2 — phân phối random" if language == "vi" else "Benchmark V2 — random distribution"
+    elif selected.suite_id == "level_02_generated_1k_500_stress_v2_candidate":
+        run_kind_label = "Benchmark V2 — tình huống khó" if language == "vi" else "Benchmark V2 — stress cases"
+    elif selected.suite_id == "level_02_generated_1k_500_prefix_regression_v2":
+        run_kind_label = "Benchmark V2 — hồi quy theo nguồn" if language == "vi" else "Benchmark V2 — source-order regression"
     elif selected.suite_id and "mpv" in selected.suite_id.lower():
         run_kind_label = "Benchmark học thuật MPV" if language == "vi" else "MPV academic benchmark"
     elif selected.run_type == "benchmark_corpus":

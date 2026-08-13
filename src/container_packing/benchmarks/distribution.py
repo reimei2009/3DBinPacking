@@ -40,6 +40,8 @@ def _official_rows(results: pd.DataFrame) -> pd.DataFrame:
         raise ValueError("Benchmark results must identify every row with case_id or scenario_id")
     if "scenario_id" not in frame:
         frame["scenario_id"] = frame["case_id"]
+    if "benchmark_stratum" not in frame:
+        frame["benchmark_stratum"] = "legacy_unspecified"
     failed_with_objective = (~frame["success"].fillna(False)) & (
         frame.get("objective_value", pd.Series(index=frame.index)).notna()
         | frame.get("used_container_count", pd.Series(index=frame.index)).notna()
@@ -67,7 +69,7 @@ def build_case_features(results: pd.DataFrame) -> pd.DataFrame:
     columns = [
         column for column in (
             "level", "suite_id", "case_id", "scenario_id", "scenario_description", "scenario_tags",
-            "dataset_family", "scale_bucket", "expected_outcome", "item_count",
+            "dataset_family", "scale_bucket", "benchmark_stratum", "expected_outcome", "item_count",
             "container_count", "item_selection_strategy", "item_selection_seed",
             "input_fingerprint", "selected_item_ids_checksum", "aggregate_lower_bound",
         ) if column in frame.columns
@@ -86,7 +88,7 @@ def build_case_algorithm_summary(results: pd.DataFrame) -> pd.DataFrame:
     identity = ["level", "case_id", "input_fingerprint", "algorithm"]
     metadata = [
         column for column in (
-            "dataset_family", "scale_bucket", "item_count", "item_selection_strategy",
+            "dataset_family", "scale_bucket", "benchmark_stratum", "item_count", "item_selection_strategy",
             "item_selection_seed", "aggregate_lower_bound",
         ) if column in valid.columns
     ]
@@ -155,6 +157,7 @@ def build_pairwise_outcomes(results: pd.DataFrame) -> pd.DataFrame:
                 "input_fingerprint": key[2],
                 "dataset_family": metadata.get("dataset_family", "unspecified"),
                 "scale_bucket": metadata.get("scale_bucket", "unspecified"),
+                "benchmark_stratum": metadata.get("benchmark_stratum", "legacy_unspecified"),
                 "item_count": metadata.get("item_count"),
                 "algorithm_a": left, "algorithm_b": right,
                 "outcome_for_a": outcome, "winner": winner,
@@ -168,7 +171,11 @@ def build_distribution_summary(
 ) -> pd.DataFrame:
     """Aggregate reliability, quality gap, runtime and memory by comparable strata."""
     frame = _official_rows(results)
-    for column, default in (("dataset_family", "unspecified"), ("scale_bucket", "unspecified")):
+    for column, default in (
+        ("dataset_family", "unspecified"),
+        ("scale_bucket", "unspecified"),
+        ("benchmark_stratum", "legacy_unspecified"),
+    ):
         if column not in frame:
             frame[column] = default
     case_summary = build_case_algorithm_summary(frame)
@@ -211,7 +218,10 @@ def build_distribution_summary(
                 pd.to_numeric(case_summary["total_container_cost"], errors="coerce")
                 - pd.to_numeric(case_summary["baseline_container_cost"], errors="coerce")
             ).where(equal_container_count)
-    group_keys = ["level", "algorithm", "dataset_family", "scale_bucket", "item_count"]
+    group_keys = [
+        "level", "algorithm", "dataset_family", "benchmark_stratum",
+        "scale_bucket", "item_count",
+    ]
     base = frame.groupby(group_keys, dropna=False).agg(
         execution_count=("success", "size"),
         valid_rate=("success", "mean"),
