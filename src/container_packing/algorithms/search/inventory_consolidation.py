@@ -11,6 +11,7 @@ from typing import Any, Callable, Protocol
 
 from ..contracts import AlgorithmOutcome, SearchBudget
 from ..feasibility import placements_overlap
+from ..orientation import OrientationProvider, fixed_orientation_provider
 from ...schemas import Container, Item, Placement
 from ...geometry.support import evaluate_support
 from .configuration import ConsolidationConfiguration, ContainerSearchConfiguration
@@ -175,8 +176,12 @@ class BoundedInventoryConsolidator:
         candidate_validator: CandidateValidator | None = None,
         incumbent_store: ValidatedIncumbentStore | None = None,
         search_budget: SearchBudget | None = None,
+        orientation_provider: OrientationProvider | None = None,
     ) -> ConsolidationResult:
         config = search.consolidation
+        active_orientation_provider = (
+            orientation_provider or fixed_orientation_provider()
+        )
         initial_ids = {value.container_id for value in baseline.placements}
         initial_count = len(initial_ids)
         initial_cost = _rank(baseline, containers)[1]
@@ -275,6 +280,7 @@ class BoundedInventoryConsolidator:
                 ),
                 incumbent_store=incumbent_store,
                 config=config,
+                orientation_provider=active_orientation_provider,
             )
         local_runtime = self._clock() - local_started
         elimination_ids = {value.container_id for value in selected.placements}
@@ -351,6 +357,7 @@ class BoundedInventoryConsolidator:
                 )
                 delegate = LazyRankedContainerSubsetPolicy(
                     limits,
+                    orientation_provider=active_orientation_provider,
                     exhaustive_max_containers=search.exhaustive_max_containers,
                     max_candidates_per_count=min(
                         search.max_candidates_per_count, attempt_candidate_budget,
@@ -474,6 +481,7 @@ class BoundedInventoryConsolidator:
         support_closure_provider: SupportClosureProvider,
         incumbent_store: ValidatedIncumbentStore,
         config: ConsolidationConfiguration,
+        orientation_provider: OrientationProvider,
     ) -> tuple[AlgorithmOutcome, dict[str, object]]:
         """Đóng container bằng seeded relocation trước khi fallback full rebuild."""
         elimination = config.container_elimination
@@ -559,6 +567,7 @@ class BoundedInventoryConsolidator:
                         containers=subset,
                         item_by_id=item_by_id,
                         failed_item_id=failed_items_by_target.get(target_id),
+                        orientation_provider=orientation_provider,
                     )
                     destination_rankings[target_id] = [
                         value.metadata() for value in compatibilities
@@ -587,6 +596,7 @@ class BoundedInventoryConsolidator:
                         ),
                         neighborhood_sizes=adaptive.neighborhood_sizes,
                         beam_width=adaptive.beam_width,
+                        orientation_provider=orientation_provider,
                     )
                     specs = list(portfolio.specs)[:adaptive_per_target_cap]
                     if not specs:
@@ -1008,11 +1018,13 @@ def rank_destination_compatibility(
     containers: tuple[Container, ...],
     item_by_id: dict[str, Item],
     failed_item_id: str | None,
+    orientation_provider: OrientationProvider | None = None,
 ) -> list[DestinationCompatibility]:
     """Xếp hạng destination bằng capacity và frontier geometry deterministic."""
     by_container: dict[str, list[Placement]] = defaultdict(list)
     for placement in all_placements:
         by_container[placement.container_id].append(placement)
+    provider = orientation_provider or fixed_orientation_provider()
     failed_item = item_by_id.get(failed_item_id or "")
     ranked: list[DestinationCompatibility] = []
     for container in containers:
@@ -1034,10 +1046,11 @@ def rank_destination_compatibility(
         ep_compatible = 0
         if failed_item is not None:
             for point in _frontier_points(container, existing):
-                if (
-                    point[0] + failed_item.length_mm <= container.length_mm
-                    and point[1] + failed_item.width_mm <= container.width_mm
-                    and point[2] + failed_item.height_mm <= container.height_mm
+                if any(
+                    point[0] + dimensions.length_mm <= container.length_mm
+                    and point[1] + dimensions.width_mm <= container.width_mm
+                    and point[2] + dimensions.height_mm <= container.height_mm
+                    for dimensions in provider.candidates(failed_item)
                 ):
                     ep_compatible += 1
         payload_slack = container.max_weight_kg - loaded_weight
@@ -1155,6 +1168,7 @@ def adaptive_cluster_repack_specs(
     maximum_destination_containers: int,
     neighborhood_sizes: tuple[int, ...],
     beam_width: int,
+    orientation_provider: OrientationProvider | None = None,
 ) -> list[_EliminationRepackSpec]:
     """Compatibility wrapper trả spec từ canonical portfolio builder."""
     return list(build_adaptive_cluster_repack_portfolio(
@@ -1167,6 +1181,7 @@ def adaptive_cluster_repack_specs(
         maximum_destination_containers=maximum_destination_containers,
         neighborhood_sizes=neighborhood_sizes,
         beam_width=beam_width,
+        orientation_provider=(orientation_provider or fixed_orientation_provider()),
     ).specs)
 
 
@@ -1181,8 +1196,10 @@ def build_adaptive_cluster_repack_portfolio(
     maximum_destination_containers: int,
     neighborhood_sizes: tuple[int, ...],
     beam_width: int,
+    orientation_provider: OrientationProvider | None = None,
 ) -> AdaptiveClusterPortfolio:
     """Sinh beam cluster đa tài nguyên, tăng dần và giữ support closure."""
+    provider = orientation_provider or fixed_orientation_provider()
     target = [value for value in placements if value.container_id == target_id]
     if not target:
         return AdaptiveClusterPortfolio((), {}, {}, {}, 0, 0)
@@ -1241,6 +1258,7 @@ def build_adaptive_cluster_repack_portfolio(
                 blockers = _rank_failed_item_blockers(
                     failed_item, cluster, placements,
                     compatibility_by_id=compatibility_by_id,
+                    orientation_provider=provider,
                 )
                 repack_ids = set(target_ids)
                 selected_root_count = 0
@@ -1442,6 +1460,7 @@ def _rank_failed_item_blockers(
     placements: list[Placement],
     *,
     compatibility_by_id: dict[str, DestinationCompatibility],
+    orientation_provider: OrientationProvider,
 ) -> list[Placement]:
     blockers = [
         value for value in placements if value.container_id in destination_ids
@@ -1460,13 +1479,20 @@ def _rank_failed_item_blockers(
             float("inf"), 0.0,
         )
         for x, y, z in _frontier_points(pseudo, existing):
-            candidate = Placement(
-                failed_item.item_id, container_id, x, y, z,
-                failed_item.length_mm, failed_item.width_mm,
-                failed_item.height_mm, failed_item.weight_kg,
-            )
+            candidates = [
+                Placement(
+                    failed_item.item_id, container_id, x, y, z,
+                    dimensions.length_mm, dimensions.width_mm,
+                    dimensions.height_mm, failed_item.weight_kg,
+                    orientation_code=dimensions.code,
+                )
+                for dimensions in orientation_provider.candidates(failed_item)
+            ]
             for placement in existing:
-                if placements_overlap(candidate, placement, 1e-6):
+                if candidates and all(
+                    placements_overlap(candidate, placement, 1e-6)
+                    for candidate in candidates
+                ):
                     conflict_counts[placement.item_id] += 1
     return sorted(
         blockers,

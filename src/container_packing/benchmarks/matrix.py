@@ -46,6 +46,7 @@ def _case_limits(
     selection_seed: int | None,
     maximum_multiplier: float,
     maximum_extra: int,
+    maximum_cap: int | None,
 ) -> dict[str, Any]:
     selected = select_item_rows(
         source, item_count, strategy=strategy, seed=selection_seed,
@@ -91,6 +92,12 @@ def _case_limits(
         physical_count,
         max(aggregate + maximum_extra, ceil(maximum_multiplier * aggregate)),
     )
+    if maximum_cap is not None:
+        maximum = min(maximum, maximum_cap)
+    if maximum < aggregate:
+        raise ValueError(
+            "Benchmark matrix maximum_cap is lower than the aggregate lower bound"
+        )
     selected_ids = selected["id_item"].astype(str).tolist()
     selected_checksum = hashlib.sha256(
         json.dumps(selected_ids, ensure_ascii=True, separators=(",", ":")).encode("utf-8")
@@ -136,6 +143,8 @@ def expand_corpus_matrix(
         raise ValueError("matrix.container_limits must be a mapping")
     multiplier = float(limits_policy.get("maximum_multiplier", 1.6))
     maximum_extra = int(limits_policy.get("maximum_extra", 2))
+    maximum_cap = limits_policy.get("maximum_cap")
+    maximum_cap = _positive(maximum_cap, "matrix container limit maximum_cap") if maximum_cap is not None else None
     if multiplier < 1 or maximum_extra < 0:
         raise ValueError("Benchmark matrix container limit policy is invalid")
     common_overrides = matrix.get("config_overrides", {})
@@ -182,6 +191,7 @@ def expand_corpus_matrix(
                     selection_seed=seed,
                     maximum_multiplier=multiplier,
                     maximum_extra=maximum_extra,
+                    maximum_cap=maximum_cap,
                 )
                 selection_key = (
                     stratum, item_count,

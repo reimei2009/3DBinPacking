@@ -21,7 +21,7 @@ from ..reporting import write_json, write_text
 from ..runtime.project import find_project_root
 from ..runtime.run_context import create_benchmark_profile_directory
 from .runner import execute_experiment_case
-from .stratified_evidence import build_stratified_evidence
+from .stratified_evidence import build_stratified_evidence, build_stratified_evidence_for_protocol
 
 
 PROFILE_ALGORITHMS = (
@@ -343,24 +343,34 @@ def _decision_gate(phase_profile: pd.DataFrame, function_profile: pd.DataFrame) 
     }
 
 
-def run_level2_benchmark_profile(
+def run_benchmark_profile(
     *,
+    level_id: str,
     random_run_dir: Path,
     stress_run_dir: Path,
     prefix_run_dir: Path,
+    expected_protocol: dict[str, dict[str, Any]] | None = None,
+    report_id: str | None = None,
     project_root: Path | None = None,
     executor: Callable[[ExperimentRequest, int], dict[str, Any]] = execute_experiment_case,
 ) -> BenchmarkProfileResult:
-    """Profile selected cases only after all V2 evidence layers have passed."""
+    """Profile a passed stratified benchmark without entering its ranking."""
     root = project_root.resolve() if project_root is not None else find_project_root()
     source_dirs = {
         "random_distribution": random_run_dir.resolve(),
         "stress": stress_run_dir.resolve(),
         "prefix_regression": prefix_run_dir.resolve(),
     }
-    evidence = build_stratified_evidence(source_dirs)
+    evidence = (
+        build_stratified_evidence(source_dirs)
+        if expected_protocol is None
+        else build_stratified_evidence_for_protocol(
+            source_dirs, level_id=level_id, expected=expected_protocol,
+            report_id=report_id or f"{level_id}_stratified_benchmark_v2",
+        )
+    )
     if evidence["status"] != "PASS":
-        raise ValueError("Level 2 V2 profiling requires a PASS stratified evidence gate")
+        raise ValueError(f"{level_id} profiling requires a PASS stratified evidence gate")
     cases = select_profile_cases(
         source_dirs["random_distribution"],
         source_dirs["stress"],
@@ -376,7 +386,7 @@ def run_level2_benchmark_profile(
         raise ValueError("Every selected profile case must use the same output root")
     configured_root = next(iter(output_roots))
     output_root = configured_root if configured_root.is_absolute() else root / configured_root
-    run_id, run_dir = create_benchmark_profile_directory(output_root, "level_02", 42)
+    run_id, run_dir = create_benchmark_profile_directory(output_root, level_id, 42)
     profiles_dir = run_dir / "profiles"
     reports_dir = run_dir / "reports"
     profiles_dir.mkdir(parents=True)
@@ -404,7 +414,7 @@ def run_level2_benchmark_profile(
         baseline_case = normal_results[normal_results["case_id"].astype(str).eq(case.case_id)]
         for algorithm in PROFILE_ALGORITHMS:
             request = ExperimentRequest(
-                level_id="level_02", algorithm_id=algorithm,
+                level_id=level_id, algorithm_id=algorithm,
                 config_path=case.config_path, item_count=case.item_count,
                 container_count=case.container_count, environment="local",
                 random_seed=42,
@@ -463,7 +473,7 @@ def run_level2_benchmark_profile(
         "schema_version": "1.0",
         "project": "3d-container-packing",
         "run_type": "benchmark_profile",
-        "level": "level_02",
+        "level": level_id,
         "run_id": run_id,
         "created_at_utc": datetime.now(timezone.utc).isoformat(),
         "status": status,
@@ -509,7 +519,7 @@ def run_level2_benchmark_profile(
     write_json(run_dir / "profile_manifest.json", manifest)
     priorities = ", ".join(decision["priorities"])
     write_text(reports_dir / "summary.md", (
-        "# Profiling diagnostic Level 2\n\n"
+        f"# Profiling diagnostic {level_id}\n\n"
         f"- Trạng thái: **{status}**.\n"
         f"- Số bài được chọn: {len(cases)}.\n"
         f"- Số lượt profiling: {len(profile_frame)}.\n"
@@ -518,3 +528,8 @@ def run_level2_benchmark_profile(
         "Artifact này không tham gia objective, ranking hoặc WIN/TIE/LOSS.\n"
     ))
     return BenchmarkProfileResult(run_id, run_dir, status, len(cases), len(profile_frame))
+
+
+def run_level2_benchmark_profile(**kwargs: Any) -> BenchmarkProfileResult:
+    """Backward-compatible Level 2 entry point."""
+    return run_benchmark_profile(level_id="level_02", **kwargs)

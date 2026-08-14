@@ -67,11 +67,13 @@ levels:
     evidence:
       - docs/levels/level_05.md
       - docs/reports/manual/level_05_portfolio_baseline_20260724.md
+      - docs/reports/manual/level_05_inventory_promotion_20260814.md
     algorithms:
       extreme_point_best_fit: {execution_class: packing_solver, maturity: accepted, role: practical_default, exposure: [cli, benchmark, streamlit]}
       extreme_point_ffd: {execution_class: packing_solver, maturity: accepted, role: constructive_comparator, exposure: [cli, benchmark, streamlit]}
       extreme_point_hill_climbing: {execution_class: packing_solver, maturity: accepted, role: balanced, exposure: [cli, benchmark, streamlit]}
       extreme_point_simulated_annealing: {execution_class: packing_solver, maturity: accepted, role: quality, exposure: [cli, benchmark, streamlit]}
+      maximal_space_best_fit: {execution_class: packing_solver, maturity: accepted, role: geometric_comparator, exposure: [cli, benchmark, streamlit]}
 
   level_06:
     maturity: experimental

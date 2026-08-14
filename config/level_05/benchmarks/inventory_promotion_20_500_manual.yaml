@@ -1,0 +1,47 @@
+suite_id: level_05_inventory_promotion_20_500_v1
+level_id: level_05
+description: >
+  Gate promotion shared inventory orchestration cho Level 5 trên physical corpus
+  1.000 kiện và 500 container. Repair tắt để đo riêng construction với horizontal
+  orientation, exact support, stackability và tải truyền tĩnh đệ quy.
+config: config/level_05/experiments/inventory_items_1000_fleet_500.yaml
+environment: local
+algorithms:
+  - extreme_point_best_fit
+  - extreme_point_ffd
+  - maximal_space_best_fit
+seeds: [42]
+repeats: 2
+scenarios:
+  - scenario_id: level5_inventory_prefix_i20_f500
+    description: "Gate smoke: 20 kiện, toàn bộ catalog 500 container."
+    item_count: 20
+    container_count: 1
+    item_selection: prefix
+    dataset_family: generated_1k_500_load_bearing
+    scale_bucket: smoke
+    tags: [level5, inventory, orientation, exact_support, stackability, load_bearing, smoke]
+  - scenario_id: level5_inventory_prefix_i100_f500
+    description: "Gate practical: 100 kiện, toàn bộ catalog 500 container."
+    item_count: 100
+    container_count: 1
+    item_selection: prefix
+    dataset_family: generated_1k_500_load_bearing
+    scale_bucket: practical
+    tags: [level5, inventory, orientation, exact_support, stackability, load_bearing, practical]
+  - scenario_id: level5_inventory_prefix_i300_f500
+    description: "Gate scale: 300 kiện, toàn bộ catalog 500 container."
+    item_count: 300
+    container_count: 1
+    item_selection: prefix
+    dataset_family: generated_1k_500_load_bearing
+    scale_bucket: scale
+    tags: [level5, inventory, orientation, exact_support, stackability, load_bearing, scale]
+  - scenario_id: level5_inventory_prefix_i500_f500
+    description: "Gate lớn: 500 kiện, toàn bộ catalog 500 container."
+    item_count: 500
+    container_count: 1
+    item_selection: prefix
+    dataset_family: generated_1k_500_load_bearing
+    scale_bucket: large
+    tags: [level5, inventory, orientation, exact_support, stackability, load_bearing, large, manual]

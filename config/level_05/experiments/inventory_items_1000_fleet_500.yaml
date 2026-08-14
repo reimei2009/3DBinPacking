@@ -1,0 +1,41 @@
+extends: ../default.yaml
+project:
+  level_id: level_05
+  algorithm_id: extreme_point_best_fit
+instance:
+  item_count: 100
+  container_count: 1
+paths:
+  raw_items_csv: data/interim/synthetic/level_02_inventory_items_1000_fleet_500_t10_v1/solver_items.csv
+  raw_containers_csv: data/interim/synthetic/level_02_inventory_items_1000_fleet_500_t10_v1/solver_containers.csv
+  items_source_mapping: config/common/data_sources/empirical_template_level_08.yaml
+  processed_dir: data/processed/level_05/inventory_items_1000_fleet_500
+  manifest_json: data/processed/level_05/inventory_items_1000_fleet_500/latest_manifest.json
+dataset_policy:
+  generation_manifest: data/interim/synthetic/level_02_inventory_items_1000_fleet_500_t10_v1/generation_manifest.json
+  expected_usage_class: solver_research
+container_search:
+  enabled: true
+  initial_used_container_count: 1
+  max_used_container_count: 30
+  automatically_increase_container_count: true
+  exhaustive_max_containers: 10
+  max_candidates_per_count: 64
+  neighborhood_width: 16
+  composition_beam_width: 96
+  soft_volume_buffer_ratio: 0.10
+  time_limit_seconds: 180
+  validation_reserve_seconds: 3
+  construction_item_order_variants:
+    - current
+    - decreasing_weight
+    - support_difficulty
+  incumbent_acquisition:
+    enabled: true
+    max_subsets_per_cardinality: 2
+  secondary_search_score:
+    enabled: false
+  consolidation:
+    enabled: false
+    container_elimination:
+      enabled: false
