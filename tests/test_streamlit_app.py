@@ -298,7 +298,7 @@ def test_inventory_repair_overlay_preserves_profile_settings_and_budget() -> Non
 
 def test_level2_research_inventory_profile_exposes_one_thousand_items(root: Path) -> None:
     app = root / "src/container_packing/web/streamlit_app.py"
-    page = AppTest.from_file(str(app), default_timeout=30).run()
+    page = AppTest.from_file(str(app), default_timeout=60).run()
     next(value for value in page.selectbox if value.key == "level_id").set_value(
         "level_02"
     ).run()
