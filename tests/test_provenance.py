@@ -1,5 +1,5 @@
 from container_packing import provenance
-from container_packing.provenance import source_tree_sha256
+from container_packing.provenance import git_dirty, source_tree_sha256
 
 
 def test_source_tree_checksum_changes_with_source(tmp_path):
@@ -35,3 +35,22 @@ def test_runtime_metadata_reuses_snapshot_and_returns_defensive_copy(
     assert calls["dirty"] == 1
     assert second["dependency_versions"]["pandas"] == "test"
     provenance.clear_runtime_metadata_cache()
+
+
+def test_git_dirty_uses_workspace_tolerant_metadata_timeout(
+    tmp_path, monkeypatch,
+) -> None:
+    observed = {}
+
+    class Result:
+        stdout = " M tracked.py\n"
+
+    def fake_run(*_args, **kwargs):
+        observed["timeout"] = kwargs["timeout"]
+        return Result()
+
+    monkeypatch.setattr(provenance.subprocess, "run", fake_run)
+
+    assert git_dirty(tmp_path) is True
+    assert observed["timeout"] == provenance.GIT_METADATA_TIMEOUT_SECONDS
+    assert observed["timeout"] >= 15
