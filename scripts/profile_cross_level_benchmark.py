@@ -14,6 +14,8 @@ from container_packing.benchmarks.profiling import run_benchmark_profile
 
 
 def main(argv: list[str] | None = None) -> int:
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     parser = argparse.ArgumentParser(description="Profile a passed Level 3--5 benchmark protocol")
     parser.add_argument("--level", choices=("level_03", "level_04", "level_05"), required=True)
     parser.add_argument("--random-run-dir", type=Path, required=True)

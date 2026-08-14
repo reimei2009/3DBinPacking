@@ -6,6 +6,7 @@ import pytest
 
 from container_packing.application.service import discover_benchmark_runs
 from container_packing.benchmarks.profiling import (
+    _function_category,
     build_phase_profile,
     ProfileCase,
     run_level2_benchmark_profile,
@@ -18,6 +19,20 @@ from container_packing.experiments.contracts import ExperimentRequest
 ALGORITHMS = (
     "extreme_point_best_fit", "extreme_point_ffd", "maximal_space_best_fit",
 )
+
+
+@pytest.mark.parametrize(("filename", "function", "expected"), (
+    ("algorithms/load_transfer.py", "propagate_load", "load_transfer"),
+    ("algorithms/stackability.py", "check_stack_group", "stackability"),
+    ("algorithms/exact_support.py", "support_ratio", "exact_support"),
+    ("geometry.py", "placements_overlap", "overlap"),
+    ("algorithms/extreme_point.py", "enumerate_candidates", "candidate_enumeration"),
+    ("reporting/json_report.py", "write_report", "reporting_visualization"),
+))
+def test_profile_function_category_is_constraint_specific(
+    filename: str, function: str, expected: str,
+) -> None:
+    assert _function_category(filename, function) == expected
 
 
 def _case(
@@ -194,8 +209,12 @@ def test_profile_run_is_diagnostic_and_preserves_solution(
     manifest = json.loads((result.run_dir / "manifest.json").read_text(encoding="utf-8"))
     assert manifest["run_type"] == "benchmark_profile"
     assert manifest["diagnostic_only"] is True
+    assert manifest["deadline_neutralized_for_profiler_overhead"] is True
     assert manifest["eligible_for_benchmark_ranking"] is False
     assert manifest["selected_case_requests"][0]["item_count"] == 1
+    assert manifest["selected_case_requests"][0]["profiling_config_overrides"][
+        "container_search"
+    ]["time_limit_seconds"] is None
     assert len(manifest["source_artifact_checksums"]) == 6
     assert (result.run_dir / "phase_profile.csv").is_file()
     assert (result.run_dir / "function_profile.csv").is_file()
