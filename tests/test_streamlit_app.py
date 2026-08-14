@@ -477,6 +477,7 @@ def test_streamlit_exposes_level5_best_fit_and_support_threshold(root: Path):
         "Extreme Point — First Fit Decreasing",
         "Extreme Point — Hill Climbing",
         "Extreme Point — Simulated Annealing",
+        "Maximal Empty Spaces — Best Fit Decreasing",
     ]
     assert algorithm.value == "extreme_point_best_fit"
     assert any(

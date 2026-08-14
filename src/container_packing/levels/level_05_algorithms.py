@@ -9,13 +9,32 @@ from ..algorithms.feasibility import ExactSupportFeasibilityPolicy, PlacementFea
 from ..algorithms.heuristics.extreme_point_best_fit import solve as solve_extreme_point_best_fit
 from ..algorithms.heuristics.extreme_point_ffd import solve as solve_extreme_point_ffd
 from ..algorithms.heuristics.extreme_point_hill_climbing import solve as solve_extreme_point_hill_climbing
+from ..algorithms.heuristics.maximal_space_best_fit import solve as solve_maximal_space_best_fit
 from ..algorithms.metaheuristics.extreme_point_simulated_annealing import solve as solve_extreme_point_simulated_annealing
 from ..algorithms.orientation import horizontal_orientation_provider
+from ..algorithms.search import exact_support_closures, InventoryLevelAdapter
 from ..schemas import Container, Item, Placement
 from .level_04_algorithms import ExactSupportStackabilityPolicy
+from .level_04_validation import validate_solution as validate_level4_solution
+from .level_05_validation import validate_load_bearing
 from .load_bearing import LoadBearingAttributes, resolve_load_bearing_attributes
 from .load_transfer import LoadTransferError, evaluate_load_transfer
-from .stackability import StackabilitySettings, attributes_for_item
+from .stackability import (
+    StackabilitySettings,
+    attributes_for_item,
+    infer_parent_relations,
+)
+
+
+_INVENTORY_SEARCH_ALGORITHMS = frozenset({
+    "extreme_point_best_fit", "extreme_point_ffd", "maximal_space_best_fit",
+})
+_HORIZONTAL_ORIENTATION_PROVIDER = horizontal_orientation_provider()
+_INVENTORY_ADAPTER = InventoryLevelAdapter(
+    level_id="level_05",
+    supported_algorithm_ids=_INVENTORY_SEARCH_ALGORITHMS,
+    orientation_provider=_HORIZONTAL_ORIENTATION_PROVIDER,
+)
 
 
 @dataclass
@@ -95,6 +114,7 @@ def execute_level_05(
     executors = {
         "extreme_point_best_fit": solve_extreme_point_best_fit,
         "extreme_point_ffd": solve_extreme_point_ffd,
+        "maximal_space_best_fit": solve_maximal_space_best_fit,
         "extreme_point_hill_climbing": solve_extreme_point_hill_climbing,
         "extreme_point_simulated_annealing": solve_extreme_point_simulated_annealing,
     }
@@ -102,23 +122,96 @@ def execute_level_05(
         executor = executors[algorithm_id]
     except KeyError as exc:
         raise ValueError(
-            "Level 5 checkpoint implements Extreme Point Best Fit, FFD, Hill Climbing, "
-            "and Simulated Annealing; "
+            "Level 5 implements Extreme Point Best Fit, FFD, Maximal Empty Spaces "
+            "Best Fit, Hill Climbing, and Simulated Annealing; "
             "other solvers remain inactive."
         ) from exc
-    load_policy = build_level_05_feasibility_policy(items, settings)
-    solver_settings = dict(settings)
-    if algorithm_id in {
-        "extreme_point_hill_climbing", "extreme_point_simulated_annealing",
-    }:
-        solver_settings.setdefault("initial_constructor", "extreme_point_best_fit")
-        solver_settings.setdefault("repair_constructor", "extreme_point_best_fit")
-    return executor(
-        items,
-        containers,
-        solver_settings,
-        policy=load_policy,
-        orientation_provider=horizontal_orientation_provider(),
+    support = settings.get("support", {})
+    stackability = settings.get("stackability", {})
+    load_bearing = settings.get("load_bearing", {})
+    validation = settings.get("validation", {})
+    support_threshold = float(support.get("threshold", 0.8))
+    support_epsilon = float(support.get("epsilon_mm", 1e-4))
+    load_tolerance = float(
+        validation.get(
+            "load_tolerance_kg", settings.get("load_tolerance_kg", 1e-6),
+        )
+    )
+    stack_settings = StackabilitySettings.from_config(stackability)
+    stack_attributes = {
+        item.item_id: attributes_for_item(item, stack_settings) for item in items
+    }
+
+    def execute_with_load_bearing(
+        selected_items: list[Item],
+        selected_containers: list[Container],
+        selected_settings: dict[str, Any],
+        *,
+        container_subset_policy: Any = None,
+    ):
+        # Partial repack may pass only the items being rebuilt while retaining
+        # seeded placements. The load graph still needs attributes for every
+        # original item, including those seeded placements.
+        load_policy = build_level_05_feasibility_policy(items, selected_settings)
+        solver_settings = dict(selected_settings)
+        if algorithm_id in {
+            "extreme_point_hill_climbing", "extreme_point_simulated_annealing",
+        }:
+            solver_settings.setdefault("initial_constructor", "extreme_point_best_fit")
+            solver_settings.setdefault("repair_constructor", "extreme_point_best_fit")
+        keyword_arguments: dict[str, Any] = {
+            "policy": load_policy,
+            "orientation_provider": _HORIZONTAL_ORIENTATION_PROVIDER,
+        }
+        if container_subset_policy is not None:
+            keyword_arguments["container_subset_policy"] = container_subset_policy
+        return executor(
+            selected_items,
+            selected_containers,
+            solver_settings,
+            **keyword_arguments,
+        )
+
+    def candidate_validator(placements: list[Placement]) -> bool:
+        parent_relations = infer_parent_relations(
+            placements, stack_attributes, epsilon_mm=support_epsilon,
+        )
+        level4 = validate_level4_solution(
+            items,
+            containers,
+            placements,
+            parent_relations,
+            stackability,
+            support_threshold=support_threshold,
+            support_epsilon_mm=support_epsilon,
+            coordinate_tolerance=float(
+                validation.get("coordinate_tolerance_mm", 1e-4)
+            ),
+            weight_tolerance=float(validation.get("weight_tolerance_kg", 1e-6)),
+        )
+        if not level4.result.valid:
+            return False
+        load = validate_load_bearing(
+            items,
+            placements,
+            load_bearing,
+            epsilon_mm=support_epsilon,
+            load_tolerance_kg=load_tolerance,
+        )
+        return load.result.valid
+
+    return _INVENTORY_ADAPTER.execute(
+        algorithm_id=algorithm_id,
+        items=items,
+        containers=containers,
+        settings=settings,
+        executor=execute_with_load_bearing,
+        candidate_validator=candidate_validator,
+        support_closure_provider=lambda placements: exact_support_closures(
+            placements, epsilon_mm=support_epsilon,
+        ),
+        secondary_support_threshold=support_threshold,
+        secondary_support_epsilon_mm=support_epsilon,
     )
 
 
@@ -150,7 +243,11 @@ def build_level_05_feasibility_policy(
     return LoadBearingFeasibilityPolicy(
         attributes=resolve_load_bearing_attributes(items, load_bearing),
         epsilon_mm=float(support.get("epsilon_mm", 1e-4)),
-        load_tolerance_kg=float(settings.get("load_tolerance_kg", 1e-6)),
+        load_tolerance_kg=float(
+            settings.get("validation", {}).get(
+                "load_tolerance_kg", settings.get("load_tolerance_kg", 1e-6),
+            )
+        ),
         base=stack_policy,
         capacity_profile=str(load_bearing.get("capacity_profile", {}).get("mode", "")),
         policy_id=policy_id,
