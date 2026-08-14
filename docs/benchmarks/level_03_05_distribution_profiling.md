@@ -8,4 +8,6 @@ Chạy lần lượt random, stress rồi prefix cho từng level. Khi một run
 
 Sau khi cả ba tầng đạt gate, chạy `scripts/profile_cross_level_benchmark.py`. Profiling chỉ là chẩn đoán: nó không tham gia ranking, objective hoặc evidence canonical. Báo cáo profiling phân tách thời gian chuẩn bị dữ liệu, precheck/subset, construction, validation, reporting và các hàm nóng của candidate/support/overlap/load-transfer.
 
+Khi cả ba Level đã đạt gate, dùng `scripts/build_cross_level_distribution_report.py` để tạo bảng ghép cặp. Bảng này chỉ mô tả runtime overhead và số container tăng thêm do ràng buộc stackability/load-bearing trên cùng input; không xếp hạng Level 3, 4 và 5 với nhau.
+
 Không promote Level 6 cho đến khi evidence và profiling hoàn chỉnh, sau đó mới chọn một cải tiến có dữ liệu chứng minh.
