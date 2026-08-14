@@ -1,0 +1,47 @@
+suite_id: level_03_inventory_promotion_20_500_v1
+level_id: level_03
+description: >
+  Gate tuần tự cho shared inventory orchestration ở Level 3 trên cùng physical
+  corpus 1.000 kiện và 500 container đã qualification. Repair tắt để đo riêng
+  construction với horizontal orientation và exact support.
+config: config/level_03/experiments/inventory_items_1000_fleet_500.yaml
+environment: local
+algorithms:
+  - extreme_point_best_fit
+  - extreme_point_ffd
+  - maximal_space_best_fit
+seeds: [42]
+repeats: 2
+scenarios:
+  - scenario_id: level3_inventory_prefix_i20_f500
+    description: "Gate smoke: 20 kiện, toàn bộ catalog 500 container."
+    item_count: 20
+    container_count: 1
+    item_selection: prefix
+    dataset_family: generated_1k_500_horizontal_orientation
+    scale_bucket: smoke
+    tags: [level3, inventory, orientation, exact_support, smoke]
+  - scenario_id: level3_inventory_prefix_i100_f500
+    description: "Gate practical: 100 kiện, toàn bộ catalog 500 container."
+    item_count: 100
+    container_count: 1
+    item_selection: prefix
+    dataset_family: generated_1k_500_horizontal_orientation
+    scale_bucket: practical
+    tags: [level3, inventory, orientation, exact_support, practical]
+  - scenario_id: level3_inventory_prefix_i300_f500
+    description: "Gate scale: 300 kiện, toàn bộ catalog 500 container."
+    item_count: 300
+    container_count: 1
+    item_selection: prefix
+    dataset_family: generated_1k_500_horizontal_orientation
+    scale_bucket: scale
+    tags: [level3, inventory, orientation, exact_support, scale]
+  - scenario_id: level3_inventory_prefix_i500_f500
+    description: "Gate lớn: 500 kiện, toàn bộ catalog 500 container."
+    item_count: 500
+    container_count: 1
+    item_selection: prefix
+    dataset_family: generated_1k_500_horizontal_orientation
+    scale_bucket: large
+    tags: [level3, inventory, orientation, exact_support, large, manual]

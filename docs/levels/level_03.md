@@ -1,80 +1,77 @@
 # Level 3 — Xoay ngang
 
-Trạng thái: **đã triển khai và đăng ký cho CLI/Streamlit/benchmark**.
+Trạng thái: **solver orientation đã được nghiệm thu; inventory-aware workflow đang ở gate promotion**.
 
-Level 3 kế thừa toàn bộ geometry, payload, floor contact, exact base-support
-ratio và base-center support của Level 2. Level này cho phép mỗi kiện giữ
-chiều dài/rộng hoặc hoán đổi hai chiều ngang; chiều cao không đổi.
-
-Với kiện `i`, tập hướng hợp lệ là `O_i` và phải chọn đúng một hướng:
-
-```text
-sum(o in O_i) r_io = 1
-```
+Level 3 kế thừa geometry, payload, floor contact, exact base-support ratio và
+base-center support của Level 2. Mỗi kiện có thể giữ chiều dài/rộng hoặc hoán
+đổi hai chiều ngang; chiều cao không đổi:
 
 | Mã | Kích thước hiệu dụng `(length, width, height)` |
 | --- | --- |
-| `XYZ` | `(l_i, w_i, h_i)` |
-| `YXZ` | `(w_i, l_i, h_i)` |
+| `XYZ` | `(l, w, h)` |
+| `YXZ` | `(w, l, h)` |
 
-## Ràng buộc đang hoạt động
+## Contract đang hoạt động
 
-- chọn đúng một orientation được khai báo;
+- chọn đúng một orientation trong `XYZ/YXZ`;
 - boundary và non-overlap theo kích thước sau xoay;
-- support footprint theo orientation;
-- ghi orientation vào placement, scene, report và validation;
-- bảo toàn behavior fixed-orientation của Level 1–2.
+- payload, floor contact, exact support ratio và base-center support;
+- orientation được lưu trong placement, scene, report và validation;
+- mọi nghiệm complete phải qua independent validator Level 3.
 
-Không kích hoạt xoay làm thay đổi trục đứng, stackability, load-bearing,
-nesting, fragility, balance hoặc loading/unloading order.
+Level này chưa kích hoạt vertical rotation, stackability, load-bearing, nesting,
+fragility, center of gravity hoặc loading/unloading order. Exact geometric
+support không phải chứng nhận ổn định vật lý đầy đủ.
 
-## Dữ liệu
+## Inventory-aware workflow
 
-Raw field `forced_orientation` được bảo toàn nhưng chưa có mapping semantics đã
-xác minh. Solver không được đọc trực tiếp field này. Experiment hiện dùng
-profile YAML tường minh:
+Best Fit, FFD và Maximal Empty Spaces dùng chung `InventoryLevelAdapter` và
+`InventorySearchOrchestrator` với Level 1–2. Level 3 chỉ cung cấp:
 
-- `fixed`: chỉ `XYZ`;
-- `horizontal_rotatable`: `XYZ` và `YXZ`, loại hướng trùng khi length bằng
-  width.
+- horizontal orientation provider;
+- exact-support feasibility policy;
+- exact-support closure cho repair;
+- independent candidate validator Level 3.
 
-Profile synthetic phải ghi `orientation_profile_id`,
-`allowed_orientation_codes` và `orientation_data_status` vào provenance.
+Orientation provider được dùng từ hard precheck, subset generation đến
+construction và partial repack. Vì vậy kiện chỉ vừa sau khi xoay ngang không bị
+loại nhầm bởi precheck fixed-orientation.
 
-## Solver
+Hill Climbing, Simulated Annealing và MILP chưa hỗ trợ inventory orchestration.
+Nếu bật `container_search` với các thuật toán này, runtime phải dừng với thông
+báo rõ; không fallback sang catalog prefix.
 
-- `extreme_point_ffd`: constructive baseline;
-- `extreme_point_best_fit`: practical candidate;
-- Hill Climbing và Simulated Annealing: search comparator;
-- Maximal Empty Spaces: geometric comparator;
-- `milp_big_m`: exact reference giới hạn tối đa 5 items.
+Physical corpus promotion tái sử dụng đúng dữ liệu 1.000 kiện/500 container đã
+qualification, nhưng processed data và output luôn nằm trong namespace
+`level_03`. Không sao chép hoặc đổi tên provenance gốc.
 
-Mọi heuristic dùng cùng orientation provider và exact-support feasibility
-policy. `INFEASIBLE_HEURISTIC` chỉ là thất bại tìm kiếm, không phải chứng minh
-vô nghiệm.
+## Solver và objective
 
-## Nghiệm thu
+- `extreme_point_best_fit`: practical primary;
+- `extreme_point_ffd`: constructive comparator;
+- `maximal_space_best_fit`: geometric comparator;
+- Hill Climbing và Simulated Annealing: comparator không-inventory;
+- `milp_big_m`: exact reference tối đa 5 kiện.
 
-Independent validator tính lại kích thước hiệu dụng từ orientation đã chọn,
-sau đó kiểm tra toàn bộ contract Level 1–2. Nghiệm chỉ có official objective
-khi complete và `VALID`.
+Official objective vẫn là `(số container đã dùng, tổng chi phí container)`.
+Nghiệm incomplete, timeout hoặc invalid không có official objective.
 
-Chạy exact reference nhỏ:
+## Gate promotion inventory
 
-```powershell
-.\.venv\Scripts\python.exe .\scripts\run_experiment.py `
-  --level level_03 `
-  --algorithm milp_big_m `
-  --config config\level_03\experiments\milp_big_m_reference.yaml `
-  --non-interactive --preview-limit 0
-```
-
-Chạy benchmark heuristic thủ công:
+Chạy tuần tự 20 → 100 → 300 → 500 kiện. Mỗi case so sánh Best Fit, FFD và MES
+qua hai repeat:
 
 ```powershell
 .\.venv\Scripts\python.exe .\scripts\run_benchmark.py `
-  --suite config\level_03\benchmarks\core_heuristics_local.yaml
+  --suite config\level_03\benchmarks\inventory_promotion_20_500_manual.yaml
 ```
 
-Baseline và giới hạn scale được ghi tại
-`docs/reports/manual/level_03_heuristic_acceptance.md`.
+Mọi success phải independently `VALID`; hai repeat phải có cùng objective và
+placement signature. Chỉ sau khi runtime gate hoàn thành mới xem xét expose
+inventory controls Level 3 trên Streamlit.
+
+## Giới hạn dữ liệu
+
+Raw field `forced_orientation` được bảo toàn nhưng chưa có mapping semantics đã
+xác minh. Solver sử dụng profile cấu hình tường minh `horizontal_rotatable`,
+không suy đoán orientation từ field này.

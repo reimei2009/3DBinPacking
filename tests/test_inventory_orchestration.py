@@ -12,6 +12,7 @@ from container_packing.algorithms.search import (
     InventorySearchOrchestrator,
     InventorySearchRequest,
 )
+from container_packing.algorithms.orientation import fixed_orientation_provider
 from container_packing.schemas import Container, Item, Placement, SolveResult
 
 
@@ -42,6 +43,7 @@ def _request(
         settings={"caller_setting": "preserved"},
         configuration=configuration or _configuration(),
         supported_algorithm_ids=frozenset({"extreme_point_best_fit", "extreme_point_ffd"}),
+        orientation_provider=fixed_orientation_provider(),
         candidate_validator=lambda placements: bool(placements),
     )
 

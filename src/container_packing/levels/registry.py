@@ -614,7 +614,7 @@ _LEVELS["level_05"] = LevelDefinition(
     default_config=Path("config/level_05/default.yaml"),
     supported_algorithms=(
         "extreme_point_best_fit", "extreme_point_ffd", "extreme_point_hill_climbing",
-        "extreme_point_simulated_annealing",
+        "extreme_point_simulated_annealing", "maximal_space_best_fit",
     ),
     run=level_05.run,
     prepare=level_05.prepare,

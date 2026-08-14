@@ -16,9 +16,14 @@ when the instance restarts, redeploys, or is replaced. Therefore:
 - keep reproducible research runs on local storage or a future artifact store;
 - do not treat the Render demo as a benchmark or checkpoint store.
 
-The Docker image intentionally includes the tracked raw CSV inputs only.
-Processed data and run outputs are regenerated automatically by the normal
-pipeline and are never committed to Git.
+The Docker context intentionally includes tracked raw CSV inputs but excludes
+`data/interim/`, so a local generated dataset can never leak into the image.
+During the image build, the Dockerfile materializes the three small,
+deterministic Level 1/2 web inventories from their versioned YAML profiles and
+validates their generation manifests. A missing source, invalid profile, or
+failed provenance check therefore fails the build instead of allowing the UI
+to start with a hidden fallback. Processed data and run outputs remain runtime
+artifacts and are never committed to Git.
 
 ## Local Docker smoke check
 
@@ -29,8 +34,13 @@ docker build -t 3d-container-packing-demo .
 docker run --rm -p 8501:8501 -e PORT=8501 3d-container-packing-demo
 ```
 
-Open `http://localhost:8501`, run a small FFD case, then stop the container
-with `Ctrl+C`. Do not run long MILP or large benchmark workloads in the demo.
+The build log must show successful generation of
+`level_01_inventory_fleet_500_t10_v1`,
+`level_02_inventory_items_1000_fleet_500_t10_v1`, and
+`level_01_inventory_fleet_5000_t25_v1`. Open `http://localhost:8501`, switch
+between the Level 1/2 generated inventory profiles, run a small FFD case, then
+stop the container with `Ctrl+C`. Do not run long MILP or large benchmark
+workloads in the demo.
 
 ## Deploy from GitHub using the Blueprint
 

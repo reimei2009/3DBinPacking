@@ -15,18 +15,22 @@ from ..algorithms.metaheuristics.extreme_point_simulated_annealing import solve 
 from ..algorithms.search import (
     ContainerSearchConfiguration,
     exact_support_closures,
-    InventorySearchOrchestrator,
-    InventorySearchRequest,
+    InventoryLevelAdapter,
 )
+from ..algorithms.orientation import fixed_orientation_provider
 from ..schemas import Container, Item
 from .level_02_validation import validate_solution
 
 Level02Executor = Callable[[list[Item], list[Container], dict[str, Any]], AlgorithmOutcome]
 
-_INVENTORY_SEARCH_ORCHESTRATOR = InventorySearchOrchestrator()
 _INVENTORY_SEARCH_ALGORITHMS = frozenset({
     "extreme_point_best_fit", "extreme_point_ffd", "maximal_space_best_fit",
 })
+_INVENTORY_ADAPTER = InventoryLevelAdapter(
+    level_id="level_02",
+    supported_algorithm_ids=_INVENTORY_SEARCH_ALGORITHMS,
+    orientation_provider=fixed_orientation_provider(),
+)
 
 
 def execute_level_02(
@@ -67,12 +71,11 @@ def execute_level_02(
             epsilon_mm=float(support.get("epsilon_mm", 1e-4)),
         )
         keyword_arguments: dict[str, Any] = {"policy": policy}
+        keyword_arguments["orientation_provider"] = fixed_orientation_provider()
         if container_subset_policy is not None:
             keyword_arguments["container_subset_policy"] = container_subset_policy
         return executor(selected_items, selected_containers, selected_settings, **keyword_arguments)
 
-    if not search.enabled:
-        return execute_with_exact_support(items, containers, settings)
     support = settings.get("support", {})
     validation = settings.get("validation", {})
     support_epsilon = float(support.get("epsilon_mm", 1e-4))
@@ -89,22 +92,16 @@ def execute_level_02(
         ),
         weight_tolerance=float(validation.get("weight_tolerance_kg", 1e-6)),
     ).result.valid
-    return _INVENTORY_SEARCH_ORCHESTRATOR.execute(
-        InventorySearchRequest(
-            algorithm_id=algorithm_id,
-            items=items,
-            containers=containers,
-            settings=settings,
-            configuration=search,
-            supported_algorithm_ids=_INVENTORY_SEARCH_ALGORITHMS,
-            precheck_backend="inventory-aware-level-02-precheck",
-            precheck_failure_context="Level 2 instance",
-            support_closure_provider=lambda placements: exact_support_closures(
-                placements, epsilon_mm=support_epsilon,
-            ),
-            candidate_validator=candidate_validator,
-            secondary_support_threshold=float(support.get("threshold", 0.8)),
-            secondary_support_epsilon_mm=support_epsilon,
+    return _INVENTORY_ADAPTER.execute(
+        algorithm_id=algorithm_id,
+        items=items,
+        containers=containers,
+        settings=settings,
+        executor=execute_with_exact_support,
+        support_closure_provider=lambda placements: exact_support_closures(
+            placements, epsilon_mm=support_epsilon,
         ),
-        execute_with_exact_support,
+        candidate_validator=candidate_validator,
+        secondary_support_threshold=float(support.get("threshold", 0.8)),
+        secondary_support_epsilon_mm=support_epsilon,
     )

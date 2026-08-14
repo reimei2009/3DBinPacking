@@ -10,6 +10,7 @@ from typing import Any, Protocol
 from scipy.optimize import OptimizeResult
 
 from ..contracts import AlgorithmOutcome, SearchBudget
+from ..orientation import OrientationProvider
 from ...schemas import Container, Item, Placement, SolveResult
 from .configuration import ContainerSearchConfiguration
 from .inventory import NormalizedContainerInventory, normalize_container_inventory
@@ -55,6 +56,7 @@ class InventorySearchRequest:
     settings: dict[str, Any]
     configuration: ContainerSearchConfiguration
     supported_algorithm_ids: frozenset[str]
+    orientation_provider: OrientationProvider
     precheck_backend: str = "inventory-aware-precheck"
     precheck_failure_context: str = "inventory instance"
     support_closure_provider: SupportClosureProvider | None = None
@@ -154,7 +156,11 @@ class InventorySearchOrchestrator:
             )
 
         phase_started = self._clock()
-        precheck = run_hard_precheck(request.items, inventory)
+        precheck = run_hard_precheck(
+            request.items,
+            inventory,
+            orientation_provider=request.orientation_provider,
+        )
         precheck_seconds = self._clock() - phase_started
         phase_started = self._clock()
         lower_bound = estimate_container_lower_bound(request.items, inventory)
@@ -226,6 +232,7 @@ class InventorySearchOrchestrator:
             candidate_validator=request.candidate_validator,
             incumbent_store=construction.incumbent_store,
             search_budget=budget,
+            orientation_provider=request.orientation_provider,
         )
         outcome = consolidation.outcome
         consolidated = (
@@ -338,6 +345,7 @@ class InventorySearchOrchestrator:
                     break
                 policy = LazyRankedContainerSubsetPolicy(
                     request.configuration.limits,
+                    orientation_provider=request.orientation_provider,
                     exhaustive_max_containers=request.configuration.exhaustive_max_containers,
                     max_candidates_per_count=(
                         acquisition.max_subsets_per_cardinality
