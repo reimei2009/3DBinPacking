@@ -19,6 +19,13 @@ RUN pip install --upgrade pip && pip install ".[web]"
 
 COPY . .
 
+# Generated web-demo datasets are deliberately excluded from the Docker
+# context. Materialize them from tracked source CSVs and versioned YAML so the
+# image never depends on hidden data/interim state from the build machine.
+RUN python scripts/generate_synthetic_instances.py --profile config/synthetic/fleet_500_t10.yaml \
+    && python scripts/generate_synthetic_instances.py --profile config/synthetic/fleet_500_t10_i1000.yaml \
+    && python scripts/generate_synthetic_instances.py --profile config/synthetic/fleet_5000_t25.yaml
+
 # The application derives processed inputs from tracked raw data and creates
 # immutable run directories at runtime. Both locations must be writable when
 # the service runs as a non-root user.
