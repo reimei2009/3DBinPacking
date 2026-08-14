@@ -34,8 +34,9 @@ _ALGORITHMS = {
 }
 
 
-def _read_run(run_dir: Path, stratum: str) -> tuple[dict[str, Any], pd.DataFrame]:
-    expected = _EXPECTED[stratum]
+def _read_run(
+    run_dir: Path, stratum: str, expected: dict[str, Any], *, expected_algorithms: set[str], repeats: int,
+) -> tuple[dict[str, Any], pd.DataFrame]:
     manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
     results = pd.read_csv(run_dir / "benchmark/results.csv")
     errors: list[str] = []
@@ -62,11 +63,11 @@ def _read_run(run_dir: Path, stratum: str) -> tuple[dict[str, Any], pd.DataFrame
         if group["input_fingerprint"].nunique() != 1:
             errors.append(f"case {case_id} có nhiều input fingerprint")
             break
-        if set(group["algorithm"].astype(str)) != _ALGORITHMS:
+        if set(group["algorithm"].astype(str)) != expected_algorithms:
             errors.append(f"case {case_id} không có đúng ba thuật toán")
             break
         if group.groupby("algorithm", sort=False).size().to_dict() != {
-            algorithm: 3 for algorithm in group["algorithm"].drop_duplicates()
+            algorithm: repeats for algorithm in group["algorithm"].drop_duplicates()
         }:
             errors.append(f"case {case_id} không có đúng ba repeat cho mỗi thuật toán")
             break
@@ -94,14 +95,20 @@ def _read_run(run_dir: Path, stratum: str) -> tuple[dict[str, Any], pd.DataFrame
     }, results
 
 
-def build_stratified_evidence(run_dirs: dict[str, Path]) -> dict[str, Any]:
-    """Build a promotion report only when all three independently persisted runs exist."""
-    if set(run_dirs) != set(_EXPECTED):
-        raise ValueError("V2 evidence requires random_distribution, stress and prefix_regression runs")
+def build_stratified_evidence_for_protocol(
+    run_dirs: dict[str, Path], *, level_id: str, expected: dict[str, dict[str, Any]],
+    report_id: str, repeats: int = 3,
+) -> dict[str, Any]:
+    """Build stratified evidence for any level sharing the canonical V2 protocol."""
+    if set(run_dirs) != set(expected):
+        raise ValueError("Evidence requires random_distribution, stress and prefix_regression runs")
     strata: list[dict[str, Any]] = []
     frames: dict[str, pd.DataFrame] = {}
-    for stratum in _EXPECTED:
-        evidence, results = _read_run(Path(run_dirs[stratum]), stratum)
+    for stratum in expected:
+        evidence, results = _read_run(
+            Path(run_dirs[stratum]), stratum, expected[stratum],
+            expected_algorithms=_ALGORITHMS, repeats=repeats,
+        )
         strata.append(evidence)
         frames[stratum] = results
     random_outcomes = build_pairwise_outcomes(frames["random_distribution"])
@@ -129,7 +136,8 @@ def build_stratified_evidence(run_dirs: dict[str, Path]) -> dict[str, Any]:
     passed = all(value["passed"] for value in strata)
     return {
         "schema_version": "1.0",
-        "report_id": "level_02_stratified_benchmark_v2_candidate",
+        "report_id": report_id,
+        "level_id": level_id,
         "created_at_utc": datetime.now(timezone.utc).isoformat(),
         "status": "PASS" if passed else "FAIL",
         "promotion_to_canonical_allowed": passed,
@@ -143,6 +151,16 @@ def build_stratified_evidence(run_dirs: dict[str, Path]) -> dict[str, Any]:
             "prefix_regression": "Chỉ phát hiện hồi quy theo thứ tự nguồn.",
         },
     }
+
+
+def build_stratified_evidence(run_dirs: dict[str, Path]) -> dict[str, Any]:
+    """Backward-compatible Level 2 V2 evidence builder."""
+    return build_stratified_evidence_for_protocol(
+        run_dirs,
+        level_id="level_02",
+        expected=_EXPECTED,
+        report_id="level_02_stratified_benchmark_v2_candidate",
+    )
 
 
 def write_stratified_evidence(
