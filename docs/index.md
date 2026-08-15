@@ -4,6 +4,9 @@
 khả năng thực thi; `config/common/capability_matrix.yaml` quyết định cách phân
 loại maturity, vai trò và exposure.
 
+Tài liệu trình bày tổng hợp hiện tại:
+[WIP 4 tuần — Tech doc và kịch bản demo](reports/manual/wip_04_technical_demo_20260815.md).
+
 ## Contract theo level
 
 | Level | Contract canonical | Trạng thái |
