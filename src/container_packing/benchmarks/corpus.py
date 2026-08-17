@@ -397,14 +397,17 @@ def _load_recovery_source(
     manifest_path = source / "manifest.json"
     request_path = source / "benchmark" / "request.json"
     results_path = source / "benchmark" / "results.csv"
-    if not all(path.is_file() for path in (manifest_path, request_path, results_path)):
+    log_path = source / "logs" / "run.log"
+    if not request_path.is_file():
         raise ValueError(
-            f"Recovery source {source} must contain manifest.json, "
-            "benchmark/request.json and benchmark/results.csv"
+            f"Recovery source {source} must contain benchmark/request.json"
         )
-    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     request = json.loads(request_path.read_text(encoding="utf-8"))
-    if manifest.get("run_type") != "benchmark_corpus":
+    manifest = (
+        json.loads(manifest_path.read_text(encoding="utf-8"))
+        if manifest_path.is_file() else None
+    )
+    if manifest is not None and manifest.get("run_type") != "benchmark_corpus":
         raise ValueError("Recovery source is not a benchmark_corpus artifact")
     request_signature = json.dumps(request, sort_keys=True, separators=(",", ":"))
     resolved_signature = json.dumps(
@@ -415,15 +418,49 @@ def _load_recovery_source(
             "Recovery source provenance does not match the current corpus request; "
             "dataset, cases, limits and configuration must remain identical"
         )
-    frame = pd.read_csv(results_path)
+    recovery_source_kind = "results_csv"
+    evidence_path = results_path
+    if results_path.is_file():
+        frame = pd.read_csv(results_path)
+    elif log_path.is_file():
+        completed_rows: list[dict[str, Any]] = []
+        for line_number, line in enumerate(
+            log_path.read_text(encoding="utf-8").splitlines(), start=1,
+        ):
+            if not line.strip():
+                continue
+            try:
+                event = json.loads(line)
+            except json.JSONDecodeError as exc:
+                raise ValueError(
+                    f"Recovery log {log_path} contains invalid JSON on line {line_number}"
+                ) from exc
+            if event.get("event") == "benchmark_corpus_case_completed":
+                completed_rows.append({
+                    key: value for key, value in event.items()
+                    if key not in {"timestamp_utc", "event"}
+                })
+        if not completed_rows:
+            raise ValueError(
+                f"Recovery source {source} has neither benchmark/results.csv nor "
+                "completed execution events in logs/run.log"
+            )
+        frame = pd.DataFrame(completed_rows)
+        recovery_source_kind = "completed_event_log"
+        evidence_path = log_path
+    else:
+        raise ValueError(
+            f"Recovery source {source} must contain benchmark/results.csv or logs/run.log"
+        )
     expected_count = sum(
         len(str(case["algorithms"]).split(",")) * len(resolved_payload["seeds"])
         * int(resolved_payload["repeats"])
         for case in resolved_payload["cases"]
     )
-    if len(frame) != expected_count:
+    if len(frame) > expected_count:
         raise ValueError(
-            f"Recovery source contains {len(frame)} executions; expected {expected_count}"
+            f"Recovery source contains {len(frame)} executions; expected at most "
+            f"{expected_count}"
         )
     rows: dict[tuple[str, str, int, int], dict[str, Any]] = {}
     for _, value in frame.iterrows():
@@ -435,15 +472,25 @@ def _load_recovery_source(
                 column: item for column, item in value.to_dict().items()
                 if column not in _DERIVED_RESULT_COLUMNS
             }
-            row["recovered_from_corpus_run_id"] = manifest.get("run_id")
+            source_run_id = (
+                manifest.get("run_id") if manifest is not None else source.name
+            )
+            row["recovered_from_corpus_run_id"] = source_run_id
             row["recovery_execution_action"] = "reused_valid"
             rows[key] = row
+    source_run_id = manifest.get("run_id") if manifest is not None else source.name
     return rows, {
         "run_dir": str(source),
-        "run_id": manifest.get("run_id"),
-        "manifest_checksum": sha256_file(manifest_path),
+        "run_id": source_run_id,
+        "source_kind": recovery_source_kind,
+        "manifest_checksum": (
+            sha256_file(manifest_path) if manifest_path.is_file() else None
+        ),
         "request_checksum": sha256_file(request_path),
-        "results_checksum": sha256_file(results_path),
+        "results_checksum": (
+            sha256_file(results_path) if results_path.is_file() else None
+        ),
+        "recovery_evidence_checksum": sha256_file(evidence_path),
         "source_execution_count": len(frame),
         "reusable_execution_count": len(rows),
     }
@@ -704,6 +751,10 @@ def run_benchmark_corpus(
         how="left",
         validate="many_to_one",
     )
+    # Publish the canonical execution rows before optional derived analyses.
+    # A post-processing failure must not discard completed solver work; an
+    # immutable recovery run can reuse these rows (or the JSONL completion log).
+    results.to_csv(benchmark_dir / "results.csv", index=False, encoding="utf-8")
     ranking = _ranking(summary)
     case_features = build_case_features(results)
     case_algorithm_summary = build_case_algorithm_summary(results)
@@ -715,7 +766,6 @@ def run_benchmark_corpus(
     contact_index_comparison = build_contact_index_comparison(results)
     selection_overlap = build_selection_overlap(selections_by_case)
 
-    results.to_csv(benchmark_dir / "results.csv", index=False, encoding="utf-8")
     summary.to_csv(benchmark_dir / "summary.csv", index=False, encoding="utf-8")
     ranking.to_csv(benchmark_dir / "ranking.csv", index=False, encoding="utf-8")
     references.to_csv(benchmark_dir / "references.csv", index=False, encoding="utf-8")

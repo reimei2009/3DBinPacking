@@ -236,3 +236,21 @@ def test_contact_index_comparison_requires_equivalent_paired_results():
     assert row.construction_speedup_ratio == pytest.approx(2.0)
     assert row.wall_speedup_ratio == pytest.approx(10 / 7)
     assert row.memory_overhead_ratio == pytest.approx(0.1)
+
+
+def test_ab_builders_ignore_variants_owned_by_another_comparison_protocol():
+    contact_rows = pd.DataFrame([{
+        "level": "level_04", "scenario_id": "contact", "input_fingerprint": "a",
+        "comparison_group": "same", "comparison_input_fingerprint": "physical",
+        "benchmark_variant_id": variant, "algorithm": "best", "random_seed": 42,
+        "repeat": 1, "status": "FEASIBLE", "success": True,
+        "used_container_count": 3, "total_container_cost": 30,
+        "wall_runtime_seconds": 1.0, "item_count": 100,
+        "objective_value": 1.0, "placement_signature": "same",
+    } for variant in ("contact_index_disabled", "contact_index_enabled")])
+    repair_rows = contact_rows.assign(
+        benchmark_variant_id=["repair_disabled", "repair_enabled"],
+    )
+
+    assert build_repair_comparison(contact_rows).empty
+    assert build_contact_index_comparison(repair_rows).empty

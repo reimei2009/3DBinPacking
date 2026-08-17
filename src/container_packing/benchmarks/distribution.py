@@ -325,13 +325,16 @@ def build_repair_comparison(results: pd.DataFrame) -> pd.DataFrame:
     if not required.issubset(frame.columns):
         return pd.DataFrame(columns=_REPAIR_COMPARISON_COLUMNS)
     frame = frame.dropna(subset=list(required)).copy()
+    expected = {"repair_disabled", "repair_enabled"}
+    frame = frame[
+        frame["benchmark_variant_id"].astype(str).isin(expected)
+    ].copy()
     if frame.empty:
         return pd.DataFrame(columns=_REPAIR_COMPARISON_COLUMNS)
     records: list[dict[str, object]] = []
     group_keys = ["level", "comparison_group", "comparison_input_fingerprint"]
     for key, group in frame.groupby(group_keys, dropna=False, sort=True):
         variants = set(group["benchmark_variant_id"].astype(str))
-        expected = {"repair_disabled", "repair_enabled"}
         if variants != expected:
             raise ValueError(
                 f"Repair comparison {key[1]} must contain exactly {sorted(expected)}"
@@ -432,8 +435,10 @@ def build_contact_index_comparison(results: pd.DataFrame) -> pd.DataFrame:
     if frame.empty:
         return pd.DataFrame(columns=_CONTACT_INDEX_COMPARISON_COLUMNS)
     expected = {"contact_index_disabled", "contact_index_enabled"}
-    observed = set(frame["benchmark_variant_id"].astype(str))
-    if observed != expected:
+    frame = frame[
+        frame["benchmark_variant_id"].astype(str).isin(expected)
+    ].copy()
+    if frame.empty:
         return pd.DataFrame(columns=_CONTACT_INDEX_COMPARISON_COLUMNS)
     frame["construction_seconds"] = frame.get(
         "inventory_search_phase_runtime_seconds", pd.Series(index=frame.index),

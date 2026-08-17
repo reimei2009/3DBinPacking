@@ -306,6 +306,32 @@ def test_corpus_recovery_reuses_valid_rows_and_reruns_only_failure(
     assert manifest["recovery"]["run_id"] == source.run_id
 
 
+def test_corpus_recovery_reuses_completed_event_log_after_postprocessing_crash(
+    root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _config_path, corpus_path = _recovery_fixture(root, tmp_path)
+    source = run_benchmark_corpus(corpus_path, project_root=root)
+    (source.run_dir / "benchmark/results.csv").unlink()
+    (source.run_dir / "manifest.json").unlink()
+
+    monkeypatch.setattr(
+        "container_packing.benchmarks.corpus.execute_experiment_case",
+        lambda *_args, **_kwargs: pytest.fail("completed executions must be reused"),
+    )
+    recovered = run_benchmark_corpus(
+        corpus_path, project_root=root, recover_from=source.run_dir,
+        rerun_failed_only=True,
+    )
+
+    assert recovered.successful
+    assert set(recovered.results["recovery_execution_action"]) == {"reused_valid"}
+    manifest = json.loads(
+        (recovered.run_dir / "manifest.json").read_text(encoding="utf-8")
+    )
+    assert manifest["recovery"]["source_kind"] == "completed_event_log"
+    assert manifest["recovery"]["reused_execution_count"] == 2
+
+
 def test_corpus_recovery_rejects_provenance_mismatch_before_execution(
     root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
