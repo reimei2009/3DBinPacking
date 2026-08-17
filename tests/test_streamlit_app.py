@@ -4,6 +4,7 @@ from pathlib import Path
 from streamlit.testing.v1 import AppTest
 from container_packing.web.i18n import text as t
 from container_packing.web.streamlit_app import (
+    _benchmark_inventory_supported,
     _benchmark_inventory_config_overrides,
     _benchmark_requires_confirmation,
     _benchmark_worst_case_runtime_seconds,
@@ -27,6 +28,21 @@ def test_level2_default_source_is_solver_qualified_1000_500_and_large_is_gated(
     assert _default_inventory_profile_id(profiles) == "items_1000_fleet_500_t10"
     assert "default_catalog" in profiles
     assert "solver_research_i20000_f5000" not in profiles
+
+
+def test_level3_default_source_is_qualified_inventory_and_benchmark_capable(
+    root: Path,
+) -> None:
+    profiles = _inventory_web_profiles(root, "level_03")
+    assert _default_inventory_profile_id(profiles) == "items_1000_fleet_500_t10"
+    assert set(profiles) == {"default_catalog", "items_1000_fleet_500_t10"}
+    assert _benchmark_inventory_supported(
+        "level_03",
+        ("extreme_point_best_fit", "extreme_point_ffd", "maximal_space_best_fit"),
+    )
+    assert not _benchmark_inventory_supported(
+        "level_03", ("extreme_point_best_fit", "milp_big_m"),
+    )
 
 
 def test_unbounded_inventory_ui_is_guarded_on_deployment(monkeypatch) -> None:
@@ -795,18 +811,76 @@ def test_streamlit_exposes_level3_solvers_and_orientation_contract(root: Path):
     level.set_value("level_03").run()
 
     assert not page.exception
+    profile = next(
+        value for value in page.selectbox
+        if value.key == "level_03_inventory_profile"
+    )
+    assert profile.value == "items_1000_fleet_500_t10"
     algorithms = next(value for value in page.selectbox if value.key == "algorithm_id")
-    assert len(algorithms.options) == 6
+    assert len(algorithms.options) == 3
     assert algorithms.value == "extreme_point_ffd"
+    assert next(
+        value for value in page.checkbox
+        if value.key == "level_03_inventory_search_enabled"
+    ).value is True
+    numbers = {value.key: value for value in page.number_input}
+    assert numbers["item_count"].max == 1000
+    assert numbers["container_count"].max == 500
+    assert numbers["level_03_inventory_search_max_count"].value == 23
+    assert numbers["level_03_inventory_search_max_count"].max == 500
+    assert numbers["benchmark_item_count"].max == 1000
+    assert numbers["benchmark_initial_count"].max == 500
+    assert numbers["benchmark_maximum_count"].max == 500
+    assert not any(
+        value.key == "level_03_inventory_repair_enabled" for value in page.checkbox
+    )
     threshold = next(value for value in page.number_input if value.key == "level_03_support_threshold")
     assert threshold.value == 0.8
     assert any(r"\sum_{o\in O_i}r_{io}=1" in value.value for value in page.latex)
+
+
+def test_streamlit_level3_profile_switch_resets_inventory_limits(root: Path) -> None:
+    app = root / "src/container_packing/web/streamlit_app.py"
+    page = AppTest.from_file(str(app), default_timeout=60).run()
+    next(value for value in page.selectbox if value.key == "level_id").set_value(
+        "level_03"
+    ).run()
+    profile = next(
+        value for value in page.selectbox
+        if value.key == "level_03_inventory_profile"
+    )
+    page = profile.set_value("default_catalog").run()
+
+    assert not page.exception
+    algorithms = next(value for value in page.selectbox if value.key == "algorithm_id")
+    assert len(algorithms.options) == 6
+    numbers = {value.key: value for value in page.number_input}
+    assert numbers["item_count"].max == 501
+    assert numbers["container_count"].max == 5
+    assert next(
+        value for value in page.checkbox
+        if value.key == "level_03_inventory_search_enabled"
+    ).value is False
+
+    page = next(
+        value for value in page.selectbox
+        if value.key == "level_03_inventory_profile"
+    ).set_value("items_1000_fleet_500_t10").run()
+    numbers = {value.key: value for value in page.number_input}
+    assert not page.exception
+    assert numbers["item_count"].max == 1000
+    assert numbers["container_count"].max == 500
+    assert numbers["level_03_inventory_search_max_count"].value == 23
 
 
 def test_streamlit_blocks_oversized_level3_milp_before_execution(root: Path):
     app = root / "src/container_packing/web/streamlit_app.py"
     page = AppTest.from_file(str(app), default_timeout=30).run()
     next(value for value in page.selectbox if value.key == "level_id").set_value("level_03").run()
+    next(
+        value for value in page.selectbox
+        if value.key == "level_03_inventory_profile"
+    ).set_value("default_catalog").run()
     next(value for value in page.selectbox if value.key == "algorithm_id").set_value("milp_big_m").run()
     next(value for value in page.number_input if value.key == "item_count").set_value(10).run()
 

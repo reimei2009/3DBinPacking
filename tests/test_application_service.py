@@ -134,6 +134,21 @@ def test_level2_active_data_context_is_the_generated_solver_source(root):
     )
 
 
+def test_level3_active_data_context_reuses_the_qualified_inventory_source(root):
+    config = root / "config/level_03/experiments/inventory_items_1000_fleet_500.yaml"
+    context = resolve_active_data_context("level_03", config, root=root)
+    provenance = get_benchmark_input_provenance(config, root=root)
+
+    assert context.level_id == "level_03"
+    assert context.profile_id == "level_02_inventory_items_1000_fleet_500_t10_v1"
+    assert context.available_item_count == 1000
+    assert context.physical_container_count == 500
+    assert context.solver_acceptance_allowed
+    assert provenance.dataset_profile_id == context.profile_id
+    assert provenance.raw_items_checksum == context.raw_items_checksum
+    assert provenance.container_catalog_checksum == context.container_catalog_checksum
+
+
 def test_run_discovery_is_level_isolated(tmp_path):
     (tmp_path / "pyproject.toml").write_text("[project]\nname='fixture'\n", encoding="utf-8")
     (tmp_path / "config").mkdir()

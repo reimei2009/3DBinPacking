@@ -1,0 +1,27 @@
+schema_version: "1.0"
+level_id: level_03
+profiles:
+  default_catalog:
+    label_vi: "Catalog cơ bản — 501 kiện / 5 container"
+    label_en: "Base catalog — 501 items / 5 containers"
+    config_file: config/level_03/default.yaml
+    generated: false
+    inventory_search_default: false
+    maximum_used_presets: [1, 2, 3, 5]
+
+  items_1000_fleet_500_t10:
+    label_vi: "Kho nghiên cứu — 1.000 kiện / 500 container / 10 loại"
+    label_en: "Research fleet — 1,000 items / 500 containers / 10 types"
+    config_file: config/level_03/experiments/inventory_items_1000_fleet_500.yaml
+    generated: true
+    expected_item_count: 1000
+    dataset_profile_id: level_02_inventory_items_1000_fleet_500_t10_v1
+    expected_physical_container_count: 500
+    expected_equivalent_type_count: 10
+    inventory_search_default: true
+    default: true
+    item_count_presets: [20, 50, 100, 300, 500, 1000]
+    maximum_used_presets: [1, 2, 3, 5, 10, 20, 30, 50, 100]
+    generation_command: >-
+      .\.venv\Scripts\python.exe .\scripts\generate_synthetic_instances.py
+      --profile config\synthetic\fleet_500_t10_i1000.yaml
