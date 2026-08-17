@@ -1,0 +1,41 @@
+{
+  "report_id": "contact_support_index_ab_v1_20260817",
+  "status": "NOT_PROMOTED",
+  "diagnostic_only": true,
+  "reason": "Correctness passed, but the published performance gate failed.",
+  "source_runs": {
+    "level_04": "20260817T040619737881Z__level_04__benchmark_corpus__level_04_contact_support_index_ab_v1__seed42",
+    "level_05": "20260817T050431203215Z__level_05__benchmark_corpus__level_05_contact_support_index_ab_v1__seed42"
+  },
+  "source_git_commit": "0b7ce6e4ca4bc8b06d84a8419838b7c9207f4b2d",
+  "source_git_dirty": true,
+  "levels": {
+    "level_04": {
+      "valid_executions": 108,
+      "execution_count": 108,
+      "correctness_pairs_passed": 18,
+      "comparison_pair_count": 18,
+      "median_construction_improvement_percent": 6.92,
+      "median_wall_speedup_ratio": 1.089,
+      "construction_case_gate_failures": 3,
+      "wall_case_gate_failures": 4,
+      "worst_construction_regression_percent": 40.05,
+      "maximum_memory_overhead_percent": 2.57,
+      "promotion_gate_passed": false
+    },
+    "level_05": {
+      "valid_executions": 108,
+      "execution_count": 108,
+      "correctness_pairs_passed": 18,
+      "comparison_pair_count": 18,
+      "median_construction_improvement_percent": -1.11,
+      "median_wall_speedup_ratio": 0.981,
+      "construction_case_gate_failures": 6,
+      "wall_case_gate_failures": 11,
+      "worst_construction_regression_percent": 38.21,
+      "maximum_memory_overhead_percent": 3.46,
+      "promotion_gate_passed": false
+    }
+  },
+  "decision": "Keep disabled and permit exactly one bounded V2 optimization round."
+}

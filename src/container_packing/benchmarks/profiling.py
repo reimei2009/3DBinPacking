@@ -276,6 +276,8 @@ def _function_category(filename: str, function: str) -> str:
     value = f"{filename}/{function}".lower().replace("\\", "/")
     if any(token in value for token in ("reporting", "visualization", "plotly", "write_html")):
         return "reporting_visualization"
+    if "contact_index" in value or "contactsupportindex" in value:
+        return "contact_index"
     if any(token in value for token in ("load_transfer", "load-bearing", "load_bearing")):
         return "load_transfer"
     if any(token in value for token in ("stackability", "stackable", "stack_group", "maximum_layer")):
@@ -319,7 +321,9 @@ def _decision_gate(phase_profile: pd.DataFrame, function_profile: pd.DataFrame) 
     shares = phase_profile.groupby("phase", sort=True)["wall_time_share"].median().to_dict()
     reporting_share = float(shares.get("reporting", 0.0))
     construction_share = float(shares.get("construction", 0.0))
-    physical_categories = {"overlap", "exact_support", "stackability", "load_transfer"}
+    physical_categories = {
+        "overlap", "contact_index", "exact_support", "stackability", "load_transfer",
+    }
     solver_functions = function_profile[function_profile["category"].isin(
         physical_categories | {"candidate_enumeration", "other_solver"}
     )]
@@ -565,3 +569,209 @@ def run_benchmark_profile(
 def run_level2_benchmark_profile(**kwargs: Any) -> BenchmarkProfileResult:
     """Backward-compatible Level 2 entry point."""
     return run_benchmark_profile(level_id="level_02", **kwargs)
+
+
+def run_contact_index_profile(
+    *,
+    level_id: str,
+    source_run_dir: Path,
+    comparison_groups: tuple[str, ...],
+    project_root: Path | None = None,
+    executor: Callable[[ExperimentRequest, int], dict[str, Any]] = execute_experiment_case,
+) -> BenchmarkProfileResult:
+    """Profile paired contact-index variants without entering benchmark ranking."""
+    if level_id not in {"level_04", "level_05"}:
+        raise ValueError("Contact-index profiling only supports level_04 and level_05")
+    if not comparison_groups or len(set(comparison_groups)) != len(comparison_groups):
+        raise ValueError("comparison_groups must be a non-empty unique tuple")
+    root = project_root.resolve() if project_root is not None else find_project_root()
+    source = source_run_dir.resolve()
+    manifest_path = source / "manifest.json"
+    request_path = source / "benchmark" / "request.json"
+    results_path = source / "benchmark" / "results.csv"
+    comparison_path = source / "benchmark" / "contact_index_comparison.csv"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if (
+        manifest.get("run_type") != "benchmark_corpus"
+        or manifest.get("level") != level_id
+        or manifest.get("status") != "SUCCESS"
+    ):
+        raise ValueError("Contact-index profiling requires a successful same-Level corpus run")
+    normal_results = pd.read_csv(results_path)
+    comparison = pd.read_csv(comparison_path)
+    if len(normal_results) != 108:
+        raise ValueError("Contact-index profiling requires the complete 108-row A/B source")
+    valid = (
+        normal_results["success"].fillna(False).astype(bool)
+        & normal_results["validation_valid"].fillna(False).astype(bool)
+    )
+    if not valid.all() or not comparison["correctness_gate_passed"].fillna(False).astype(bool).all():
+        raise ValueError("Contact-index profiling requires VALID and correctness-equivalent source rows")
+
+    request_payload = json.loads(request_path.read_text(encoding="utf-8"))
+    raw_cases = request_payload.get("cases")
+    if not isinstance(raw_cases, list):
+        raise ValueError("Contact-index source request has no resolved cases")
+    cases: list[ProfileCase] = []
+    selected_case_ids: set[str] = set()
+    for raw in raw_cases:
+        group = str(raw.get("comparison_group", ""))
+        if group not in comparison_groups:
+            continue
+        case_id = str(raw["case_id"])
+        if case_id in selected_case_ids:
+            raise ValueError(f"Duplicate selected contact-index case: {case_id}")
+        selected_case_ids.add(case_id)
+        cases.append(ProfileCase(
+            case_id=case_id,
+            source_stratum="contact_index_ab",
+            item_count=int(raw["item_count"]),
+            container_count=int(raw["container_count"]),
+            item_selection_strategy=str(raw["item_selection_strategy"]),
+            item_selection_seed=_optional_int(raw.get("item_selection_seed")),
+            config_path=Path(str(raw["config_file"])).resolve(),
+            config_overrides=dict(_mapping(raw.get("config_overrides"))),
+        ))
+    cases.sort(key=lambda value: value.case_id)
+    expected_case_count = len(comparison_groups) * 2
+    if len(cases) != expected_case_count:
+        raise ValueError(
+            f"Expected {expected_case_count} paired variant cases, found {len(cases)}"
+        )
+
+    output_roots = {
+        Path(merge_config(load_config(case.config_path), case.config_overrides)["paths"].get(
+            "output_root", "outputs",
+        ))
+        for case in cases
+    }
+    if len(output_roots) != 1:
+        raise ValueError("Every contact-index profile case must use the same output root")
+    configured_root = next(iter(output_roots))
+    output_root = configured_root if configured_root.is_absolute() else root / configured_root
+    run_id, run_dir = create_benchmark_profile_directory(output_root, level_id, 42)
+    profiles_dir = run_dir / "profiles"
+    reports_dir = run_dir / "reports"
+    profiles_dir.mkdir(parents=True)
+    reports_dir.mkdir()
+
+    phase_profile = build_phase_profile(normal_results, selected_case_ids)
+    profile_results: list[dict[str, Any]] = []
+    function_rows: list[dict[str, Any]] = []
+    source_runs: list[str] = []
+    mismatch_errors: list[str] = []
+    for case in cases:
+        baseline_case = normal_results[
+            normal_results["case_id"].astype(str).eq(case.case_id)
+        ]
+        for algorithm in PROFILE_ALGORITHMS:
+            profiling_overrides = merge_config(
+                case.config_overrides,
+                {"container_search": {"time_limit_seconds": None}},
+            )
+            request = ExperimentRequest(
+                level_id=level_id,
+                algorithm_id=algorithm,
+                config_path=case.config_path,
+                item_count=case.item_count,
+                container_count=case.container_count,
+                environment="local",
+                random_seed=42,
+                item_selection_strategy=case.item_selection_strategy,
+                item_selection_seed=case.item_selection_seed,
+                config_overrides=profiling_overrides,
+            )
+            profiler = cProfile.Profile()
+            profiler.enable()
+            row = executor(request, 1)
+            profiler.disable()
+            profile_path = profiles_dir / f"{case.case_id}__{algorithm}.pstats"
+            profiler.dump_stats(str(profile_path))
+            row.update({
+                "case_id": case.case_id,
+                "benchmark_stratum": "contact_index_ab",
+                "diagnostic_profile": True,
+                "pstats_file": str(profile_path.relative_to(run_dir)),
+            })
+            profile_results.append(row)
+            function_rows.extend(_profile_rows(
+                profiler, case_id=case.case_id, algorithm=algorithm,
+            ))
+            if row.get("experiment_run_dir"):
+                source_runs.append(str(row["experiment_run_dir"]))
+            expected = baseline_case[
+                baseline_case["algorithm"].astype(str).eq(algorithm)
+            ]
+            checks = {
+                "success": bool(row.get("success")),
+                "validation": bool(row.get("validation_valid")),
+                "items": str(row.get("selected_item_ids_checksum")) in set(
+                    expected["selected_item_ids_checksum"].astype(str)
+                ),
+                "objective": (
+                    float(row.get("used_container_count"))
+                    in set(expected["used_container_count"].astype(float))
+                    and float(row.get("total_container_cost"))
+                    in set(expected["total_container_cost"].astype(float))
+                ) if row.get("used_container_count") is not None else False,
+                "placement": str(row.get("placement_signature")) in set(
+                    expected["placement_signature"].astype(str)
+                ),
+            }
+            if expected.empty or not all(checks.values()):
+                mismatch_errors.append(f"{case.case_id}/{algorithm}: {checks}")
+
+    profile_frame = pd.DataFrame(profile_results)
+    function_profile = pd.DataFrame(function_rows)
+    decision = _decision_gate(phase_profile, function_profile)
+    phase_profile.to_csv(run_dir / "phase_profile.csv", index=False, encoding="utf-8")
+    function_profile.to_csv(run_dir / "function_profile.csv", index=False, encoding="utf-8")
+    profile_frame.to_csv(run_dir / "profile_results.csv", index=False, encoding="utf-8")
+    write_json(run_dir / "decision_gate.json", decision)
+    status = "PASS" if not mismatch_errors else "FAIL"
+    output_manifest = {
+        "schema_version": "1.0",
+        "project": "3d-container-packing",
+        "run_type": "benchmark_profile",
+        "profile_kind": "contact_support_index_ab",
+        "level": level_id,
+        "run_id": run_id,
+        "created_at_utc": datetime.now(timezone.utc).isoformat(),
+        "status": status,
+        "diagnostic_only": True,
+        "eligible_for_benchmark_ranking": False,
+        "deadline_neutralized_for_profiler_overhead": True,
+        "selected_case_count": len(cases),
+        "execution_count": len(profile_frame),
+        "source_benchmark_run": str(source),
+        "source_artifact_checksums": {
+            str(path.resolve()): sha256_file(path)
+            for path in (manifest_path, request_path, results_path, comparison_path)
+        },
+        "comparison_groups": list(comparison_groups),
+        "selected_cases": [case.case_id for case in cases],
+        "algorithms": list(PROFILE_ALGORITHMS),
+        "source_experiment_runs": source_runs,
+        "mismatch_errors": mismatch_errors,
+        "artifacts": {
+            "diagnostic": [
+                "profile_manifest.json", "phase_profile.csv", "function_profile.csv",
+                "profile_results.csv", "decision_gate.json", "reports/summary.md",
+            ],
+            "profiles": [
+                str(path.relative_to(run_dir))
+                for path in sorted(profiles_dir.glob("*.pstats"))
+            ],
+        },
+        **runtime_metadata(root),
+    }
+    write_json(run_dir / "manifest.json", output_manifest)
+    write_json(run_dir / "profile_manifest.json", output_manifest)
+    write_text(reports_dir / "summary.md", (
+        f"# Contact/support index profiling {level_id}\n\n"
+        f"- Trạng thái: **{status}**.\n"
+        f"- Nhóm A/B: {', '.join(comparison_groups)}.\n"
+        f"- Số lượt profiling: {len(profile_frame)}.\n"
+        "- Kết quả này chỉ dùng định vị overhead; không tham gia benchmark ranking.\n"
+    ))
+    return BenchmarkProfileResult(run_id, run_dir, status, len(cases), len(profile_frame))

@@ -1416,3 +1416,23 @@ def test_contact_support_index_ab_corpus_is_paired_and_complete(
         assert len({case.item_count for case in cases}) == 1
         assert len({case.item_selection_strategy for case in cases}) == 1
         assert len({case.item_selection_seed for case in cases}) == 1
+
+
+@pytest.mark.parametrize("level_id", ["level_04", "level_05"])
+def test_contact_support_index_v2_inherits_v1_without_mutating_protocol(
+    root: Path, level_id: str,
+) -> None:
+    v1 = load_benchmark_corpus(
+        root / f"config/{level_id}/benchmarks/contact_support_index_ab_manual.yaml",
+        project_root=root,
+    )
+    v2 = load_benchmark_corpus(
+        root / f"config/{level_id}/benchmarks/contact_support_index_v2_ab_manual.yaml",
+        project_root=root,
+    )
+
+    assert v2.corpus_id == f"{level_id}_contact_support_index_ab_v2"
+    assert v2.level_id == v1.level_id
+    assert v2.execution_schedule == v1.execution_schedule == "paired_alternating"
+    assert v2.repeats == v1.repeats == 3
+    assert v2.cases == v1.cases

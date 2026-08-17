@@ -131,8 +131,10 @@ def load_benchmark_corpus(
     root = Path(project_root).resolve() if project_root is not None else find_project_root()
     source_path = _resolve(root, corpus_path)
     try:
-        payload = yaml.safe_load(source_path.read_text(encoding="utf-8"))
-    except OSError as exc:
+        # Corpus protocols may extend an immutable predecessor just like solver
+        # configs. This keeps V1 reproducible while V2 changes only its protocol ID.
+        payload = load_config(source_path)
+    except (OSError, ValueError) as exc:
         raise ValueError(f"Cannot read benchmark corpus {source_path}: {exc}") from exc
     if not isinstance(payload, dict):
         raise ValueError(f"Benchmark corpus {source_path} must contain a YAML mapping")

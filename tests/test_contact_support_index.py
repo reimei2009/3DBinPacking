@@ -68,6 +68,49 @@ def test_seed_rebuild_and_projected_candidate_are_queryable_without_mutation() -
     assert index.placement_count == 1
 
 
+def test_candidate_context_memoizes_supporters_without_leaking_to_next_candidate() -> None:
+    floor = _placement("FLOOR", 0, 0, 0, 10, 10)
+    first = _placement("FIRST", 0, 0, 5, 10, 10)
+    second = _placement("SECOND", 0, 0, 5, 5, 10)
+    stats = ContactSupportIndexStats()
+    index = ContactSupportIndex([floor], stats=stats)
+    first_context = PlacementFeasibilityContext(index, (first,))
+
+    expected = first_context.supporters(first, epsilon_mm=1e-4)
+    assert first_context.supporters(first, epsilon_mm=1e-4) == expected
+    assert stats.cache_misses == 1
+    assert stats.cache_hits == 1
+    assert stats.queries == 1
+
+    second_context = PlacementFeasibilityContext(index, (second,))
+    assert tuple(value.item_id for value in second_context.supporters(
+        second, epsilon_mm=1e-4,
+    )) == ("FLOOR",)
+    assert stats.cache_misses == 2
+    assert stats.cache_hits == 1
+    assert stats.queries == 2
+
+
+def test_context_cache_is_invalidated_by_new_commit_and_rebuild() -> None:
+    floor = _placement("FLOOR", 0, 0, 0, 10, 10)
+    child = _placement("CHILD", 0, 0, 5, 10, 10)
+    index = ContactSupportIndex()
+    before_commit = PlacementFeasibilityContext(index)
+    assert before_commit.supporters(child, epsilon_mm=1e-4) == ()
+
+    index.add(floor)
+    after_commit = PlacementFeasibilityContext(index)
+    assert tuple(value.item_id for value in after_commit.supporters(
+        child, epsilon_mm=1e-4,
+    )) == ("FLOOR",)
+
+    rebuilt = ContactSupportIndex([floor])
+    rebuilt_context = PlacementFeasibilityContext(rebuilt)
+    assert rebuilt_context.supporters(child, epsilon_mm=1e-4) == (
+        floor,
+    )
+
+
 def test_stack_parent_and_load_transfer_match_brute_force() -> None:
     bottom = _placement("BOTTOM", 0, 0, 0, 10, 10)
     top = _placement("TOP", 0, 0, 5, 10, 10)
@@ -144,4 +187,8 @@ def test_constructor_result_and_rejection_counters_match_with_index(
         assert enabled.metadata.get(counter) == disabled.metadata.get(counter)
     assert enabled.metadata["contact_support_index_enabled"] is True
     assert enabled.metadata["contact_support_index_queries"] > 0
+    assert enabled.metadata["contact_support_index_cache_hits"] > 0
+    assert enabled.metadata["contact_support_index_cache_misses"] > 0
+    assert enabled.metadata["contact_support_index_exact_contact_checks"] > 0
+    assert enabled.metadata["contact_support_index_query_runtime_seconds"] > 0
     assert disabled.metadata["contact_support_index_enabled"] is False

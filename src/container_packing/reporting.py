@@ -135,8 +135,12 @@ def solver_payload(metadata: dict[str, Any]) -> dict[str, Any]:
         "container_selection_strategy", "candidate_scoring", "subset_enumeration_limit",
         "candidate_subsets_evaluated", "packing_attempts", "extreme_points_evaluated",
         "contact_support_index_enabled", "contact_support_index_version",
-        "contact_support_index_queries", "contact_support_index_placements_examined",
+        "contact_support_index_queries", "contact_support_index_cache_hits",
+        "contact_support_index_cache_misses",
+        "contact_support_index_placements_examined",
         "contact_support_index_committed_placements",
+        "contact_support_index_exact_contact_checks",
+        "contact_support_index_query_runtime_seconds",
         "contact_support_index_estimated_scans_avoided",
         "construction_complete", "construction_termination_reason",
         "construction_failed_item_id", "best_partial_placement_count",
@@ -549,11 +553,23 @@ def metrics_payload(metadata: dict[str, Any], validation_valid: bool | None) -> 
         "contact_support_index_queries": metadata.get(
             "contact_support_index_queries"
         ),
+        "contact_support_index_cache_hits": metadata.get(
+            "contact_support_index_cache_hits"
+        ),
+        "contact_support_index_cache_misses": metadata.get(
+            "contact_support_index_cache_misses"
+        ),
         "contact_support_index_placements_examined": metadata.get(
             "contact_support_index_placements_examined"
         ),
         "contact_support_index_committed_placements": metadata.get(
             "contact_support_index_committed_placements"
+        ),
+        "contact_support_index_exact_contact_checks": metadata.get(
+            "contact_support_index_exact_contact_checks"
+        ),
+        "contact_support_index_query_runtime_seconds": metadata.get(
+            "contact_support_index_query_runtime_seconds"
         ),
         "contact_support_index_estimated_scans_avoided": metadata.get(
             "contact_support_index_estimated_scans_avoided"

@@ -259,11 +259,23 @@ def execute_experiment_case(request: ExperimentRequest, repeat_index: int) -> di
         "contact_support_index_queries": metadata.get(
             "contact_support_index_queries"
         ),
+        "contact_support_index_cache_hits": metadata.get(
+            "contact_support_index_cache_hits"
+        ),
+        "contact_support_index_cache_misses": metadata.get(
+            "contact_support_index_cache_misses"
+        ),
         "contact_support_index_placements_examined": metadata.get(
             "contact_support_index_placements_examined"
         ),
         "contact_support_index_committed_placements": metadata.get(
             "contact_support_index_committed_placements"
+        ),
+        "contact_support_index_exact_contact_checks": metadata.get(
+            "contact_support_index_exact_contact_checks"
+        ),
+        "contact_support_index_query_runtime_seconds": metadata.get(
+            "contact_support_index_query_runtime_seconds"
         ),
         "contact_support_index_estimated_scans_avoided": metadata.get(
             "contact_support_index_estimated_scans_avoided"

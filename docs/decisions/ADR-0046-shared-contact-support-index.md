@@ -2,7 +2,7 @@
 
 ## Trạng thái
 
-Đang thử nghiệm A/B. Mặc định tắt.
+V1 **không đạt promotion gate**. V2 đang thử nghiệm có giới hạn; mặc định tắt.
 
 ## Bối cảnh
 
@@ -37,7 +37,13 @@ counters, đồng thời đạt gate runtime và memory đã công bố.
 
 ## Hệ quả
 
-Telemetry ghi version, số query, số placement được broad phase giữ lại và số lần
-quét ước tính tránh được. Benchmark A/B là research evidence, không tham gia ranking
-canonical. Nếu gate thất bại, implementation vẫn được giữ ở trạng thái comparator
-mặc định tắt để phân tích; không thay solver hoặc validator.
+Telemetry V2 ghi version, query thực tế, cache hit/miss, exact-contact checks,
+thời gian trong index, số placement được broad phase giữ lại và số lần quét ước
+tính tránh được. Benchmark A/B là research evidence, không tham gia ranking
+canonical.
+
+V1 đạt correctness nhưng chỉ cải thiện construction trung vị 6,92% ở Level 4
+và làm Level 5 chậm hơn 1,11%, nên không được bật mặc định. Dự án chỉ cho phép
+một vòng V2 nhằm giảm overhead query lặp. Nếu V2 không đạt toàn bộ gate ở cả
+Level 4 và Level 5, hướng index này kết thúc ở trạng thái `NOT_PROMOTED`; không
+mở V3.

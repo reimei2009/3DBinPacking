@@ -9,6 +9,7 @@ from container_packing.benchmarks.profiling import (
     _function_category,
     build_phase_profile,
     ProfileCase,
+    run_contact_index_profile,
     run_level2_benchmark_profile,
     select_profile_cases,
 )
@@ -25,6 +26,7 @@ ALGORITHMS = (
     ("algorithms/load_transfer.py", "propagate_load", "load_transfer"),
     ("algorithms/stackability.py", "check_stack_group", "stackability"),
     ("algorithms/exact_support.py", "support_ratio", "exact_support"),
+    ("geometry/contact_index.py", "supporters", "contact_index"),
     ("geometry.py", "placements_overlap", "overlap"),
     ("algorithms/extreme_point.py", "enumerate_candidates", "candidate_enumeration"),
     ("reporting/json_report.py", "write_report", "reporting_visualization"),
@@ -220,3 +222,86 @@ def test_profile_run_is_diagnostic_and_preserves_solution(
     assert (result.run_dir / "function_profile.csv").is_file()
     assert len(list((result.run_dir / "profiles").glob("*.pstats"))) == 2
     assert discover_benchmark_runs("level_02", root=tmp_path) == ()
+
+
+def test_contact_index_profile_is_paired_diagnostic_and_preserves_solution(
+    root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    output_root = tmp_path / "outputs"
+    config_path = root / "config/level_04/default.yaml"
+    groups = ("contact_largest_volume_i500", "contact_payload_pressure_i500")
+    cases: list[dict] = []
+    baseline_rows: list[dict] = []
+    for group in groups:
+        for variant, enabled in (("disabled", False), ("enabled", True)):
+            case_id = f"{group}_{variant}"
+            overrides = {
+                "paths": {"output_root": str(output_root)},
+                "algorithms": {
+                    "extreme_point_best_fit": {
+                        "contact_support_index": {"enabled": enabled},
+                    },
+                },
+                "container_search": {"enabled": False},
+            }
+            cases.append({
+                "case_id": case_id,
+                "comparison_group": group,
+                "item_count": 1,
+                "container_count": 1,
+                "item_selection_strategy": "prefix",
+                "item_selection_seed": None,
+                "config_file": str(config_path),
+                "config_overrides": overrides,
+            })
+            row = execute_experiment_case(ExperimentRequest(
+                level_id="level_04",
+                algorithm_id="extreme_point_best_fit",
+                config_path=config_path,
+                item_count=1,
+                container_count=1,
+                random_seed=42,
+                item_selection_strategy="prefix",
+                config_overrides=overrides,
+            ), 1)
+            row["case_id"] = case_id
+            baseline_rows.extend(dict(row) for _ in range(27))
+
+    source = tmp_path / "source"
+    benchmark = source / "benchmark"
+    benchmark.mkdir(parents=True)
+    (source / "manifest.json").write_text(json.dumps({
+        "run_type": "benchmark_corpus",
+        "level": "level_04",
+        "status": "SUCCESS",
+    }), encoding="utf-8")
+    (benchmark / "request.json").write_text(
+        json.dumps({"cases": cases}), encoding="utf-8",
+    )
+    pd.DataFrame(baseline_rows).to_csv(benchmark / "results.csv", index=False)
+    pd.DataFrame([{"correctness_gate_passed": True}]).to_csv(
+        benchmark / "contact_index_comparison.csv", index=False,
+    )
+    monkeypatch.setattr(
+        "container_packing.benchmarks.profiling.PROFILE_ALGORITHMS",
+        ("extreme_point_best_fit",),
+    )
+
+    result = run_contact_index_profile(
+        level_id="level_04",
+        source_run_dir=source,
+        comparison_groups=groups,
+        project_root=root,
+    )
+
+    assert result.status == "PASS"
+    assert result.selected_case_count == 4
+    assert result.execution_count == 4
+    manifest = json.loads(
+        (result.run_dir / "profile_manifest.json").read_text(encoding="utf-8")
+    )
+    assert manifest["profile_kind"] == "contact_support_index_ab"
+    assert manifest["eligible_for_benchmark_ranking"] is False
+    assert manifest["comparison_groups"] == list(groups)
+    assert not manifest["mismatch_errors"]
+    assert (result.run_dir / "function_profile.csv").is_file()

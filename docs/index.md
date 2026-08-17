@@ -29,6 +29,7 @@ Tài liệu trình bày tổng hợp hiện tại:
 - [Benchmark chuẩn Level 2](benchmarks/level_02_benchmark_v2.md)
 - [Profiling runtime Benchmark V2 Level 2](benchmarks/level_02_runtime_profiling.md)
 - [A/B Contact/Support Index Level 4–5](benchmarks/contact_support_index_ab.md)
+- [Evidence A/B Contact/Support Index V1](reports/manual/contact_support_index_ab_v1_20260817.md)
 - [Evidence canonical Level 2 ngày 2026-08-13](reports/manual/level_02_canonical_benchmark_20260813.md)
 - [Corpus nghiên cứu Level 1](benchmarks/level1_research_corpus.md)
 - [Corpus MPV fixed-orientation Level 2](datasets/mpv_fixed_orientation_level2.md)
