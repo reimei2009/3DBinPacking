@@ -1,0 +1,80 @@
+{
+  "schema_version": "1.0",
+  "gate_id": "level_03_repair_ui_acceptance_v1",
+  "status": "PASS",
+  "repair_ui_qualified": true,
+  "execution_count": 72,
+  "comparison_count": 18,
+  "deterministic_group_count": 36,
+  "outcome_counts": {
+    "IMPROVED": 6,
+    "UNCHANGED": 12
+  },
+  "outcomes_by_algorithm": {
+    "extreme_point_best_fit": {
+      "comparison_count": 6,
+      "improved": 3,
+      "unchanged": 3,
+      "regression": 0
+    },
+    "extreme_point_ffd": {
+      "comparison_count": 6,
+      "improved": 3,
+      "unchanged": 3,
+      "regression": 0
+    },
+    "maximal_space_best_fit": {
+      "comparison_count": 6,
+      "improved": 0,
+      "unchanged": 6,
+      "regression": 0
+    }
+  },
+  "outcomes_by_item_count": {
+    "100": {
+      "comparison_count": 6,
+      "improved": 0,
+      "unchanged": 6,
+      "regression": 0
+    },
+    "300": {
+      "comparison_count": 6,
+      "improved": 4,
+      "unchanged": 2,
+      "regression": 0
+    },
+    "500": {
+      "comparison_count": 6,
+      "improved": 2,
+      "unchanged": 4,
+      "regression": 0
+    }
+  },
+  "runtime_tradeoff": {
+    "median_wall_overhead_seconds": 44.127257424988784,
+    "median_wall_runtime_multiplier": 10.502305044081178,
+    "median_repair_runtime_seconds": 45.00091477499518
+  },
+  "termination_reason_counts": {
+    "candidate_limit": 2,
+    "consolidation_time_limit": 4,
+    "heuristic_consolidation_failed": 6,
+    "valid_consolidated": 6
+  },
+  "errors": [],
+  "source_evidence": {
+    "run_id": "20260817T083235312710Z__level_03__benchmark_corpus__level_03_repair_ab_100_500_v1__seed42",
+    "corpus_id": "level_03_repair_ab_100_500_v1",
+    "git_commit": "3d38f115e93fc7db73fdb4f900ec8b821ed47b8e",
+    "git_dirty": true,
+    "source_tree_sha256": "5827b4e285fc732bfb7f406f8f57f412d0d56e94016389d57e9d533de030c20b",
+    "manifest_sha256": "802451d784ceb00854a712b95a35a0409f618b2ef4bb38d914d44bda82d5a22f",
+    "results_sha256": "982e6f05949cf5ffe382e88409126cddec76a908a5a32ecd59f315f6e2ad7732",
+    "repair_comparison_sha256": "808bd18646da91b200760cea466e606beca41e0d6ec40b1964924a2adeefbe1f",
+    "corpus_config_sha256": "769595e657853f58e93a948ae0353775766235ea9f58970bf566a69a6d24d713",
+    "dataset_profile_id": "level_02_inventory_items_1000_fleet_500_t10_v1",
+    "items_checksum": "6fd7a13a0e8a8d4495f5202b9e7273df0a8351de0f7b0ab3b73599cf78adeb29",
+    "containers_checksum": "a5fa894c8fb1ac8489f7668eb983e272fb141795a6042ad09dc9c596558df4bf",
+    "dirty_evidence_note": "Run dùng đúng commit 3d38f11; trạng thái dirty chỉ gồm hai tài liệu WIP đã sửa và hai file local không thuộc solver, config hoặc dữ liệu benchmark."
+  }
+}

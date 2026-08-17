@@ -6,10 +6,10 @@ Repair là bước cải thiện sau khi construction đã tạo được một 
 Nó có thể thử giảm số container hoặc chi phí, nhưng không thay thế independent
 validator và không được phép làm mất incumbent hợp lệ.
 
-Level 3 hiện giữ `repair_ui_qualified=false`. Vì vậy cả chạy đơn và benchmark
-tùy chỉnh trên Streamlit đều ẩn repair và luôn gửi
-`consolidation.enabled=false`. Core repair vẫn dùng được qua config/CLI để tạo
-evidence trước khi quyết định mở UI.
+Level 3 đã đạt gate và profile inventory 1.000/500 giữ
+`repair_ui_qualified=true`. Cả chạy đơn và benchmark tùy chỉnh trên Streamlit
+dùng chung capability này. Repair mặc định tắt; khi người dùng không bật,
+request vẫn gửi `consolidation.enabled=false`.
 
 ## Protocol
 
@@ -33,20 +33,20 @@ Repair không được dùng validation reserve 3 giây. Hai variant trong cùng
 giữ nguyên item IDs, catalog, orientation `XYZ/YXZ`, exact-support rules,
 start/max, seed và global deadline.
 
-## Gate mở UI
+## Kết quả gate mở UI
 
-Capability chỉ được đổi thành `true` khi:
+Run ngày 2026-08-17 đạt:
 
 - đủ 72/72 lượt complete và independently `VALID`;
 - 36 nhóm input–constructor–variant deterministic về objective và placement;
-- 18 so sánh input–constructor không có objective loss;
-- có ít nhất một objective win;
+- 18 so sánh input–constructor gồm 6 improved, 12 unchanged và 0 loss;
 - timeout hoặc candidate exhaustion vẫn giữ validated incumbent;
 - runtime repair và termination reason đầy đủ;
 - mọi row invalid/incomplete có objective rỗng.
 
-Nếu không đạt, evidence mang trạng thái `NOT_PROMOTED` và UI tiếp tục ẩn
-repair. Không thay exact-support threshold để vượt gate.
+Best Fit và FFD mỗi thuật toán cải thiện 3/6 input; MES không cải thiện input
+nào. Runtime tăng trung vị khoảng 44,1 giây, tương đương 10,5 lần, nên repair
+không được bật mặc định. Không thay exact-support threshold để đạt gate.
 
 ## Chạy thủ công
 

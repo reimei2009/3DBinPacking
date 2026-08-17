@@ -29,6 +29,7 @@ Tài liệu trình bày tổng hợp hiện tại:
 - [Benchmark chuẩn Level 2](benchmarks/level_02_benchmark_v2.md)
 - [Profiling runtime Benchmark V2 Level 2](benchmarks/level_02_runtime_profiling.md)
 - [A/B repair UI Level 3](benchmarks/level_03_repair_ui_ab.md)
+- [Evidence repair UI Level 3 ngày 2026-08-17](reports/manual/level_03_repair_ui_acceptance_20260817.md)
 - [Evidence canonical Level 2 ngày 2026-08-13](reports/manual/level_02_canonical_benchmark_20260813.md)
 - [Corpus nghiên cứu Level 1](benchmarks/level1_research_corpus.md)
 - [Corpus MPV fixed-orientation Level 2](datasets/mpv_fixed_orientation_level2.md)

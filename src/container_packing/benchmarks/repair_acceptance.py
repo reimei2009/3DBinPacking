@@ -8,6 +8,7 @@ import json
 
 import pandas as pd
 
+from ..provenance import sha256_file
 from ..reporting import write_json, write_text
 
 
@@ -167,15 +168,52 @@ def evaluate_level3_repair_acceptance(
     )
 
 
-def write_level3_repair_acceptance(run_dir: Path) -> dict[str, Any]:
-    """Evaluate one run and write diagnostic evidence inside that run only."""
+def write_level3_repair_acceptance(
+    run_dir: Path,
+    *,
+    publish_prefix: Path | None = None,
+    dirty_evidence_note: str | None = None,
+) -> dict[str, Any]:
+    """Evaluate a run and optionally publish versioned, checksum-locked evidence."""
     source = run_dir.resolve()
-    manifest = json.loads((source / "manifest.json").read_text(encoding="utf-8"))
-    results = pd.read_csv(source / "benchmark" / "results.csv")
-    comparison = pd.read_csv(source / "benchmark" / "repair_comparison.csv")
+    manifest_path = source / "manifest.json"
+    results_path = source / "benchmark" / "results.csv"
+    comparison_path = source / "benchmark" / "repair_comparison.csv"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    results = pd.read_csv(results_path)
+    comparison = pd.read_csv(comparison_path)
     report = evaluate_level3_repair_acceptance(manifest, results, comparison)
+    dataset_profiles = manifest.get("dataset_profiles", [])
+    profile = dataset_profiles[0] if len(dataset_profiles) == 1 else {}
+    report["source_evidence"] = {
+        "run_id": manifest.get("run_id"),
+        "corpus_id": manifest.get("corpus_id"),
+        "git_commit": manifest.get("git_commit"),
+        "git_dirty": bool(manifest.get("git_dirty", False)),
+        "source_tree_sha256": manifest.get("source_tree_sha256"),
+        "manifest_sha256": sha256_file(manifest_path),
+        "results_sha256": sha256_file(results_path),
+        "repair_comparison_sha256": sha256_file(comparison_path),
+        "corpus_config_sha256": manifest.get("config_file_checksum"),
+        "dataset_profile_id": profile.get("profile_id"),
+        "items_checksum": profile.get("items_checksum"),
+        "containers_checksum": profile.get("containers_checksum"),
+        "dirty_evidence_note": dirty_evidence_note,
+    }
     write_json(source / "benchmark" / "level3_repair_acceptance_gate.json", report)
     write_text(source / "reports" / "level3_repair_acceptance.md", _markdown(report))
+    if publish_prefix is not None:
+        if report["status"] != "PASS":
+            raise ValueError("Only a PASS repair acceptance report may be published")
+        if report["source_evidence"]["git_dirty"] and not str(
+            dirty_evidence_note or ""
+        ).strip():
+            raise ValueError(
+                "Publishing dirty benchmark evidence requires an explicit provenance note"
+            )
+        prefix = publish_prefix.resolve()
+        write_json(prefix.with_suffix(".json"), report)
+        write_text(prefix.with_suffix(".md"), _markdown(report))
     return report
 
 
@@ -187,6 +225,7 @@ def _result(
         comparison["outcome"].astype(str).value_counts().sort_index().to_dict()
         if "outcome" in comparison else {}
     )
+    runtime_tradeoff = _runtime_tradeoff(comparison)
     return {
         "schema_version": "1.0",
         "gate_id": "level_03_repair_ui_acceptance_v1",
@@ -196,13 +235,90 @@ def _result(
         "comparison_count": int(len(comparison)),
         "deterministic_group_count": int(deterministic_group_count),
         "outcome_counts": {str(key): int(value) for key, value in outcome_counts.items()},
+        "outcomes_by_algorithm": _outcome_breakdown(comparison, "algorithm"),
+        "outcomes_by_item_count": _outcome_breakdown(comparison, "item_count"),
+        "runtime_tradeoff": runtime_tradeoff,
+        "termination_reason_counts": _value_counts(
+            comparison, "repair_termination_reason",
+        ),
         "errors": errors,
+    }
+
+
+def _outcome_breakdown(
+    comparison: pd.DataFrame, column: str,
+) -> dict[str, dict[str, int]]:
+    if column not in comparison or "outcome" not in comparison:
+        return {}
+    records: dict[str, dict[str, int]] = {}
+    for key, group in comparison.groupby(column, sort=True, dropna=False):
+        counts = group["outcome"].astype(str).value_counts().to_dict()
+        records[str(key)] = {
+            "comparison_count": int(len(group)),
+            "improved": int(counts.get("IMPROVED", 0)),
+            "unchanged": int(counts.get("UNCHANGED", 0)),
+            "regression": int(counts.get("REGRESSION", 0)),
+        }
+    return records
+
+
+def _value_counts(comparison: pd.DataFrame, column: str) -> dict[str, int]:
+    if column not in comparison:
+        return {}
+    return {
+        str(key): int(value)
+        for key, value in comparison[column].astype(str).value_counts().sort_index().items()
+    }
+
+
+def _runtime_tradeoff(comparison: pd.DataFrame) -> dict[str, float | None]:
+    required = {
+        "runtime_without_repair_p50_seconds",
+        "runtime_with_repair_p50_seconds",
+        "repair_runtime_p50_seconds",
+    }
+    if not required.issubset(comparison.columns) or comparison.empty:
+        return {
+            "median_wall_overhead_seconds": None,
+            "median_wall_runtime_multiplier": None,
+            "median_repair_runtime_seconds": None,
+        }
+    without = pd.to_numeric(
+        comparison["runtime_without_repair_p50_seconds"], errors="coerce",
+    )
+    with_repair = pd.to_numeric(
+        comparison["runtime_with_repair_p50_seconds"], errors="coerce",
+    )
+    repair = pd.to_numeric(
+        comparison["repair_runtime_p50_seconds"], errors="coerce",
+    )
+    multiplier = with_repair / without.where(without > 0)
+    return {
+        "median_wall_overhead_seconds": float((with_repair - without).median()),
+        "median_wall_runtime_multiplier": float(multiplier.median()),
+        "median_repair_runtime_seconds": float(repair.median()),
     }
 
 
 def _markdown(report: dict[str, Any]) -> str:
     errors = report["errors"]
     error_lines = "\n".join(f"- {value}" for value in errors) or "- Không có."
+    runtime = report.get("runtime_tradeoff", {})
+    source = report.get("source_evidence", {})
+    provenance_note = source.get("dirty_evidence_note")
+    provenance = ""
+    if source:
+        provenance = (
+            "\n## Provenance\n\n"
+            f"- Run nguồn: `{source.get('run_id')}`.\n"
+            f"- Commit nguồn: `{source.get('git_commit')}`.\n"
+            f"- Git dirty: `{source.get('git_dirty')}`.\n"
+            f"- Manifest SHA-256: `{source.get('manifest_sha256')}`.\n"
+            f"- Results SHA-256: `{source.get('results_sha256')}`.\n"
+            f"- Repair comparison SHA-256: `{source.get('repair_comparison_sha256')}`.\n"
+        )
+        if provenance_note:
+            provenance += f"- Ngoại lệ provenance được chấp nhận: {provenance_note}\n"
     return (
         "# Nghiệm thu repair UI Level 3\n\n"
         f"- Trạng thái: **{report['status']}**.\n"
@@ -210,6 +326,19 @@ def _markdown(report: dict[str, Any]) -> str:
         f"- So sánh ghép cặp: {report['comparison_count']}/18.\n"
         f"- Nhóm deterministic: {report['deterministic_group_count']}/36.\n"
         f"- Kết quả A/B: `{report['outcome_counts']}`.\n\n"
+        f"- Runtime tăng trung vị: "
+        f"{_format_metric(runtime.get('median_wall_overhead_seconds'))} giây.\n"
+        f"- Hệ số runtime trung vị: "
+        f"{_format_metric(runtime.get('median_wall_runtime_multiplier'))}x.\n\n"
+        "## Kết quả theo thuật toán\n\n"
+        f"`{report.get('outcomes_by_algorithm', {})}`\n\n"
+        "## Kết quả theo quy mô\n\n"
+        f"`{report.get('outcomes_by_item_count', {})}`\n"
+        f"{provenance}\n"
         "## Lỗi gate\n\n"
         f"{error_lines}\n"
     )
+
+
+def _format_metric(value: Any) -> str:
+    return "—" if value is None else f"{float(value):.3f}"

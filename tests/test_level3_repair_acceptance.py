@@ -77,6 +77,17 @@ def test_level3_repair_acceptance_passes_complete_valid_ab() -> None:
     assert report["comparison_count"] == 18
     assert report["deterministic_group_count"] == 36
     assert report["outcome_counts"] == {"IMPROVED": 1, "UNCHANGED": 17}
+    assert report["outcomes_by_algorithm"]["extreme_point_best_fit"] == {
+        "comparison_count": 6,
+        "improved": 1,
+        "unchanged": 5,
+        "regression": 0,
+    }
+    assert report["runtime_tradeoff"] == {
+        "median_wall_overhead_seconds": 2.0,
+        "median_wall_runtime_multiplier": 1.5,
+        "median_repair_runtime_seconds": 2.0,
+    }
 
 
 def test_level3_repair_acceptance_rejects_regression_and_nondeterminism() -> None:
@@ -110,3 +121,46 @@ def test_level3_repair_acceptance_writer_keeps_evidence_in_run_dir(tmp_path) -> 
         encoding="utf-8",
     )
     assert "Nghiệm thu repair UI Level 3" in markdown
+
+
+def test_level3_repair_acceptance_requires_note_to_publish_dirty_run(
+    tmp_path,
+) -> None:
+    manifest, results, comparison = _artifact()
+    manifest.update({
+        "run_id": "repair-run",
+        "git_commit": "abc123",
+        "git_dirty": True,
+        "source_tree_sha256": "tree",
+        "dataset_profiles": [{
+            "profile_id": "qualified",
+            "items_checksum": "items",
+            "containers_checksum": "containers",
+        }],
+    })
+    benchmark_dir = tmp_path / "run" / "benchmark"
+    benchmark_dir.mkdir(parents=True)
+    (tmp_path / "run" / "reports").mkdir()
+    (tmp_path / "run" / "manifest.json").write_text(
+        json.dumps(manifest), encoding="utf-8",
+    )
+    results.to_csv(benchmark_dir / "results.csv", index=False)
+    comparison.to_csv(benchmark_dir / "repair_comparison.csv", index=False)
+
+    try:
+        write_level3_repair_acceptance(
+            tmp_path / "run", publish_prefix=tmp_path / "published",
+        )
+    except ValueError as exc:
+        assert "provenance note" in str(exc)
+    else:
+        raise AssertionError("dirty evidence was published without an explicit note")
+
+    report = write_level3_repair_acceptance(
+        tmp_path / "run",
+        publish_prefix=tmp_path / "published",
+        dirty_evidence_note="Only unrelated documentation was modified.",
+    )
+    assert report["source_evidence"]["git_dirty"] is True
+    assert (tmp_path / "published.json").is_file()
+    assert (tmp_path / "published.md").is_file()

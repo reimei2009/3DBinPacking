@@ -13,6 +13,7 @@ from container_packing.web.streamlit_app import (
     _effective_inventory_repair_budget,
     _level1_inventory_web_profiles,
     _inventory_repair_overrides,
+    _inventory_repair_ui_help,
     _inventory_repair_ui_qualified,
     _inventory_web_profiles,
     _inventory_search_overrides,
@@ -37,8 +38,11 @@ def test_level3_default_source_is_qualified_inventory_and_benchmark_capable(
     profiles = _inventory_web_profiles(root, "level_03")
     assert _default_inventory_profile_id(profiles) == "items_1000_fleet_500_t10"
     assert set(profiles) == {"default_catalog", "items_1000_fleet_500_t10"}
-    assert not _inventory_repair_ui_qualified(
+    assert _inventory_repair_ui_qualified(
         "level_03", profiles["items_1000_fleet_500_t10"],
+    )
+    assert not _inventory_repair_ui_qualified(
+        "level_03", profiles["default_catalog"],
     )
     assert _benchmark_inventory_supported(
         "level_03",
@@ -56,6 +60,8 @@ def test_inventory_repair_ui_capability_is_shared_and_explicit() -> None:
     assert _inventory_repair_ui_qualified(
         "level_03", {"repair_ui_qualified": True},
     )
+    assert "6/18" in _inventory_repair_ui_help("level_03", "vi")
+    assert "44.1 seconds" in _inventory_repair_ui_help("level_03", "en")
 
 
 def test_unbounded_inventory_ui_is_guarded_on_deployment(monkeypatch) -> None:
@@ -844,12 +850,16 @@ def test_streamlit_exposes_level3_solvers_and_orientation_contract(root: Path):
     assert numbers["benchmark_item_count"].max == 1000
     assert numbers["benchmark_initial_count"].max == 500
     assert numbers["benchmark_maximum_count"].max == 500
-    assert not any(
-        value.key == "level_03_inventory_repair_enabled" for value in page.checkbox
+    single_repair = next(
+        value for value in page.checkbox
+        if value.key == "level_03_inventory_repair_enabled"
     )
-    assert not any(
-        value.key == "benchmark_repair_enabled" for value in page.checkbox
+    benchmark_repair = next(
+        value for value in page.checkbox
+        if value.key == "benchmark_repair_enabled"
     )
+    assert single_repair.value is False
+    assert benchmark_repair.value is False
     threshold = next(value for value in page.number_input if value.key == "level_03_support_threshold")
     assert threshold.value == 0.8
     assert any(r"\sum_{o\in O_i}r_{io}=1" in value.value for value in page.latex)
@@ -877,6 +887,12 @@ def test_streamlit_level3_profile_switch_resets_inventory_limits(root: Path) -> 
         value for value in page.checkbox
         if value.key == "level_03_inventory_search_enabled"
     ).value is False
+    assert not any(
+        value.key == "level_03_inventory_repair_enabled" for value in page.checkbox
+    )
+    assert not any(
+        value.key == "benchmark_repair_enabled" for value in page.checkbox
+    )
 
     page = next(
         value for value in page.selectbox
