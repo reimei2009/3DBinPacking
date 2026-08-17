@@ -14,7 +14,7 @@ support-closure ở Level 2, partial repack, container elimination và bounded
 rebuild. Khi tắt, construction và final validation vẫn chạy nhưng không có
 post-construction improvement.
 
-Với Level 1–2 inventory-aware, **Best Fit** là lựa chọn khuyến nghị khi ưu tiên
+Với Level 1–3 inventory-aware, **Best Fit** là lựa chọn khuyến nghị khi ưu tiên
 ít container/chi phí; **FFD** là comparator nhanh. Hai thuật toán chạy độc lập,
 không tự fallback qua lại.
 
@@ -59,7 +59,8 @@ python scripts/run_web_app.py
 
 ## Workflow
 
-1. Select an implemented level (`level_01` or `level_02`).
+1. Chọn một Level đã triển khai. Level 3 mặc định dùng nguồn inventory đã
+   qualification 1.000 kiện / 500 container và cho phép xoay ngang `XYZ/YXZ`.
 2. Select a compatible algorithm.
 3. Enter item count, container count, seed, environment metadata, and algorithm-specific settings.
    In Level 2, the **Minimum supported-area ratio α** control overrides
@@ -154,7 +155,7 @@ Thay đổi bất kỳ tham số nào sau một lần chạy sẽ ẩn kết qu�
 mặc định chỉ gồm các run có cùng profile và checksum; muốn xem nguồn khác phải bật lựa
 chọn lịch sử riêng, và các run đó luôn được đánh dấu là kết quả đã lưu trước đây.
 
-Với Level 1–2 dùng kho container, tổng số container trong kho là lượng có thể lựa chọn,
+Với Level 1–3 dùng kho container, tổng số container trong kho là lượng có thể lựa chọn,
 không phải số bắt buộc phải dùng. **Số container bắt đầu tìm** là điểm bắt đầu của
 heuristic; **Số container tối đa được dùng** là giới hạn cứng. Nếu giới hạn cứng nhỏ
 hơn cận tổng hợp theo thể tích hoặc tải trọng, UI khóa chạy và giải thích rằng sức chứa
@@ -204,7 +205,7 @@ hoặc cấu hình đã lưu trong bộ nhớ.
 The 3D view is a geometric and payload visualization. It is not evidence of physical stability because Level 1 does not model gravity, support, stacking, fragility, center of gravity, or load/unload order.
 ## Benchmark sử dụng snapshot nguyên tử
 
-Ở Level 1–2, nguồn dữ liệu được chọn một lần và được dùng chung cho thí nghiệm đơn,
+Ở Level 1–3, nguồn dữ liệu được chọn một lần và được dùng chung cho thí nghiệm đơn,
 benchmark, precheck và lịch sử. Phần benchmark nằm trong một form nguyên tử: chỉ khi
 nhấn **Kiểm tra và chạy benchmark**, toàn bộ số kiện, container bắt đầu, giới hạn tối
 đa, seed, runtime và repair mới được chụp thành một request bất biến. Giá trị hiển thị

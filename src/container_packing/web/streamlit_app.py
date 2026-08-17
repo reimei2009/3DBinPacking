@@ -64,6 +64,7 @@ _RUNTIME_UNSET = object()
 _INVENTORY_BENCHMARK_ALGORITHMS = frozenset({
     "extreme_point_best_fit", "extreme_point_ffd", "maximal_space_best_fit",
 })
+_INVENTORY_WEB_LEVELS = frozenset({"level_01", "level_02", "level_03"})
 _BENCHMARK_RUNTIME_PRESETS: dict[str, float | None | object] = {
     "30 giây": 30.0,
     "60 giây": 60.0,
@@ -75,7 +76,7 @@ _BENCHMARK_RUNTIME_PRESETS: dict[str, float | None | object] = {
 
 
 def _benchmark_inventory_supported(level_id: str, algorithms: list[str] | tuple[str, ...]) -> bool:
-    return level_id in {"level_01", "level_02"} and bool(algorithms) and all(
+    return level_id in _INVENTORY_WEB_LEVELS and bool(algorithms) and all(
         value in _INVENTORY_BENCHMARK_ALGORITHMS for value in algorithms
     )
 
@@ -2606,7 +2607,7 @@ def main() -> None:
         )
         level8_profile = profiles[level8_profile_id]
         selected_config = Path(str(level8_profile["config_file"]))
-    elif level_id in {"level_01", "level_02"}:
+    elif level_id in _INVENTORY_WEB_LEVELS:
         profiles = _inventory_web_profiles(root, level_id)
         profile_ids = tuple(profiles)
         default_profile_id = _default_inventory_profile_id(profiles)
@@ -2626,6 +2627,16 @@ def main() -> None:
         value.algorithm_id for value in list_algorithms(level_id=level_id)
         if value.web_visible
     ]
+    level3_inventory_source = bool(
+        level_id == "level_03"
+        and inventory_profile is not None
+        and inventory_profile.get("inventory_search_default", False)
+    )
+    if level3_inventory_source:
+        algorithm_ids = [
+            value for value in algorithm_ids
+            if value in _INVENTORY_BENCHMARK_ALGORITHMS
+        ]
     configured_algorithm = str(base_config.get("project", {}).get("algorithm_id", algorithm_ids[0]))
     if configured_algorithm not in algorithm_ids:
         raise ValueError(f"Configured algorithm {configured_algorithm!r} is not compatible with {level_id}")
@@ -2641,6 +2652,16 @@ def main() -> None:
     )
     algorithm = get_algorithm(algorithm_id)
     st.sidebar.caption(f"{algorithm_family(algorithm.family, language)}: {algorithm.description_for(language)}")
+    if level3_inventory_source:
+        st.sidebar.info(
+            "Level 3 cho phép xoay ngang mỗi kiện theo hai hướng XYZ/YXZ. "
+            "Mọi phương án hoàn chỉnh đều được kiểm tra lại độc lập về hình học, "
+            "tải trọng và vùng đỡ trước khi hiển thị."
+            if language == "vi" else
+            "Level 3 permits horizontal XYZ/YXZ item rotations. Every complete "
+            "solution is independently rechecked for geometry, payload, and support "
+            "before it is displayed."
+        )
     if level_id == "level_08":
         st.sidebar.warning(
             "Level 8 đang ở mức thực nghiệm: LIFO dùng mô hình đường tháo thẳng tĩnh; chưa mô phỏng thiết bị, vùng chứa tạm hoặc chuỗi dỡ vật lý chính xác."
@@ -2780,7 +2801,7 @@ def main() -> None:
         else max(limits.configured_containers, 1)
     )
     inventory_search_supported = (
-        level_id in {"level_01", "level_02"}
+        level_id in _INVENTORY_WEB_LEVELS
         and algorithm_id in _INVENTORY_BENCHMARK_ALGORITHMS
     )
     inventory_search_config = dict(config.get("container_search", {}))
@@ -2820,7 +2841,7 @@ def main() -> None:
         min_value=1,
         max_value=(
             limits.configured_containers
-            if inventory_search_enabled or level_id in {"level_01", "level_02"}
+            if inventory_search_enabled or level_id in _INVENTORY_WEB_LEVELS
             else container_max if level_id == "level_08" else None
         ),
         step=1, key="container_count",
@@ -2975,20 +2996,30 @@ def main() -> None:
             st.session_state[repair_enabled_key] = bool(
                 repair_config.get("enabled", False)
             )
-        inventory_repair_enabled = st.sidebar.checkbox(
-            (
-                "Cải thiện nghiệm sau construction"
-                if language == "vi" else "Improve the solution after construction"
-            ),
-            key=repair_enabled_key,
-            help=(
-                "Repair có thể giảm số container hoặc chi phí nhưng không bảo đảm; "
-                "timeout vẫn giữ nghiệm hợp lệ ban đầu."
+        if level_id == "level_03":
+            inventory_repair_enabled = False
+            st.sidebar.caption(
+                "Cải thiện nghiệm đang tắt ở Level 3; checkpoint UI này chỉ mở "
+                "luồng tìm kiếm kho đã qua nghiệm thu."
                 if language == "vi" else
-                "Repair may reduce container count or cost but is not guaranteed; "
-                "a timeout preserves the original validated solution."
-            ),
-        )
+                "Solution improvement remains disabled for Level 3; this UI "
+                "checkpoint only exposes the accepted inventory-search workflow."
+            )
+        else:
+            inventory_repair_enabled = st.sidebar.checkbox(
+                (
+                    "Cải thiện nghiệm sau construction"
+                    if language == "vi" else "Improve the solution after construction"
+                ),
+                key=repair_enabled_key,
+                help=(
+                    "Repair có thể giảm số container hoặc chi phí nhưng không bảo đảm; "
+                    "timeout vẫn giữ nghiệm hợp lệ ban đầu."
+                    if language == "vi" else
+                    "Repair may reduce container count or cost but is not guaranteed; "
+                    "a timeout preserves the original validated solution."
+                ),
+            )
         repair_modes = {
             "Nhanh — 3 giây": 3.0,
             "Cân bằng — 10 giây": 10.0,
@@ -3011,14 +3042,20 @@ def main() -> None:
             or st.session_state[repair_mode_key] not in repair_modes
         ):
             st.session_state[repair_mode_key] = default_repair_mode
-        repair_mode = st.sidebar.selectbox(
-            "Ngân sách cải thiện" if language == "vi" else "Improvement budget",
-            tuple(repair_modes),
-            key=repair_mode_key,
-            disabled=not inventory_repair_enabled,
+        repair_mode = (
+            default_repair_mode
+            if level_id == "level_03"
+            else st.sidebar.selectbox(
+                "Ngân sách cải thiện" if language == "vi" else "Improvement budget",
+                tuple(repair_modes),
+                key=repair_mode_key,
+                disabled=not inventory_repair_enabled,
+            )
         )
-        requested_repair = repair_modes[repair_mode]
-        if requested_repair == "custom":
+        requested_repair = (
+            configured_repair if level_id == "level_03" else repair_modes[repair_mode]
+        )
+        if requested_repair == "custom" and level_id != "level_03":
             repair_custom_key = f"{level_id}_inventory_repair_custom_seconds"
             if repair_custom_key not in st.session_state:
                 st.session_state[repair_custom_key] = int(configured_repair)
