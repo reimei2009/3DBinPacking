@@ -240,8 +240,11 @@ def search_container_subsets(
     deadline_monotonic: float | None = None,
     monotonic_clock: Callable[[], float] = perf_counter,
     secondary_scoring_policy: SecondaryCandidateScoringPolicy | None = None,
+    contact_support_index_enabled: bool = False,
 ) -> MaximalSpaceSearchResult:
-    stats = MaximalSpaceStats()
+    stats = MaximalSpaceStats(
+        contact_support_index_enabled=contact_support_index_enabled,
+    )
     total_weight = sum(value.weight_kg for value in ordered_items) + sum(
         value.weight_kg for value in initial_placements
     )
@@ -364,6 +367,9 @@ def solve(
         deadline_monotonic=None if deadline is None else float(deadline),
         monotonic_clock=monotonic_clock,
         secondary_scoring_policy=secondary_policy,
+        contact_support_index_enabled=bool(
+            settings.get("contact_support_index", {}).get("enabled", False)
+        ),
     )
     selected_policy_metadata = selected_policy.metadata()
 
@@ -432,6 +438,7 @@ def solve(
             **attempt_metadata,
             **selected_orientation_provider.metadata(),
             **selected_policy_metadata,
+            **search.stats.contact_support_metadata(),
             **({} if secondary_policy is None else secondary_policy.metadata()),
             **(
                 {} if container_subset_policy is None

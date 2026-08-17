@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from math import isclose
+from typing import Callable
 
 from ..geometry.support import contact_rectangle
 from ..schemas import Placement
@@ -75,6 +76,7 @@ def evaluate_load_transfer(
     attributes: dict[str, LoadBearingAttributes],
     *,
     epsilon_mm: float,
+    supporter_lookup: Callable[[Placement], tuple[Placement, ...]] | None = None,
 ) -> LoadTransferEvaluation:
     """Distribute each item's accumulated load over all top-face contacts.
 
@@ -100,7 +102,10 @@ def evaluate_load_transfer(
             support_specs[child.item_id] = ()
             continue
         contacts: list[tuple[Placement, float]] = []
-        for supporter in placements:
+        possible_supporters = (
+            placements if supporter_lookup is None else supporter_lookup(child)
+        )
+        for supporter in possible_supporters:
             if supporter.item_id == child.item_id or supporter.container_id != child.container_id:
                 continue
             if abs(child.z_mm - (supporter.z_mm + supporter.height_mm)) > epsilon_mm:

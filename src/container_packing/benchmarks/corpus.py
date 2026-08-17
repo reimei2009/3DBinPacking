@@ -29,6 +29,7 @@ from .runner import _seed_values, aggregate_results, annotate_reference_gaps, ex
 from .distribution import (
     build_case_algorithm_summary,
     build_case_differences,
+    build_contact_index_comparison,
     build_case_features,
     build_determinism_evidence,
     build_distribution_summary,
@@ -79,6 +80,7 @@ class BenchmarkCorpus:
     repeats: int
     cases: tuple[CorpusCase, ...]
     source_path: Path
+    execution_schedule: str = "case_major"
 
 
 @dataclass(frozen=True)
@@ -147,6 +149,11 @@ def load_benchmark_corpus(
         raise ValueError(f"Unsupported corpus environment: {environment}")
     seeds = _seed_values(payload.get("seeds", [42]))
     repeats = _positive(payload.get("repeats", 1), "repeats")
+    execution_schedule = str(payload.get("execution_schedule", "case_major"))
+    if execution_schedule not in {"case_major", "paired_alternating"}:
+        raise ValueError(
+            "execution_schedule must be case_major or paired_alternating"
+        )
     default_config = payload.get("default_config")
     raw_cases = payload.get("cases")
     raw_matrix = payload.get("matrix")
@@ -267,7 +274,32 @@ def load_benchmark_corpus(
         repeats=repeats,
         cases=tuple(cases),
         source_path=source_path,
+        execution_schedule=execution_schedule,
     )
+
+
+def _scheduled_cases(corpus: BenchmarkCorpus) -> tuple[CorpusCase, ...]:
+    """Return deterministic case blocks, alternating treatment order by pair."""
+    if corpus.execution_schedule == "case_major":
+        return corpus.cases
+    unpaired = [case for case in corpus.cases if not case.comparison_group]
+    grouped: dict[str, list[CorpusCase]] = {}
+    for case in corpus.cases:
+        if case.comparison_group:
+            grouped.setdefault(case.comparison_group, []).append(case)
+    ordered: list[CorpusCase] = list(unpaired)
+    for pair_index, group_id in enumerate(sorted(grouped)):
+        variants = sorted(grouped[group_id], key=lambda value: str(value.variant_id))
+        if len(variants) != 2:
+            raise ValueError(
+                f"paired_alternating group {group_id} must contain exactly two variants"
+            )
+        if variants[0].algorithms != variants[1].algorithms:
+            raise ValueError(
+                f"paired_alternating group {group_id} must use identical algorithms"
+            )
+        ordered.extend(variants if pair_index % 2 == 0 else reversed(variants))
+    return tuple(ordered)
 
 
 def _observed_outcome(status: str, success: bool) -> str:
@@ -489,6 +521,7 @@ def run_benchmark_corpus(
         "environment": corpus.environment,
         "seeds": list(corpus.seeds),
         "repeats": corpus.repeats,
+        "execution_schedule": corpus.execution_schedule,
         "cases": case_catalog.to_dict(orient="records"),
     }
     reusable_rows: dict[tuple[str, str, int, int], dict[str, Any]] = {}
@@ -505,7 +538,7 @@ def run_benchmark_corpus(
 
     rows: list[dict[str, Any]] = []
     selections_by_case: dict[str, dict[str, Any]] = {}
-    for case in corpus.cases:
+    for case in _scheduled_cases(corpus):
         case_config = merge_config(load_config(case.config_path), case.config_overrides or {})
         case_usage = validate_dataset_usage(
             root, case_config, DatasetExecutionIntent.BENCHMARK_ACCEPTANCE,
@@ -552,6 +585,9 @@ def run_benchmark_corpus(
             # Repair la treatment cua A/B, khong phai mot phan cua input vat ly.
             # Tat ca search settings khac van nam trong fingerprint doi chung.
             comparison_config.setdefault("container_search", {}).pop("consolidation", None)
+            for algorithm_settings in comparison_config.get("algorithms", {}).values():
+                if isinstance(algorithm_settings, dict):
+                    algorithm_settings.pop("contact_support_index", None)
             comparison_scenario = BenchmarkScenario(
                 scenario_id=case.comparison_group,
                 description=case.comparison_group,
@@ -676,6 +712,7 @@ def run_benchmark_corpus(
     distribution_summary = build_distribution_summary(results)
     determinism_evidence = build_determinism_evidence(results)
     repair_comparison = build_repair_comparison(results)
+    contact_index_comparison = build_contact_index_comparison(results)
     selection_overlap = build_selection_overlap(selections_by_case)
 
     results.to_csv(benchmark_dir / "results.csv", index=False, encoding="utf-8")
@@ -693,6 +730,9 @@ def run_benchmark_corpus(
     distribution_summary.to_csv(benchmark_dir / "distribution_summary.csv", index=False, encoding="utf-8")
     determinism_evidence.to_csv(benchmark_dir / "determinism_evidence.csv", index=False, encoding="utf-8")
     repair_comparison.to_csv(benchmark_dir / "repair_comparison.csv", index=False, encoding="utf-8")
+    contact_index_comparison.to_csv(
+        benchmark_dir / "contact_index_comparison.csv", index=False, encoding="utf-8",
+    )
     selection_overlap.to_csv(benchmark_dir / "selection_overlap.csv", index=False, encoding="utf-8")
     write_json(benchmark_dir / "summary.json", {
         "schema_version": OUTPUT_SCHEMA_VERSION,
@@ -756,6 +796,7 @@ def run_benchmark_corpus(
                 "benchmark/case_algorithm_summary.csv", "benchmark/case_differences.csv",
                 "benchmark/distribution_summary.csv",
                 "benchmark/determinism_evidence.csv", "benchmark/repair_comparison.csv",
+                "benchmark/contact_index_comparison.csv",
                 "benchmark/selection_overlap.csv",
             ],
             "diagnostics": ["logs/run.log"],

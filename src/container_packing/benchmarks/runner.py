@@ -240,8 +240,34 @@ def execute_experiment_case(request: ExperimentRequest, repeat_index: int) -> di
         "orientation_profile": metadata.get("orientation_profile"),
         "orientation_candidates_evaluated": metadata.get("orientation_candidates_evaluated"),
         "candidate_feasibility_checks": metadata.get("candidate_feasibility_checks"),
+        "geometry_rejected_candidates": metadata.get("geometry_rejected_candidates"),
+        "support_rejected_candidates": metadata.get("support_rejected_candidates"),
+        "stackability_rejected_candidates": metadata.get(
+            "stackability_rejected_candidates"
+        ),
+        "load_bearing_rejected_candidates": metadata.get(
+            "load_bearing_rejected_candidates"
+        ),
         "extreme_points_evaluated": metadata.get("extreme_points_evaluated"),
         "candidate_subsets_evaluated": metadata.get("candidate_subsets_evaluated"),
+        "contact_support_index_enabled": metadata.get(
+            "contact_support_index_enabled"
+        ),
+        "contact_support_index_version": metadata.get(
+            "contact_support_index_version"
+        ),
+        "contact_support_index_queries": metadata.get(
+            "contact_support_index_queries"
+        ),
+        "contact_support_index_placements_examined": metadata.get(
+            "contact_support_index_placements_examined"
+        ),
+        "contact_support_index_committed_placements": metadata.get(
+            "contact_support_index_committed_placements"
+        ),
+        "contact_support_index_estimated_scans_avoided": metadata.get(
+            "contact_support_index_estimated_scans_avoided"
+        ),
         "aggregate_lower_bound": aggregate_lower_bound,
         "container_consolidation_candidates_evaluated": metadata.get(
             "container_consolidation_candidates_evaluated"

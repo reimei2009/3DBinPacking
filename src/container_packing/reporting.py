@@ -134,6 +134,10 @@ def solver_payload(metadata: dict[str, Any]) -> dict[str, Any]:
         "support_rejected_candidates", "support_valid_candidates",
         "container_selection_strategy", "candidate_scoring", "subset_enumeration_limit",
         "candidate_subsets_evaluated", "packing_attempts", "extreme_points_evaluated",
+        "contact_support_index_enabled", "contact_support_index_version",
+        "contact_support_index_queries", "contact_support_index_placements_examined",
+        "contact_support_index_committed_placements",
+        "contact_support_index_estimated_scans_avoided",
         "construction_complete", "construction_termination_reason",
         "construction_failed_item_id", "best_partial_placement_count",
         "unpacked_item_count", "unpacked_items", "construction_attempt_signature",
@@ -529,6 +533,31 @@ def metrics_payload(metadata: dict[str, Any], validation_valid: bool | None) -> 
         "sequential_balance_valid_candidates": metadata.get("sequential_balance_valid_candidates"),
         "support_rejected_candidates": metadata.get("support_rejected_candidates"),
         "support_valid_candidates": metadata.get("support_valid_candidates"),
+        "geometry_rejected_candidates": metadata.get("geometry_rejected_candidates"),
+        "stackability_rejected_candidates": metadata.get(
+            "stackability_rejected_candidates"
+        ),
+        "load_bearing_rejected_candidates": metadata.get(
+            "load_bearing_rejected_candidates"
+        ),
+        "contact_support_index_enabled": metadata.get(
+            "contact_support_index_enabled"
+        ),
+        "contact_support_index_version": metadata.get(
+            "contact_support_index_version"
+        ),
+        "contact_support_index_queries": metadata.get(
+            "contact_support_index_queries"
+        ),
+        "contact_support_index_placements_examined": metadata.get(
+            "contact_support_index_placements_examined"
+        ),
+        "contact_support_index_committed_placements": metadata.get(
+            "contact_support_index_committed_placements"
+        ),
+        "contact_support_index_estimated_scans_avoided": metadata.get(
+            "contact_support_index_estimated_scans_avoided"
+        ),
         "validation_valid": validation_valid,
         "item_selection_strategy": metadata.get("item_selection_strategy"),
         "item_selection_seed": metadata.get("item_selection_seed"),

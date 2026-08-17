@@ -7,6 +7,8 @@ chính thức hay solver. Mọi so sánh chất lượng đều khóa theo input
 from __future__ import annotations
 
 from itertools import combinations
+import ast
+import json
 
 import pandas as pd
 
@@ -18,6 +20,20 @@ _REPAIR_COMPARISON_COLUMNS = [
     "runtime_without_repair_p50_seconds", "runtime_with_repair_p50_seconds",
     "repair_runtime_p50_seconds", "repair_termination_reason", "outcome",
     "incumbent_preserved",
+]
+_CONTACT_INDEX_COMPARISON_COLUMNS = [
+    "level", "comparison_group", "comparison_input_fingerprint", "algorithm",
+    "item_count", "paired_execution_count", "status_equivalent",
+    "objective_equivalent", "placement_signature_equivalent",
+    "rejection_counters_equivalent", "construction_disabled_p50_seconds",
+    "construction_enabled_p50_seconds", "construction_speedup_ratio",
+    "construction_improvement_ratio", "construction_case_regression_ratio",
+    "wall_disabled_p50_seconds", "wall_enabled_p50_seconds",
+    "wall_speedup_ratio", "construction_disabled_p95_seconds",
+    "construction_enabled_p95_seconds", "wall_disabled_p95_seconds",
+    "wall_enabled_p95_seconds", "memory_overhead_ratio", "correctness_gate_passed",
+    "construction_case_gate_passed", "wall_case_gate_passed",
+    "memory_case_gate_passed",
 ]
 
 
@@ -378,6 +394,175 @@ def build_repair_comparison(results: pd.DataFrame) -> pd.DataFrame:
             "incumbent_preserved": outcome != "REGRESSION",
         })
     return pd.DataFrame(records, columns=_REPAIR_COMPARISON_COLUMNS)
+
+
+def _phase_seconds(value: object, phase: str) -> float | None:
+    if isinstance(value, dict):
+        mapping = value
+    elif isinstance(value, str) and value.strip():
+        try:
+            mapping = json.loads(value)
+        except json.JSONDecodeError:
+            try:
+                mapping = ast.literal_eval(value)
+            except (SyntaxError, ValueError):
+                return None
+    else:
+        return None
+    if not isinstance(mapping, dict) or mapping.get(phase) is None:
+        return None
+    try:
+        return float(mapping[phase])
+    except (TypeError, ValueError):
+        return None
+
+
+def build_contact_index_comparison(results: pd.DataFrame) -> pd.DataFrame:
+    """Build paired off/on evidence without changing the official objective."""
+    frame = _official_rows(results)
+    required = {
+        "comparison_group", "benchmark_variant_id", "comparison_input_fingerprint",
+        "random_seed", "repeat", "status", "placement_signature",
+    }
+    if not required.issubset(frame.columns):
+        return pd.DataFrame(columns=_CONTACT_INDEX_COMPARISON_COLUMNS)
+    frame = frame.dropna(subset=[
+        "comparison_group", "benchmark_variant_id", "comparison_input_fingerprint",
+    ]).copy()
+    if frame.empty:
+        return pd.DataFrame(columns=_CONTACT_INDEX_COMPARISON_COLUMNS)
+    expected = {"contact_index_disabled", "contact_index_enabled"}
+    observed = set(frame["benchmark_variant_id"].astype(str))
+    if observed != expected:
+        return pd.DataFrame(columns=_CONTACT_INDEX_COMPARISON_COLUMNS)
+    frame["construction_seconds"] = frame.get(
+        "inventory_search_phase_runtime_seconds", pd.Series(index=frame.index),
+    ).map(lambda value: _phase_seconds(value, "construction"))
+    counters = [
+        column for column in (
+            "geometry_rejected_candidates", "support_rejected_candidates",
+            "stackability_rejected_candidates", "load_bearing_rejected_candidates",
+        ) if column in frame.columns
+    ]
+    pair_keys = [
+        "level", "comparison_group", "comparison_input_fingerprint", "algorithm",
+        "random_seed", "repeat",
+    ]
+    pair_records: list[dict[str, object]] = []
+    def same(left: object, right: object) -> bool:
+        return bool((pd.isna(left) and pd.isna(right)) or left == right)
+
+    for key, group in frame.groupby(pair_keys, dropna=False, sort=True):
+        if set(group["benchmark_variant_id"].astype(str)) != expected or len(group) != 2:
+            raise ValueError(f"Contact-index comparison pair {key} is incomplete")
+        rows = {
+            str(row["benchmark_variant_id"]): row for _, row in group.iterrows()
+        }
+        disabled = rows["contact_index_disabled"]
+        enabled = rows["contact_index_enabled"]
+        record = dict(zip(pair_keys, key))
+        record.update({
+            "item_count": int(group["item_count"].iloc[0]),
+            "status_equivalent": disabled["status"] == enabled["status"],
+            "objective_equivalent": (
+                same(disabled.get("used_container_count"), enabled.get("used_container_count"))
+                and same(disabled.get("total_container_cost"), enabled.get("total_container_cost"))
+            ),
+            "placement_signature_equivalent": (
+                same(disabled.get("placement_signature"), enabled.get("placement_signature"))
+            ),
+            "rejection_counters_equivalent": all(
+                same(disabled.get(column), enabled.get(column)) for column in counters
+            ),
+            "construction_disabled": disabled.get("construction_seconds"),
+            "construction_enabled": enabled.get("construction_seconds"),
+            "wall_disabled": disabled.get("wall_runtime_seconds"),
+            "wall_enabled": enabled.get("wall_runtime_seconds"),
+            "memory_disabled": disabled.get("peak_rss_bytes"),
+            "memory_enabled": enabled.get("peak_rss_bytes"),
+        })
+        pair_records.append(record)
+    pairs = pd.DataFrame(pair_records)
+    records: list[dict[str, object]] = []
+    summary_keys = [
+        "level", "comparison_group", "comparison_input_fingerprint", "algorithm",
+    ]
+    for key, group in pairs.groupby(summary_keys, dropna=False, sort=True):
+        def median(column: str) -> float | None:
+            values = pd.to_numeric(group[column], errors="coerce").dropna()
+            return None if values.empty else float(values.median())
+
+        def p95(column: str) -> float | None:
+            values = pd.to_numeric(group[column], errors="coerce").dropna()
+            return None if values.empty else float(values.quantile(0.95))
+
+        construction_off = median("construction_disabled")
+        construction_on = median("construction_enabled")
+        wall_off = median("wall_disabled")
+        wall_on = median("wall_enabled")
+        memory_off = median("memory_disabled")
+        memory_on = median("memory_enabled")
+        correctness = all(
+            bool(group[column].all()) for column in (
+                "status_equivalent", "objective_equivalent",
+                "placement_signature_equivalent", "rejection_counters_equivalent",
+            )
+        )
+        construction_improvement = (
+            None if not construction_off or construction_on is None
+            else 1.0 - construction_on / construction_off
+        )
+        construction_regression = (
+            None if not construction_off or construction_on is None
+            else max(0.0, construction_on / construction_off - 1.0)
+        )
+        memory_overhead = (
+            None if not memory_off or memory_on is None
+            else memory_on / memory_off - 1.0
+        )
+        records.append({
+            "level": key[0], "comparison_group": key[1],
+            "comparison_input_fingerprint": key[2], "algorithm": key[3],
+            "item_count": int(group["item_count"].iloc[0]),
+            "paired_execution_count": len(group),
+            "status_equivalent": bool(group["status_equivalent"].all()),
+            "objective_equivalent": bool(group["objective_equivalent"].all()),
+            "placement_signature_equivalent": bool(
+                group["placement_signature_equivalent"].all()
+            ),
+            "rejection_counters_equivalent": bool(
+                group["rejection_counters_equivalent"].all()
+            ),
+            "construction_disabled_p50_seconds": construction_off,
+            "construction_enabled_p50_seconds": construction_on,
+            "construction_speedup_ratio": (
+                None if not construction_on or construction_off is None
+                else construction_off / construction_on
+            ),
+            "construction_improvement_ratio": construction_improvement,
+            "construction_case_regression_ratio": construction_regression,
+            "wall_disabled_p50_seconds": wall_off,
+            "wall_enabled_p50_seconds": wall_on,
+            "wall_speedup_ratio": (
+                None if not wall_on or wall_off is None else wall_off / wall_on
+            ),
+            "construction_disabled_p95_seconds": p95("construction_disabled"),
+            "construction_enabled_p95_seconds": p95("construction_enabled"),
+            "wall_disabled_p95_seconds": p95("wall_disabled"),
+            "wall_enabled_p95_seconds": p95("wall_enabled"),
+            "memory_overhead_ratio": memory_overhead,
+            "correctness_gate_passed": correctness,
+            "construction_case_gate_passed": bool(
+                construction_regression is not None and construction_regression <= 0.05
+            ),
+            "wall_case_gate_passed": bool(
+                wall_off is not None and wall_on is not None and wall_on <= wall_off
+            ),
+            "memory_case_gate_passed": bool(
+                memory_overhead is not None and memory_overhead <= 0.20
+            ),
+        })
+    return pd.DataFrame(records, columns=_CONTACT_INDEX_COMPARISON_COLUMNS)
 
 
 def _quality(values: dict[str, object]) -> tuple[float, float] | None:

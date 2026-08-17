@@ -240,6 +240,9 @@ def test_level5_inventory_pipeline_writes_isolated_valid_load_graph(
         "validation_reserve_seconds": 0.1,
     })
     config["container_search"]["consolidation"]["enabled"] = False
+    config["algorithms"]["extreme_point_best_fit"]["contact_support_index"] = {
+        "enabled": True,
+    }
     config_path = tmp_path / "level_05_inventory.yaml"
     config_path.write_text(
         yaml.safe_dump(config, sort_keys=False), encoding="utf-8",
@@ -251,6 +254,8 @@ def test_level5_inventory_pipeline_writes_isolated_valid_load_graph(
 
     assert result.solve.status == "FEASIBLE"
     assert result.validation is not None and result.validation.valid
+    assert result.metadata["contact_support_index_enabled"] is True
+    assert result.metadata["contact_support_index_queries"] > 0
     assert {value.orientation_code for value in result.placements} == {"YXZ"}
     run_dir = Path(result.metadata["run_dir"])
     assert run_dir.parts[-4:-2] == ("outputs", "level_05")

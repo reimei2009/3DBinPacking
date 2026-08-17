@@ -1,0 +1,128 @@
+schema_version: "1.1"
+corpus_id: level_05_contact_support_index_ab_v1
+level_id: level_05
+environment: local
+seeds: [42]
+repeats: 3
+execution_schedule: paired_alternating
+default_config: config/level_05/experiments/inventory_items_1000_fleet_500.yaml
+
+index_disabled: &index_disabled
+  extreme_point_best_fit: {contact_support_index: {enabled: false}}
+  extreme_point_ffd: {contact_support_index: {enabled: false}}
+  maximal_space_best_fit: {contact_support_index: {enabled: false}}
+index_enabled: &index_enabled
+  extreme_point_best_fit: {contact_support_index: {enabled: true}}
+  extreme_point_ffd: {contact_support_index: {enabled: true}}
+  maximal_space_best_fit: {contact_support_index: {enabled: true}}
+
+cases:
+  - &random100
+    case_id: contact_random101_i100_disabled
+    comparison_group: contact_random101_i100
+    variant_id: contact_index_disabled
+    group: contact_support_index_ab
+    benchmark_stratum: contact_index_ab
+    difficulty: representative_random
+    dataset_family: generated_1k_500_contact_index_ab
+    item_count: 100
+    container_count: 3
+    item_selection: stable_random
+    selection_seed: 101
+    expected_outcome: feasible
+    algorithms: [extreme_point_best_fit, extreme_point_ffd, maximal_space_best_fit]
+    config_overrides:
+      algorithms: *index_disabled
+      container_search: {enabled: true, initial_used_container_count: 3, max_used_container_count: 7, automatically_increase_container_count: true, time_limit_seconds: 60, validation_reserve_seconds: 3, consolidation: {enabled: false, container_elimination: {enabled: false}}}
+  - <<: *random100
+    case_id: contact_random101_i100_enabled
+    variant_id: contact_index_enabled
+    config_overrides:
+      algorithms: *index_enabled
+      container_search: {enabled: true, initial_used_container_count: 3, max_used_container_count: 7, automatically_increase_container_count: true, time_limit_seconds: 60, validation_reserve_seconds: 3, consolidation: {enabled: false, container_elimination: {enabled: false}}}
+
+  - &random300
+    <<: *random100
+    case_id: contact_random101_i300_disabled
+    comparison_group: contact_random101_i300
+    item_count: 300
+    container_count: 9
+    scale_bucket: xlarge
+    config_overrides:
+      algorithms: *index_disabled
+      container_search: {enabled: true, initial_used_container_count: 9, max_used_container_count: 18, automatically_increase_container_count: true, time_limit_seconds: 120, validation_reserve_seconds: 3, consolidation: {enabled: false, container_elimination: {enabled: false}}}
+  - <<: *random300
+    case_id: contact_random101_i300_enabled
+    variant_id: contact_index_enabled
+    config_overrides:
+      algorithms: *index_enabled
+      container_search: {enabled: true, initial_used_container_count: 9, max_used_container_count: 18, automatically_increase_container_count: true, time_limit_seconds: 120, validation_reserve_seconds: 3, consolidation: {enabled: false, container_elimination: {enabled: false}}}
+
+  - &random500
+    <<: *random100
+    case_id: contact_random101_i500_disabled
+    comparison_group: contact_random101_i500
+    item_count: 500
+    container_count: 14
+    scale_bucket: scale
+    config_overrides:
+      algorithms: *index_disabled
+      container_search: {enabled: true, initial_used_container_count: 14, max_used_container_count: 28, automatically_increase_container_count: true, time_limit_seconds: 180, validation_reserve_seconds: 3, consolidation: {enabled: false, container_elimination: {enabled: false}}}
+  - <<: *random500
+    case_id: contact_random101_i500_enabled
+    variant_id: contact_index_enabled
+    config_overrides:
+      algorithms: *index_enabled
+      container_search: {enabled: true, initial_used_container_count: 14, max_used_container_count: 28, automatically_increase_container_count: true, time_limit_seconds: 180, validation_reserve_seconds: 3, consolidation: {enabled: false, container_elimination: {enabled: false}}}
+
+  - &largest
+    <<: *random500
+    case_id: contact_largest_volume_i500_disabled
+    comparison_group: contact_largest_volume_i500
+    difficulty: largest_volume
+    item_selection: largest_volume
+    selection_seed:
+    container_count: 17
+    config_overrides:
+      algorithms: *index_disabled
+      container_search: {enabled: true, initial_used_container_count: 17, max_used_container_count: 30, automatically_increase_container_count: true, time_limit_seconds: 180, validation_reserve_seconds: 3, consolidation: {enabled: false, container_elimination: {enabled: false}}}
+  - <<: *largest
+    case_id: contact_largest_volume_i500_enabled
+    variant_id: contact_index_enabled
+    config_overrides:
+      algorithms: *index_enabled
+      container_search: {enabled: true, initial_used_container_count: 17, max_used_container_count: 30, automatically_increase_container_count: true, time_limit_seconds: 180, validation_reserve_seconds: 3, consolidation: {enabled: false, container_elimination: {enabled: false}}}
+
+  - &heaviest
+    <<: *largest
+    case_id: contact_heaviest_i500_disabled
+    comparison_group: contact_heaviest_i500
+    difficulty: heaviest
+    item_selection: heaviest
+    container_count: 20
+    config_overrides:
+      algorithms: *index_disabled
+      container_search: {enabled: true, initial_used_container_count: 20, max_used_container_count: 30, automatically_increase_container_count: true, time_limit_seconds: 180, validation_reserve_seconds: 3, consolidation: {enabled: false, container_elimination: {enabled: false}}}
+  - <<: *heaviest
+    case_id: contact_heaviest_i500_enabled
+    variant_id: contact_index_enabled
+    config_overrides:
+      algorithms: *index_enabled
+      container_search: {enabled: true, initial_used_container_count: 20, max_used_container_count: 30, automatically_increase_container_count: true, time_limit_seconds: 180, validation_reserve_seconds: 3, consolidation: {enabled: false, container_elimination: {enabled: false}}}
+
+  - &payload
+    <<: *largest
+    case_id: contact_payload_pressure_i500_disabled
+    comparison_group: contact_payload_pressure_i500
+    difficulty: payload_pressure
+    item_selection: payload_pressure
+    container_count: 18
+    config_overrides:
+      algorithms: *index_disabled
+      container_search: {enabled: true, initial_used_container_count: 18, max_used_container_count: 30, automatically_increase_container_count: true, time_limit_seconds: 180, validation_reserve_seconds: 3, consolidation: {enabled: false, container_elimination: {enabled: false}}}
+  - <<: *payload
+    case_id: contact_payload_pressure_i500_enabled
+    variant_id: contact_index_enabled
+    config_overrides:
+      algorithms: *index_enabled
+      container_search: {enabled: true, initial_used_container_count: 18, max_used_container_count: 30, automatically_increase_container_count: true, time_limit_seconds: 180, validation_reserve_seconds: 3, consolidation: {enabled: false, container_elimination: {enabled: false}}}

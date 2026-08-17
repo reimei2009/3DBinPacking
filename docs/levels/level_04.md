@@ -83,6 +83,12 @@ Gate gồm 20, 100, 300 và 500 item; Best Fit, FFD, MES; hai repeat. Mọi succ
 phải `VALID`, cùng case phải có cùng fingerprint và hai repeat phải có cùng
 objective/placement signature.
 
+## Comparator contact/support index
+
+Chỉ mục contact/support hiện là comparator nghiên cứu và mặc định tắt. Nó chỉ
+thu hẹp danh sách supporter trong construction; independent validator vẫn quét
+brute-force từ raw input.
+
 ## Giới hạn
 
 Level 4 không mô hình hóa load-bearing, load transfer, áp suất, độ bền vật liệu,

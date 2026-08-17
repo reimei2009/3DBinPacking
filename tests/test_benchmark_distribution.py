@@ -5,6 +5,7 @@ from container_packing.benchmarks.distribution import (
     build_case_algorithm_summary,
     build_case_differences,
     build_case_features,
+    build_contact_index_comparison,
     build_determinism_evidence,
     build_distribution_summary,
     build_pairwise_outcomes,
@@ -196,3 +197,42 @@ def test_repair_comparison_uses_treatment_fingerprint_and_preserves_incumbent():
     assert comparison.iloc[0].incumbent_preserved
     assert comparison.iloc[0].containers_before == 4
     assert comparison.iloc[0].containers_after == 3
+
+
+def test_contact_index_comparison_requires_equivalent_paired_results():
+    common = {
+        "level": "level_04", "comparison_group": "case", "item_count": 100,
+        "comparison_input_fingerprint": "physical", "algorithm": "best",
+        "random_seed": 42, "status": "FEASIBLE", "success": True,
+        "used_container_count": 3, "total_container_cost": 30,
+        "placement_signature": "same", "geometry_rejected_candidates": 2,
+        "support_rejected_candidates": 1, "stackability_rejected_candidates": 0,
+        "load_bearing_rejected_candidates": 0, "peak_rss_bytes": 100,
+        "objective_value": 1.0,
+    }
+    rows = []
+    for repeat in (1, 2, 3):
+        rows.extend([
+            {
+                **common, "case_id": "off", "input_fingerprint": "off",
+                "repeat": repeat, "benchmark_variant_id": "contact_index_disabled",
+                "wall_runtime_seconds": 10.0,
+                "inventory_search_phase_runtime_seconds": {"construction": 8.0},
+            },
+            {
+                **common, "case_id": "on", "input_fingerprint": "on",
+                "repeat": repeat, "benchmark_variant_id": "contact_index_enabled",
+                "wall_runtime_seconds": 7.0,
+                "inventory_search_phase_runtime_seconds": "{'construction': 4.0}",
+                "peak_rss_bytes": 110,
+            },
+        ])
+    comparison = build_contact_index_comparison(pd.DataFrame(rows))
+
+    assert len(comparison) == 1
+    row = comparison.iloc[0]
+    assert row.correctness_gate_passed
+    assert row.paired_execution_count == 3
+    assert row.construction_speedup_ratio == pytest.approx(2.0)
+    assert row.wall_speedup_ratio == pytest.approx(10 / 7)
+    assert row.memory_overhead_ratio == pytest.approx(0.1)

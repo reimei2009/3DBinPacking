@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Callable
 
 from ..geometry.support import contact_rectangle, evaluate_support
 from ..schemas import Item, Placement
@@ -142,6 +142,7 @@ def infer_parent_relations(
     attributes: dict[str, StackabilityAttributes],
     *,
     epsilon_mm: float,
+    supporter_lookup: Callable[[Placement], tuple[Placement, ...]] | None = None,
 ) -> list[StackParentRelation]:
     """Choose one deterministic compatible geometric parent for each child.
 
@@ -153,18 +154,21 @@ def infer_parent_relations(
     by_container: dict[str, list[Placement]] = {}
     for placement in placements:
         by_container.setdefault(placement.container_id, []).append(placement)
+    placement_by_id = {placement.item_id: placement for placement in placements}
     for child in sorted(placements, key=lambda value: (value.z_mm, value.item_id)):
         if abs(child.z_mm) <= epsilon_mm:
             continue
         child_attributes = attributes[child.item_id]
         if child_attributes.is_non_stackable:
             continue
-        support = evaluate_support(
-            child, by_container.get(child.container_id, []), epsilon_mm=epsilon_mm,
+        possible_supporters = (
+            by_container.get(child.container_id, [])
+            if supporter_lookup is None else list(supporter_lookup(child))
         )
+        support = evaluate_support(child, possible_supporters, epsilon_mm=epsilon_mm)
         candidates: list[tuple[float, str, Placement]] = []
         for parent_id in support.supporting_item_ids:
-            parent = next(value for value in by_container[child.container_id] if value.item_id == parent_id)
+            parent = placement_by_id[parent_id]
             parent_attributes = attributes[parent.item_id]
             if parent_attributes.is_non_stackable or parent_attributes.stack_group_id != child_attributes.stack_group_id:
                 continue

@@ -7,6 +7,7 @@ from typing import Any, Callable
 
 from ..algorithms.contracts import AlgorithmOutcome
 from ..algorithms.feasibility import ExactSupportFeasibilityPolicy, PlacementFeasibilityPolicy
+from ..geometry.contact_index import PlacementFeasibilityContext
 from ..algorithms.heuristics.extreme_point_best_fit import solve as solve_extreme_point_best_fit
 from ..algorithms.heuristics.extreme_point_ffd import solve as solve_extreme_point_ffd
 from ..algorithms.heuristics.extreme_point_hill_climbing import solve as solve_extreme_point_hill_climbing
@@ -56,10 +57,12 @@ class ExactSupportStackabilityPolicy:
         *,
         loaded_weight_kg: float,
         tolerance: float,
+        context: PlacementFeasibilityContext | None = None,
     ) -> bool:
         if not self.base.allows(
             container, existing, candidate,
             loaded_weight_kg=loaded_weight_kg, tolerance=tolerance,
+            context=context,
         ):
             return False
         candidate_attributes = self.attributes[candidate.item_id]
@@ -70,7 +73,17 @@ class ExactSupportStackabilityPolicy:
             self.stackability_rejected_candidates += 1
             return False
         projected = [*existing, candidate]
-        relations = infer_parent_relations(projected, self.attributes, epsilon_mm=self.epsilon_mm)
+        relations = infer_parent_relations(
+            projected,
+            self.attributes,
+            epsilon_mm=self.epsilon_mm,
+            supporter_lookup=(
+                None if context is None
+                else lambda child: context.supporters(
+                    child, epsilon_mm=self.epsilon_mm,
+                )
+            ),
+        )
         relation = next((value for value in relations if value.child_item_id == candidate.item_id), None)
         valid = relation is not None and chain_respects_max_layers(candidate.item_id, relations, self.attributes)
         if valid:

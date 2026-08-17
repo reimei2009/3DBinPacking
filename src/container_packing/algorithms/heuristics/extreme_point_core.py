@@ -15,6 +15,11 @@ from ..contracts import (
 from ..feasibility import FixedOrientationFeasibilityPolicy, PlacementFeasibilityPolicy
 from ..orientation import OrientationProvider, fixed_orientation_provider
 from ...geometry.orientation import OrientedDimensions
+from ...geometry.contact_index import (
+    ContactSupportIndex,
+    ContactSupportIndexStats,
+    PlacementFeasibilityContext,
+)
 from ...schemas import Container, Item, Placement
 from .constructive_common import candidate_subsets, container_orders, item_sort_key
 from .container_subset_selection import ContainerSubsetSelectionPolicy
@@ -45,6 +50,7 @@ class ContainerState:
     max_x_mm: float = 0.0
     max_y_mm: float = 0.0
     max_z_mm: float = 0.0
+    contact_support_index: ContactSupportIndex | None = None
 
     @property
     def loaded_volume_mm3(self) -> float:
@@ -73,6 +79,15 @@ class SearchStats:
     subset_attempts: list[dict[str, object]] = field(default_factory=list)
     assignment_plans_evaluated: int = 0
     selected_assignment_metadata: dict[str, object] = field(default_factory=dict)
+    contact_support_index_enabled: bool = False
+    contact_support_index_stats: ContactSupportIndexStats = field(
+        default_factory=ContactSupportIndexStats,
+    )
+
+    def contact_support_metadata(self) -> dict[str, object]:
+        return self.contact_support_index_stats.metadata(
+            enabled=self.contact_support_index_enabled,
+        )
 
 
 @dataclass(frozen=True)
@@ -187,6 +202,8 @@ def place_candidate(state: ContainerState, placement: Placement, tolerance: floa
     state.max_z_mm = max(
         state.max_z_mm, placement.z_mm + placement.height_mm,
     )
+    if state.contact_support_index is not None:
+        state.contact_support_index.add(placement)
     update_extreme_points(state, placement, tolerance)
     return placement
 
@@ -196,13 +213,25 @@ def initialized_container_states(
     initial_placements: tuple[Placement, ...] = (),
     *,
     tolerance: float,
+    contact_support_index_enabled: bool = False,
+    contact_support_index_stats: ContactSupportIndexStats | None = None,
 ) -> list[ContainerState]:
     """Khởi tạo EP state từ phần nghiệm được giữ cố định khi partial repack.
 
     Seed chỉ đến từ incumbent đã hợp lệ. Hàm vẫn kiểm tra container và item ID
     để lỗi orchestration không âm thầm tạo một state không nhất quán.
     """
-    states = [ContainerState(container) for container in containers]
+    shared_stats = contact_support_index_stats or ContactSupportIndexStats()
+    states = [
+        ContainerState(
+            container,
+            contact_support_index=(
+                ContactSupportIndex(stats=shared_stats)
+                if contact_support_index_enabled else None
+            ),
+        )
+        for container in containers
+    ]
     by_container = {state.container.container_id: state for state in states}
     seen_items: set[str] = set()
     for placement in sorted(
@@ -306,6 +335,8 @@ def pack_order_first_fit(
     selected_provider = orientation_provider or fixed_orientation_provider()
     states = initialized_container_states(
         containers, initial_placements, tolerance=tolerance,
+        contact_support_index_enabled=stats.contact_support_index_enabled,
+        contact_support_index_stats=stats.contact_support_index_stats,
     )
     start_candidates = stats.extreme_points_evaluated
     start_orientations = stats.orientation_candidates_evaluated
@@ -475,12 +506,23 @@ def selected_policy_allows(
     policy: PlacementFeasibilityPolicy,
 ) -> bool:
     """Evaluate a concrete candidate so its orientation reaches the policy."""
+    context = (
+        None if state.contact_support_index is None
+        else PlacementFeasibilityContext(
+            state.contact_support_index, projected_placements=(candidate,),
+        )
+    )
+    keyword_arguments = {
+        "loaded_weight_kg": state.loaded_weight_kg,
+        "tolerance": tolerance,
+    }
+    if context is not None:
+        keyword_arguments["context"] = context
     return policy.allows(
         state.container,
         state.placements,
         candidate,
-        loaded_weight_kg=state.loaded_weight_kg,
-        tolerance=tolerance,
+        **keyword_arguments,
     )
 
 
@@ -490,10 +532,14 @@ def constructive_search(
     *, deadline_monotonic: float | None = None,
     container_subset_policy: ContainerSubsetSelectionPolicy | None = None,
     container_assignment_planner: ContainerAssignmentPlanner | None = None,
+    contact_support_index_enabled: bool = False,
 ) -> ConstructiveSearchResult:
     total_weight = sum(value.weight_kg for value in ordered_items)
     total_volume = sum(value.volume_m3 for value in ordered_items)
-    stats = SearchStats(deadline_monotonic=deadline_monotonic)
+    stats = SearchStats(
+        deadline_monotonic=deadline_monotonic,
+        contact_support_index_enabled=contact_support_index_enabled,
+    )
     best_partial: ConstructionAttemptResult | None = None
     best_partial_containers: tuple[Container, ...] = ()
     subsets = (

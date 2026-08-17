@@ -52,6 +52,11 @@ Gate ngày 2026-08-14 đạt 24/24 lượt `VALID` và 12/12 nhóm
 case–algorithm deterministic. Đây là gate kỹ thuật trên các case prefix, không
 phải benchmark phân phối để kết luận một constructor tốt nhất cho mọi dữ liệu.
 
+## Comparator contact/support index
+
+Chỉ mục contact/support hiện là comparator nghiên cứu và mặc định tắt. Load-transfer
+graph vẫn được tái tính đầy đủ; independent validator không sử dụng chỉ mục.
+
 ## Output và giới hạn
 
 Pipeline ghi `load_bearing.csv`, `load_transfer.csv` và

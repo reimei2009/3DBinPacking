@@ -1364,3 +1364,29 @@ def test_scenario_algorithm_policy_restricts_milp_to_reference_case(root: Path, 
         "reference": ["milp_big_m", "extreme_point_ffd"],
         "scale": ["extreme_point_ffd"],
     }
+
+
+@pytest.mark.parametrize("level_id", ["level_04", "level_05"])
+def test_contact_support_index_ab_corpus_is_paired_and_complete(
+    root: Path, level_id: str,
+) -> None:
+    corpus = load_benchmark_corpus(
+        root / f"config/{level_id}/benchmarks/contact_support_index_ab_manual.yaml",
+        project_root=root,
+    )
+
+    assert corpus.execution_schedule == "paired_alternating"
+    assert len(corpus.cases) == 12
+    assert sum(len(case.algorithms) for case in corpus.cases) * corpus.repeats == 108
+    groups: dict[str, list] = {}
+    for case in corpus.cases:
+        groups.setdefault(str(case.comparison_group), []).append(case)
+        assert case.config_overrides["container_search"]["consolidation"]["enabled"] is False
+    assert len(groups) == 6
+    for cases in groups.values():
+        assert {case.variant_id for case in cases} == {
+            "contact_index_disabled", "contact_index_enabled",
+        }
+        assert len({case.item_count for case in cases}) == 1
+        assert len({case.item_selection_strategy for case in cases}) == 1
+        assert len({case.item_selection_seed for case in cases}) == 1

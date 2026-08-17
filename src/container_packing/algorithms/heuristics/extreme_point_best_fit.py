@@ -77,6 +77,8 @@ def pack_order_best_fit(
     selected_provider = orientation_provider or fixed_orientation_provider()
     states = initialized_container_states(
         containers, initial_placements, tolerance=tolerance,
+        contact_support_index_enabled=stats.contact_support_index_enabled,
+        contact_support_index_stats=stats.contact_support_index_stats,
     )
     start_candidates = stats.extreme_points_evaluated
     start_orientations = stats.orientation_candidates_evaluated
@@ -235,6 +237,9 @@ def solve(
         deadline_monotonic=None if deadline is None else float(deadline),
         container_subset_policy=container_subset_policy,
         container_assignment_planner=container_assignment_planner,
+        contact_support_index_enabled=bool(
+            settings.get("contact_support_index", {}).get("enabled", False)
+        ),
     )
 
     priority = 1.0 + sum(value.cost for value in containers)
@@ -296,6 +301,7 @@ def solve(
             ),
             "container_assignment_plans_evaluated": search.stats.assignment_plans_evaluated,
             **search.stats.selected_assignment_metadata,
+            **search.stats.contact_support_metadata(),
             **(
                 {} if container_assignment_planner is None
                 else container_assignment_planner.metadata()

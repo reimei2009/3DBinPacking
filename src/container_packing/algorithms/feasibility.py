@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 from ..geometry.support import evaluate_support
+from ..geometry.contact_index import PlacementFeasibilityContext
 from ..schemas import Container, Placement
 
 
@@ -20,6 +21,7 @@ class PlacementFeasibilityPolicy(Protocol):
         *,
         loaded_weight_kg: float,
         tolerance: float,
+        context: PlacementFeasibilityContext | None = None,
     ) -> bool: ...
 
     def metadata(self) -> dict[str, Any]: ...
@@ -53,6 +55,7 @@ class FixedOrientationFeasibilityPolicy:
         *,
         loaded_weight_kg: float,
         tolerance: float,
+        context: PlacementFeasibilityContext | None = None,
     ) -> bool:
         self.candidates_evaluated += 1
         payload_invalid = (
@@ -112,13 +115,22 @@ class ExactSupportFeasibilityPolicy:
         *,
         loaded_weight_kg: float,
         tolerance: float,
+        context: PlacementFeasibilityContext | None = None,
     ) -> bool:
         if not self.base.allows(
             container, existing, candidate,
             loaded_weight_kg=loaded_weight_kg, tolerance=tolerance,
+            context=context,
         ):
             return False
-        support = evaluate_support(candidate, existing, epsilon_mm=self.epsilon_mm)
+        possible_supporters = (
+            [] if abs(candidate.z_mm) <= self.epsilon_mm
+            else existing if context is None
+            else list(context.supporters(candidate, epsilon_mm=self.epsilon_mm))
+        )
+        support = evaluate_support(
+            candidate, possible_supporters, epsilon_mm=self.epsilon_mm,
+        )
         valid = support.exact_support_ratio + 1e-12 >= self.threshold and support.center_supported
         if valid:
             self.support_valid_candidates += 1

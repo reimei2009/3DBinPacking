@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from ..algorithms.feasibility import ExactSupportFeasibilityPolicy, PlacementFeasibilityPolicy
+from ..geometry.contact_index import PlacementFeasibilityContext
 from ..algorithms.heuristics.extreme_point_best_fit import solve as solve_extreme_point_best_fit
 from ..algorithms.heuristics.extreme_point_ffd import solve as solve_extreme_point_ffd
 from ..algorithms.heuristics.extreme_point_hill_climbing import solve as solve_extreme_point_hill_climbing
@@ -61,6 +62,7 @@ class LoadBearingFeasibilityPolicy:
         *,
         loaded_weight_kg: float,
         tolerance: float,
+        context: PlacementFeasibilityContext | None = None,
     ) -> bool:
         if not self.base.allows(
             container,
@@ -68,6 +70,7 @@ class LoadBearingFeasibilityPolicy:
             candidate,
             loaded_weight_kg=loaded_weight_kg,
             tolerance=tolerance,
+            context=context,
         ):
             return False
         try:
@@ -75,6 +78,12 @@ class LoadBearingFeasibilityPolicy:
                 [*existing, candidate],
                 self.attributes,
                 epsilon_mm=self.epsilon_mm,
+                supporter_lookup=(
+                    None if context is None
+                    else lambda child: context.supporters(
+                        child, epsilon_mm=self.epsilon_mm,
+                    )
+                ),
             )
         except LoadTransferError:
             self.load_bearing_rejected_candidates += 1

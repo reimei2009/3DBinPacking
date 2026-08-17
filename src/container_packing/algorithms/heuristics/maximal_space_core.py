@@ -7,6 +7,11 @@ from dataclasses import dataclass, field
 from ..feasibility import FixedOrientationFeasibilityPolicy, PlacementFeasibilityPolicy
 from ..orientation import fixed_orientation_provider
 from ...geometry.orientation import OrientedDimensions
+from ...geometry.contact_index import (
+    ContactSupportIndex,
+    ContactSupportIndexStats,
+    PlacementFeasibilityContext,
+)
 from ...schemas import Container, Item, Placement
 
 
@@ -47,6 +52,15 @@ class MaximalSpaceStats:
     orientation_candidates_evaluated: int = 0
     time_limit_reached: bool = False
     subset_attempts: list[dict[str, object]] = field(default_factory=list)
+    contact_support_index_enabled: bool = False
+    contact_support_index_stats: ContactSupportIndexStats = field(
+        default_factory=ContactSupportIndexStats,
+    )
+
+    def contact_support_metadata(self) -> dict[str, object]:
+        return self.contact_support_index_stats.metadata(
+            enabled=self.contact_support_index_enabled,
+        )
 
 
 @dataclass
@@ -56,6 +70,7 @@ class MaximalSpaceContainerState:
     empty_spaces: list[EmptySpace] = field(default_factory=list)
     loaded_weight_kg: float = 0.0
     loaded_volume_mm3: float = 0.0
+    contact_support_index: ContactSupportIndex | None = None
 
     def __post_init__(self) -> None:
         if not self.empty_spaces:
@@ -203,9 +218,21 @@ def feasible_in_state(
     ):
         return False
     selected_policy = policy or FixedOrientationFeasibilityPolicy()
+    context = (
+        None if state.contact_support_index is None
+        else PlacementFeasibilityContext(
+            state.contact_support_index, projected_placements=(candidate,),
+        )
+    )
+    keyword_arguments = {
+        "loaded_weight_kg": state.loaded_weight_kg,
+        "tolerance": tolerance,
+    }
+    if context is not None:
+        keyword_arguments["context"] = context
     return selected_policy.allows(
         state.container, state.placements, candidate,
-        loaded_weight_kg=state.loaded_weight_kg, tolerance=tolerance,
+        **keyword_arguments,
     )
 
 
@@ -247,6 +274,8 @@ def place_candidate(
     state.placements.append(placement)
     state.loaded_weight_kg += placement.weight_kg
     state.loaded_volume_mm3 += placement.length_mm * placement.width_mm * placement.height_mm
+    if state.contact_support_index is not None:
+        state.contact_support_index.add(placement)
     state.empty_spaces, generated, pruned = update_maximal_spaces(
         state.empty_spaces, placement, tolerance,
     )
@@ -266,7 +295,16 @@ def initialized_maximal_space_states(
 ) -> list[MaximalSpaceContainerState]:
     """Dựng lại MES state từ seed deterministic và kiểm tra seed fail-closed."""
 
-    states = [MaximalSpaceContainerState(value) for value in containers]
+    states = [
+        MaximalSpaceContainerState(
+            value,
+            contact_support_index=(
+                ContactSupportIndex(stats=stats.contact_support_index_stats)
+                if stats.contact_support_index_enabled else None
+            ),
+        )
+        for value in containers
+    ]
     by_container = {value.container.container_id: value for value in states}
     seen_items: set[str] = set()
     for placement in sorted(
@@ -286,12 +324,23 @@ def initialized_maximal_space_states(
                 "construction_initial_placements references container outside "
                 f"the fixed subset: {placement.container_id}"
             ) from exc
+        context = (
+            None if state.contact_support_index is None
+            else PlacementFeasibilityContext(
+                state.contact_support_index, projected_placements=(placement,),
+            )
+        )
+        keyword_arguments = {
+            "loaded_weight_kg": state.loaded_weight_kg,
+            "tolerance": tolerance,
+        }
+        if context is not None:
+            keyword_arguments["context"] = context
         if not policy.allows(
             state.container,
             state.placements,
             placement,
-            loaded_weight_kg=state.loaded_weight_kg,
-            tolerance=tolerance,
+            **keyword_arguments,
         ):
             raise ValueError(
                 "construction_initial_placements contains an infeasible seed: "
