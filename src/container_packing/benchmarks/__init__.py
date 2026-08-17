@@ -8,6 +8,10 @@ from .canonical_evidence import (
     write_canonical_benchmark_evidence,
 )
 from .runner import BenchmarkResult, run_benchmark
+from .repair_acceptance import (
+    evaluate_level3_repair_acceptance,
+    write_level3_repair_acceptance,
+)
 from .suites import BenchmarkScenario, BenchmarkSuite, load_benchmark_suite
 
 __all__ = [
@@ -20,10 +24,12 @@ __all__ = [
     "BenchmarkSuite",
     "analyze_benchmark",
     "build_canonical_benchmark_evidence",
+    "evaluate_level3_repair_acceptance",
     "load_benchmark_corpus",
     "load_benchmark_catalog",
     "load_benchmark_suite",
     "run_benchmark",
     "run_benchmark_corpus",
+    "write_level3_repair_acceptance",
     "write_canonical_benchmark_evidence",
 ]

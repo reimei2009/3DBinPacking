@@ -7,6 +7,7 @@ profiles:
     config_file: config/level_03/default.yaml
     generated: false
     inventory_search_default: false
+    repair_ui_qualified: false
     maximum_used_presets: [1, 2, 3, 5]
 
   items_1000_fleet_500_t10:
@@ -19,6 +20,7 @@ profiles:
     expected_physical_container_count: 500
     expected_equivalent_type_count: 10
     inventory_search_default: true
+    repair_ui_qualified: true
     default: true
     item_count_presets: [20, 50, 100, 300, 500, 1000]
     maximum_used_presets: [1, 2, 3, 5, 10, 20, 30, 50, 100]

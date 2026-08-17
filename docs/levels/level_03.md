@@ -41,9 +41,16 @@ Khi dùng catalog cơ bản không-inventory, các thuật toán này vẫn có 
 chọn. Khi dùng nguồn inventory 1.000/500, UI chỉ hiển thị Best Fit, FFD và MES;
 không fallback sang catalog khác.
 
-Repair Level 3 vẫn mặc định tắt và chưa được expose trên Streamlit. Checkpoint
-UI hiện tại chỉ mở construction inventory đã qua acceptance; final independent
-validation luôn được giữ nguyên.
+Repair Level 3 đã được nghiệm thu cho profile inventory 1.000/500 và được mở
+trên cả chạy đơn lẫn benchmark tùy chỉnh. Catalog fixture 501/5 vẫn không mở
+repair. Control mặc định tắt vì đây là lựa chọn đánh đổi runtime để thử giảm số
+container hoặc chi phí; final independent validation luôn được giữ nguyên.
+
+A/B bounded gồm 6 input ghép cặp (100/300/500 kiện, prefix và stable-random
+seed 101), 3 constructor, 2 variant repair và 2 repeat. Kết quả đạt 72/72 nghiệm
+`VALID`, 36/36 nhóm deterministic và 6 `IMPROVED` / 12 `UNCHANGED` / 0 loss.
+Runtime toàn quy trình tăng trung vị khoảng 44,1 giây (10,5 lần), nên người dùng
+phải chủ động bật repair và chọn budget 3/10/30 giây hoặc tùy chỉnh.
 
 ## Objective và bằng chứng
 
@@ -59,6 +66,12 @@ Acceptance phân phối dùng 84 bài và 756 lượt trên cùng nguồn 1.000/
 
 Evidence canonical nằm tại
 `docs/reports/manual/level_03_05_distribution_20260814/`.
+
+Protocol và hướng dẫn A/B repair nằm tại
+`docs/benchmarks/level_03_repair_ui_ab.md`.
+
+Evidence phát hành nằm tại
+`docs/reports/manual/level_03_repair_ui_acceptance_20260817.md`.
 
 ## Cô lập dữ liệu và output
 

@@ -631,6 +631,49 @@ def test_level2_repair_corpus_has_controlled_treatment_pairs(root: Path) -> None
         }) == 1
 
 
+def test_level3_repair_ab_corpus_is_bounded_fair_and_complete(root: Path) -> None:
+    corpus = load_benchmark_corpus(
+        root / "config/level_03/benchmarks/repair_ab_100_500_manual.yaml",
+        project_root=root,
+    )
+    assert corpus.level_id == "level_03"
+    assert len(corpus.cases) == 12
+    assert corpus.repeats == 2
+    assert sum(len(case.algorithms) for case in corpus.cases) * corpus.repeats == 72
+    groups: dict[str, list] = {}
+    for case in corpus.cases:
+        groups.setdefault(str(case.comparison_group), []).append(case)
+        assert set(case.algorithms) == {
+            "extreme_point_best_fit", "extreme_point_ffd", "maximal_space_best_fit",
+        }
+    assert len(groups) == 6
+    expected_limits = {100: (3, 7, 60, 20), 300: (9, 18, 120, 45), 500: (14, 28, 180, 60)}
+    for cases in groups.values():
+        assert {case.variant_id for case in cases} == {
+            "repair_disabled", "repair_enabled",
+        }
+        assert len({
+            (case.item_count, case.container_count, case.item_selection_strategy,
+             case.item_selection_seed)
+            for case in cases
+        }) == 1
+        for case in cases:
+            search = case.config_overrides["container_search"]
+            start, maximum, deadline, repair_budget = expected_limits[case.item_count]
+            assert search["initial_used_container_count"] == start
+            assert search["max_used_container_count"] == maximum
+            assert search["time_limit_seconds"] == deadline
+            assert search["validation_reserve_seconds"] == 3
+            consolidation = search["consolidation"]
+            if case.variant_id == "repair_enabled":
+                assert consolidation["enabled"] is True
+                assert consolidation["time_limit_seconds"] == repair_budget
+                assert consolidation["container_elimination"]["enabled"] is True
+            else:
+                assert consolidation["enabled"] is False
+                assert consolidation["container_elimination"]["enabled"] is False
+
+
 def test_level1_gap_fill_generated_scale_gates_use_one_qualified_fixed_fleet(
     root: Path,
 ) -> None:

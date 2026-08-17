@@ -15,7 +15,7 @@ import pandas as pd
 
 _P95_MINIMUM_SAMPLE_COUNT = 10
 _REPAIR_COMPARISON_COLUMNS = [
-    "level", "comparison_group", "comparison_input_fingerprint", "item_count",
+    "level", "algorithm", "comparison_group", "comparison_input_fingerprint", "item_count",
     "containers_before", "containers_after", "cost_before", "cost_after",
     "runtime_without_repair_p50_seconds", "runtime_with_repair_p50_seconds",
     "repair_runtime_p50_seconds", "repair_termination_reason", "outcome",
@@ -325,19 +325,22 @@ def build_repair_comparison(results: pd.DataFrame) -> pd.DataFrame:
     if not required.issubset(frame.columns):
         return pd.DataFrame(columns=_REPAIR_COMPARISON_COLUMNS)
     frame = frame.dropna(subset=list(required)).copy()
-    expected = {"repair_disabled", "repair_enabled"}
+    repair_variants = {"repair_disabled", "repair_enabled"}
     frame = frame[
-        frame["benchmark_variant_id"].astype(str).isin(expected)
+        frame["benchmark_variant_id"].astype(str).isin(repair_variants)
     ].copy()
     if frame.empty:
         return pd.DataFrame(columns=_REPAIR_COMPARISON_COLUMNS)
     records: list[dict[str, object]] = []
-    group_keys = ["level", "comparison_group", "comparison_input_fingerprint"]
+    group_keys = [
+        "level", "algorithm", "comparison_group", "comparison_input_fingerprint",
+    ]
     for key, group in frame.groupby(group_keys, dropna=False, sort=True):
         variants = set(group["benchmark_variant_id"].astype(str))
+        expected = repair_variants
         if variants != expected:
             raise ValueError(
-                f"Repair comparison {key[1]} must contain exactly {sorted(expected)}"
+                f"Repair comparison {key[2]}/{key[1]} must contain exactly {sorted(expected)}"
             )
         values: dict[str, dict[str, object]] = {}
         for variant, variant_rows in group.groupby("benchmark_variant_id", sort=True):
@@ -382,8 +385,9 @@ def build_repair_comparison(results: pd.DataFrame) -> pd.DataFrame:
             outcome = "REGRESSION"
         records.append({
             "level": key[0],
-            "comparison_group": key[1],
-            "comparison_input_fingerprint": key[2],
+            "algorithm": key[1],
+            "comparison_group": key[2],
+            "comparison_input_fingerprint": key[3],
             "item_count": int(group["item_count"].iloc[0]),
             "containers_before": before["containers"],
             "containers_after": after["containers"],

@@ -222,6 +222,43 @@ def _default_inventory_profile_id(profiles: dict[str, dict[str, Any]]) -> str:
     return declared[0] if declared else next(iter(profiles))
 
 
+def _inventory_repair_ui_qualified(
+    level_id: str, profile: dict[str, Any] | None,
+) -> bool:
+    """Return the single repair-exposure gate shared by every UI workflow."""
+    default = level_id in {"level_01", "level_02"}
+    if profile is None:
+        return default
+    return bool(profile.get("repair_ui_qualified", default))
+
+
+def _inventory_repair_ui_help(level_id: str, language: str) -> str:
+    """Explain the optional quality/runtime trade-off without exposing internals."""
+    if language == "vi":
+        base = (
+            "Repair có thể giảm số container hoặc chi phí nhưng không bảo đảm; "
+            "timeout vẫn giữ nghiệm hợp lệ ban đầu."
+        )
+        if level_id == "level_03":
+            return (
+                base
+                + " A/B Level 3 cải thiện 6/18 cặp, nhưng thời gian toàn quy trình "
+                "tăng trung vị khoảng 44,1 giây; vì vậy tùy chọn này mặc định tắt."
+            )
+        return base
+    base = (
+        "Repair may reduce container count or cost but is not guaranteed; "
+        "a timeout preserves the original validated solution."
+    )
+    if level_id == "level_03":
+        return (
+            base
+            + " The Level 3 A/B improved 6/18 pairs, while median wall time "
+            "increased by about 44.1 seconds, so this option is off by default."
+        )
+    return base
+
+
 def _level1_inventory_web_profiles(root: Path) -> dict[str, dict[str, Any]]:
     """Compatibility wrapper for existing Level 1 UI consumers and tests."""
     return _inventory_web_profiles(root, "level_01")
@@ -1903,6 +1940,7 @@ def _render_benchmark_controls(
     available_item_count: int,
     physical_container_count: int,
     inventory_search_enabled: bool,
+    repair_ui_qualified: bool,
     active_data: ActiveDataContext,
 ) -> None:
     """Render and execute one immutable, source-bound benchmark request."""
@@ -2013,11 +2051,22 @@ def _render_benchmark_controls(
             ))
             selected_runtime = _BENCHMARK_RUNTIME_PRESETS[runtime_mode]
             runtime_limit = custom_runtime if selected_runtime is _RUNTIME_UNSET else selected_runtime
-            repair_enabled = st.checkbox(
-                "Thử giảm thêm số container sau khi có nghiệm" if language == "vi" else
-                "Improve solution after construction",
-                value=inherited_repair_enabled, key="benchmark_repair_enabled",
-            )
+            if repair_ui_qualified:
+                repair_enabled = st.checkbox(
+                    "Thử giảm thêm số container sau khi có nghiệm" if language == "vi" else
+                    "Improve solution after construction",
+                    value=inherited_repair_enabled, key="benchmark_repair_enabled",
+                    help=_inventory_repair_ui_help(level_id, language),
+                )
+            else:
+                repair_enabled = False
+                st.caption(
+                    "Cải thiện nghiệm chưa được nghiệm thu cho nguồn này; "
+                    "benchmark luôn tắt repair."
+                    if language == "vi" else
+                    "Solution improvement is not qualified for this source; "
+                    "benchmark repair remains disabled."
+                )
             repair_budget = inherited_repair_budget
             st.caption(
                 f"Dành riêng {validation_reserve:g} giây để kiểm tra nghiệm. Kho có "
@@ -2069,7 +2118,7 @@ def _render_benchmark_controls(
                 disabled=selection_strategy != "stable_random",
                 key="benchmark_selection_seed",
             ))
-            if inventory_capable:
+            if inventory_capable and repair_ui_qualified:
                 repair_budget = float(st.number_input(
                     "Ngân sách cải thiện (giây)" if language == "vi" else "Repair budget (seconds)",
                     min_value=1.0, value=max(inherited_repair_budget, 1.0), step=1.0,
@@ -2297,6 +2346,7 @@ def _render_benchmark_comparison(
     available_item_count: int,
     physical_container_count: int,
     inventory_search_enabled: bool,
+    repair_ui_qualified: bool,
     active_data: ActiveDataContext,
 ) -> None:
     level_algorithms = [value.algorithm_id for value in list_algorithms(level_id=level_id)]
@@ -2333,6 +2383,7 @@ def _render_benchmark_comparison(
             available_item_count=available_item_count,
             physical_container_count=physical_container_count,
             inventory_search_enabled=inventory_search_enabled,
+            repair_ui_qualified=repair_ui_qualified,
             active_data=active_data,
         )
     if not submitted_now:
@@ -2623,6 +2674,9 @@ def main() -> None:
         inventory_profile = profiles[inventory_profile_id]
         selected_config = Path(str(inventory_profile["config_file"]))
 
+    repair_ui_qualified = _inventory_repair_ui_qualified(
+        level_id, inventory_profile,
+    )
     algorithm_ids = [
         value.algorithm_id for value in list_algorithms(level_id=level_id)
         if value.web_visible
@@ -2996,14 +3050,14 @@ def main() -> None:
             st.session_state[repair_enabled_key] = bool(
                 repair_config.get("enabled", False)
             )
-        if level_id == "level_03":
+        if not repair_ui_qualified:
             inventory_repair_enabled = False
             st.sidebar.caption(
-                "Cải thiện nghiệm đang tắt ở Level 3; checkpoint UI này chỉ mở "
-                "luồng tìm kiếm kho đã qua nghiệm thu."
+                "Cải thiện nghiệm chưa được nghiệm thu cho nguồn này; "
+                "mọi luồng UI đều giữ repair ở trạng thái tắt."
                 if language == "vi" else
-                "Solution improvement remains disabled for Level 3; this UI "
-                "checkpoint only exposes the accepted inventory-search workflow."
+                "Solution improvement is not qualified for this source; repair "
+                "remains disabled in every UI workflow."
             )
         else:
             inventory_repair_enabled = st.sidebar.checkbox(
@@ -3012,13 +3066,7 @@ def main() -> None:
                     if language == "vi" else "Improve the solution after construction"
                 ),
                 key=repair_enabled_key,
-                help=(
-                    "Repair có thể giảm số container hoặc chi phí nhưng không bảo đảm; "
-                    "timeout vẫn giữ nghiệm hợp lệ ban đầu."
-                    if language == "vi" else
-                    "Repair may reduce container count or cost but is not guaranteed; "
-                    "a timeout preserves the original validated solution."
-                ),
+                help=_inventory_repair_ui_help(level_id, language),
             )
         repair_modes = {
             "Nhanh — 3 giây": 3.0,
@@ -3044,7 +3092,7 @@ def main() -> None:
             st.session_state[repair_mode_key] = default_repair_mode
         repair_mode = (
             default_repair_mode
-            if level_id == "level_03"
+            if not repair_ui_qualified
             else st.sidebar.selectbox(
                 "Ngân sách cải thiện" if language == "vi" else "Improvement budget",
                 tuple(repair_modes),
@@ -3053,9 +3101,9 @@ def main() -> None:
             )
         )
         requested_repair = (
-            configured_repair if level_id == "level_03" else repair_modes[repair_mode]
+            configured_repair if not repair_ui_qualified else repair_modes[repair_mode]
         )
-        if requested_repair == "custom" and level_id != "level_03":
+        if requested_repair == "custom" and repair_ui_qualified:
             repair_custom_key = f"{level_id}_inventory_repair_custom_seconds"
             if repair_custom_key not in st.session_state:
                 st.session_state[repair_custom_key] = int(configured_repair)
@@ -3492,6 +3540,7 @@ def main() -> None:
                 if inventory_summary is not None else limits.configured_containers
             ),
             inventory_search_enabled=inventory_search_enabled,
+            repair_ui_qualified=repair_ui_qualified,
             active_data=active_data,
         )
     with history_tab:
