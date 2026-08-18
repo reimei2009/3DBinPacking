@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Khóa A/B Contact/Support Index V2 ở trạng thái `NOT_PROMOTED`: giữ mặc định
+  tắt cho Level 4–5, không phát triển V3 và lưu evidence fail-closed có checksum.
 - Khôi phục corpus benchmark Level 1 có version, reference exact/best-known,
   quality gap và output cô lập; expose qua CLI, chưa bật Streamlit.
 - Thêm container elimination có giới hạn bằng seeded relocation, support closure

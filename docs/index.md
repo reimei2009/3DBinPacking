@@ -30,6 +30,7 @@ Tài liệu trình bày tổng hợp hiện tại:
 - [Profiling runtime Benchmark V2 Level 2](benchmarks/level_02_runtime_profiling.md)
 - [A/B Contact/Support Index Level 4–5](benchmarks/contact_support_index_ab.md)
 - [Evidence A/B Contact/Support Index V1](reports/manual/contact_support_index_ab_v1_20260817.md)
+- [Evidence A/B Contact/Support Index V2 — NOT_PROMOTED](reports/manual/contact_support_index_ab_v2_20260818.md)
 - [A/B repair UI Level 3](benchmarks/level_03_repair_ui_ab.md)
 - [Evidence repair UI Level 3 ngày 2026-08-17](reports/manual/level_03_repair_ui_acceptance_20260817.md)
 - [Evidence canonical Level 2 ngày 2026-08-13](reports/manual/level_02_canonical_benchmark_20260813.md)

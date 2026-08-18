@@ -2,7 +2,8 @@
 
 ## Trạng thái
 
-V1 **không đạt promotion gate**. V2 đang thử nghiệm có giới hạn; mặc định tắt.
+V1 và V2 đều **không đạt promotion gate**. Trạng thái cuối cùng:
+`NOT_PROMOTED`; hướng index đã kết thúc và mặc định tiếp tục tắt.
 
 ## Bối cảnh
 
@@ -43,7 +44,19 @@ tính tránh được. Benchmark A/B là research evidence, không tham gia rank
 canonical.
 
 V1 đạt correctness nhưng chỉ cải thiện construction trung vị 6,92% ở Level 4
-và làm Level 5 chậm hơn 1,11%, nên không được bật mặc định. Dự án chỉ cho phép
-một vòng V2 nhằm giảm overhead query lặp. Nếu V2 không đạt toàn bộ gate ở cả
-Level 4 và Level 5, hướng index này kết thúc ở trạng thái `NOT_PROMOTED`; không
-mở V3.
+và làm Level 5 chậm hơn 1,11%, nên không được bật mặc định.
+
+V2 được chạy từ commit sạch `11e035d` và cho kết quả:
+
+- Level 4: `108/108 VALID`, construction trung vị chậm hơn khoảng 0,65%; 4/18
+  cặp regression construction trên 5%; memory overhead tối đa khoảng 2,94%;
+- Level 5: `107/108 VALID`; construction trung vị cải thiện khoảng 2,24%, thấp
+  hơn nhiều so với gate 20%; 3/18 cặp regression construction trên 5%; memory
+  overhead tối đa khoảng 4,37%;
+- lượt lỗi Level 5 bị reporting che bởi `KeyError: 'n_items'`. Row này không có
+  official objective và được giữ lại như evidence kỹ thuật, không recovery vì
+  gate hiệu năng đã thất bại độc lập với lỗi này.
+
+Vì cả hai Level không cùng đạt gate, dự án giữ index mặc định tắt, không merge
+implementation V2 vào `develop` và không mở V3. Independent validator và đường
+brute-force hiện hành tiếp tục là canonical.

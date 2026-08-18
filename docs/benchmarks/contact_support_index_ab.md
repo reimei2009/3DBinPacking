@@ -30,25 +30,28 @@ Vì manifest nguồn có `git_dirty=true`, hai run chỉ là diagnostic evidence
 phải release evidence. Báo cáo versioned nằm tại
 `docs/reports/manual/contact_support_index_ab_v1_20260817.md`.
 
-## Chạy V2 thủ công
+## Kết quả V2
 
-Chạy tuần tự, không chạy song song:
+V2 đã được chạy tuần tự từ commit sạch `11e035d`; cả hai manifest ghi
+`git_dirty=false`:
 
-Trước benchmark dài, có thể định vị overhead của V1 trên đúng bốn cặp đại diện
-(12 lượt mỗi Level, tổng 24 lượt). Kết quả này chỉ là chẩn đoán và không tham gia
-ranking:
+- Level 4: `108/108 VALID`, construction trung vị `-0,65%`, wall speedup trung
+  vị `1,004×`, 4/18 cặp regression construction trên 5%, memory overhead tối đa
+  `2,94%`;
+- Level 5: `107/108 VALID`, construction trung vị `+2,24%`, wall speedup trung
+  vị `1,028×`, 3/18 cặp regression construction trên 5%, memory overhead tối đa
+  `4,37%`;
+- Level 5 có một lỗi kỹ thuật `KeyError: 'n_items'`; row lỗi không có official
+  objective. Lỗi reporting này không thay đổi quyết định vì hiệu năng vẫn thấp
+  hơn gate 20%.
 
-```powershell
-.\.venv\Scripts\python.exe .\scripts\profile_contact_support_index.py `
-  --level level_04 `
-  --source-run-dir outputs\level_04\runs\20260817T040619737881Z__level_04__benchmark_corpus__level_04_contact_support_index_ab_v1__seed42
+Quyết định chính thức là **NOT_PROMOTED**. Index tiếp tục mặc định tắt, không có
+V3 và implementation V2 không được đưa vào `develop`. Evidence bất biến:
+`docs/reports/manual/contact_support_index_ab_v2_20260818.md`.
 
-.\.venv\Scripts\python.exe .\scripts\profile_contact_support_index.py `
-  --level level_05 `
-  --source-run-dir outputs\level_05\runs\20260817T050431203215Z__level_05__benchmark_corpus__level_05_contact_support_index_ab_v1__seed42
-```
+## Tái lập benchmark nguồn
 
-Sau đó chạy A/B V2 từ một commit sạch:
+Hai lệnh nguồn đã dùng:
 
 ```powershell
 .\.venv\Scripts\python.exe .\scripts\run_benchmark_corpus.py `
@@ -79,5 +82,5 @@ Chỉ promote mặc định khi từng Level đạt đồng thời:
 - mọi nghiệm thành công independently `VALID` và deterministic.
 
 Artifact A/B là research evidence, không được gộp vào ranking canonical. Chỉ
-promote khi **cả hai Level** đạt gate. Nếu một Level không đạt, V2 được ghi
-`NOT_PROMOTED`, mặc định tiếp tục tắt và không phát triển V3.
+promote khi **cả hai Level** đạt gate. V2 không đạt, nên quyết định đã đóng ở
+`NOT_PROMOTED`.

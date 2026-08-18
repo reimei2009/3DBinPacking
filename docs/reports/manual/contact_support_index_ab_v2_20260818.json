@@ -1,0 +1,86 @@
+{
+  "schema_version": "1.0",
+  "gate_id": "level_04_05_contact_support_index_v2",
+  "status": "NOT_PROMOTED",
+  "contact_support_index_default_enabled": false,
+  "source_commit": "11e035d82afeb92d60adbaa0d1c7b5c2d2e6ce36",
+  "levels": {
+    "level_04": {
+      "gate_passed": false,
+      "execution_count": 108,
+      "successful_execution_count": 108,
+      "valid_execution_count": 108,
+      "comparison_count": 18,
+      "deterministic_group_count": 36,
+      "performance": {
+        "median_construction_improvement_ratio": -0.00652086991069475,
+        "median_wall_speedup_ratio": 1.0043595344390326,
+        "construction_regression_over_5_percent_count": 4,
+        "wall_regression_count": 9,
+        "maximum_memory_overhead_ratio": 0.0294044767489882,
+        "correctness_failure_count": 0
+      },
+      "failures": [],
+      "errors": [
+        "median construction improvement is below 20%",
+        "at least one constructor/case regressed construction by more than 5%"
+      ]
+    },
+    "level_05": {
+      "gate_passed": false,
+      "execution_count": 108,
+      "successful_execution_count": 107,
+      "valid_execution_count": 107,
+      "comparison_count": 18,
+      "deterministic_group_count": 35,
+      "performance": {
+        "median_construction_improvement_ratio": 0.02239961003160015,
+        "median_wall_speedup_ratio": 1.027924697794353,
+        "construction_regression_over_5_percent_count": 3,
+        "wall_regression_count": 7,
+        "maximum_memory_overhead_ratio": 0.04370508495883,
+        "correctness_failure_count": 1
+      },
+      "failures": [
+        {
+          "case_id": "contact_payload_pressure_i500_enabled",
+          "algorithm": "extreme_point_ffd",
+          "repeat": 2,
+          "status": "ERROR",
+          "error": "KeyError: 'n_items'"
+        }
+      ],
+      "errors": [
+        "corpus run must have status SUCCESS",
+        "all 108 executions must be successful and independently VALID",
+        "non-deterministic or incomplete execution group: ('contact_payload_pressure_i500', 'extreme_point_ffd', 'contact_index_enabled')",
+        "selected items mismatch: contact_payload_pressure_i500",
+        "enabled/disabled correctness equivalence failed",
+        "median construction improvement is below 20%",
+        "at least one constructor/case regressed construction by more than 5%"
+      ]
+    }
+  },
+  "errors": [],
+  "decision": "keep_disabled_and_end_contact_index_direction",
+  "source_evidence": {
+    "level_04": {
+      "run_id": "20260818T034303316073Z__level_04__benchmark_corpus__level_04_contact_support_index_ab_v2__seed42",
+      "corpus_id": "level_04_contact_support_index_ab_v2",
+      "git_commit": "11e035d82afeb92d60adbaa0d1c7b5c2d2e6ce36",
+      "git_dirty": false,
+      "manifest_sha256": "5dd4c04485a2efdc70d2ad69005905e517212de78d6291222db8f3cd8cb0fafb",
+      "results_sha256": "aec82723c4b4aa7be967afbe456b81aca106a907e4a5415e6548fde340b5f947",
+      "contact_index_comparison_sha256": "c8ece463b364c8de6688f2f17561b44edfbca86267dbb35b94f55b9736db6e2e"
+    },
+    "level_05": {
+      "run_id": "20260818T041906338503Z__level_05__benchmark_corpus__level_05_contact_support_index_ab_v2__seed42",
+      "corpus_id": "level_05_contact_support_index_ab_v2",
+      "git_commit": "11e035d82afeb92d60adbaa0d1c7b5c2d2e6ce36",
+      "git_dirty": false,
+      "manifest_sha256": "b9a92ec3fead20b89cf48043986ff9c35f4c3a1032ee66fe5334cc920fc48a8d",
+      "results_sha256": "7c780e5f9363adbc55dd6a0d3af5c95ea0fbec3c077764946b8573dd3001b1ba",
+      "contact_index_comparison_sha256": "a53f853d5a195b513f732efa63452c0011b0b17929a987ba33c8835d14f873e8"
+    }
+  }
+}
