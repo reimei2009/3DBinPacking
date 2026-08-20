@@ -229,7 +229,7 @@
 - Added CLI-only Level 7 First-Fit balance A/B fixtures. The COG-aware variant
   retains the first feasible container and applies prospective COG ranking only
   to candidates inside that container; canonical FFD remains unchanged for
-  Levels 1â€“6 and for the Level 7 baseline comparator.
+  Levels 1–6 and for the Level 7 baseline comparator.
 
 - Recorded the Level 7 three-profile balance-scoring acceptance baseline:
   left-heavy discriminator, right-heavy direction check, and symmetric bias check.
