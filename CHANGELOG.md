@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Đóng evidence Constructor Portfolio Level 4–5 ở trạng thái `NOT_PROMOTED`:
+  Level 4 đạt gate riêng, Level 5 không đạt deterministic và runtime median;
+  capability tiếp tục experimental và implementation không được đưa vào `develop`.
 - Thêm candidate portfolio Level 4–5 chạy Best Fit và MES dưới một shared deadline,
   kiểm định độc lập từng nghiệm và chỉ giữ official objective tốt hơn.
 - Thêm corpus acceptance 84 bài/252 lượt cho mỗi Level và artifact so sánh child

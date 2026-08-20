@@ -1,0 +1,300 @@
+{
+  "schema_version": "1.0",
+  "report_id": "level_04_05_validated_constructor_portfolio_v1",
+  "status": "NOT_PROMOTED",
+  "portfolio_ui_qualified": false,
+  "source_commit_required": "7a26ea157af0309eb61e764c9540ca7f6e66bf52",
+  "official_objective": "used_container_count_then_total_container_cost",
+  "levels": {
+    "level_04": {
+      "status": "PASS",
+      "coverage": {
+        "case_count": 84,
+        "execution_count": 252,
+        "valid_execution_count": 252,
+        "deterministic_group_count": 84
+      },
+      "quality": {
+        "win_execution_count": 108,
+        "tie_execution_count": 144,
+        "loss_execution_count": 0,
+        "winning_case_count_by_median": 36,
+        "containers_saved_across_case_medians": 48.0,
+        "selected_matches_best_child_count": 252
+      },
+      "runtime": {
+        "median_ratio_vs_best_fit_child": 1.7600230760314828,
+        "p95_within_deadline": true,
+        "deadline_overshoot_execution_count": 0,
+        "by_item_count": {
+          "20": {
+            "median_seconds": 0.3758434999981546,
+            "p95_seconds": 0.7606721200005254,
+            "max_seconds": 0.9631723999918904,
+            "deadline_seconds": 30.0,
+            "deadline_overshoot_count": 0
+          },
+          "50": {
+            "median_seconds": 0.8559548999983235,
+            "p95_seconds": 1.1797380700016213,
+            "max_seconds": 1.375178199989023,
+            "deadline_seconds": 30.0,
+            "deadline_overshoot_count": 0
+          },
+          "100": {
+            "median_seconds": 2.188548300000548,
+            "p95_seconds": 2.653798090005148,
+            "max_seconds": 2.7461561000091024,
+            "deadline_seconds": 60.0,
+            "deadline_overshoot_count": 0
+          },
+          "200": {
+            "median_seconds": 5.821165000001201,
+            "p95_seconds": 11.432231504991778,
+            "max_seconds": 11.861803799998595,
+            "deadline_seconds": 120.0,
+            "deadline_overshoot_count": 0
+          },
+          "300": {
+            "median_seconds": 11.251737099999445,
+            "p95_seconds": 18.083041409998973,
+            "max_seconds": 20.339278400002517,
+            "deadline_seconds": 120.0,
+            "deadline_overshoot_count": 0
+          },
+          "500": {
+            "median_seconds": 25.36489045000053,
+            "p95_seconds": 40.191791940006794,
+            "max_seconds": 44.664729900003294,
+            "deadline_seconds": 180.0,
+            "deadline_overshoot_count": 0
+          }
+        }
+      },
+      "memory": {
+        "median_overhead_ratio": -0.010519216444202839,
+        "p95_overhead_ratio": -0.006224363664847132
+      },
+      "child_evidence": {
+        "best_fit_valid_count": 252,
+        "mes_valid_count": 252,
+        "mes_not_run_count": 0,
+        "incumbent_preserved_count": 252
+      },
+      "errors": []
+    },
+    "level_05": {
+      "status": "FAIL",
+      "coverage": {
+        "case_count": 84,
+        "execution_count": 252,
+        "valid_execution_count": 252,
+        "deterministic_group_count": 83
+      },
+      "quality": {
+        "win_execution_count": 107,
+        "tie_execution_count": 145,
+        "loss_execution_count": 0,
+        "winning_case_count_by_median": 36,
+        "containers_saved_across_case_medians": 48.0,
+        "selected_matches_best_child_count": 252
+      },
+      "runtime": {
+        "median_ratio_vs_best_fit_child": 2.219365297075439,
+        "p95_within_deadline": true,
+        "deadline_overshoot_execution_count": 1,
+        "by_item_count": {
+          "20": {
+            "median_seconds": 0.5362729499975103,
+            "p95_seconds": 0.9582405150053077,
+            "max_seconds": 4.969220800005132,
+            "deadline_seconds": 30.0,
+            "deadline_overshoot_count": 0
+          },
+          "50": {
+            "median_seconds": 1.203251699997054,
+            "p95_seconds": 1.3353443750071168,
+            "max_seconds": 1.44723150000209,
+            "deadline_seconds": 30.0,
+            "deadline_overshoot_count": 0
+          },
+          "100": {
+            "median_seconds": 2.5955960500068613,
+            "p95_seconds": 3.1639514650007183,
+            "max_seconds": 3.300697999991826,
+            "deadline_seconds": 60.0,
+            "deadline_overshoot_count": 0
+          },
+          "200": {
+            "median_seconds": 5.267829749995144,
+            "p95_seconds": 10.795608410001286,
+            "max_seconds": 14.15776060000644,
+            "deadline_seconds": 120.0,
+            "deadline_overshoot_count": 0
+          },
+          "300": {
+            "median_seconds": 6.7194324000010965,
+            "p95_seconds": 22.423868280005244,
+            "max_seconds": 23.886414399996283,
+            "deadline_seconds": 120.0,
+            "deadline_overshoot_count": 0
+          },
+          "500": {
+            "median_seconds": 22.381257850007387,
+            "p95_seconds": 47.09951876499906,
+            "max_seconds": 1061.0244441000104,
+            "deadline_seconds": 180.0,
+            "deadline_overshoot_count": 1
+          }
+        }
+      },
+      "memory": {
+        "median_overhead_ratio": -0.03155802782299544,
+        "p95_overhead_ratio": -0.025100607900121252
+      },
+      "child_evidence": {
+        "best_fit_valid_count": 252,
+        "mes_valid_count": 251,
+        "mes_not_run_count": 1,
+        "incumbent_preserved_count": 252
+      },
+      "errors": [
+        "level_05: deterministic gate failed (83/84)",
+        "level_05: median runtime ratio exceeds 1.8"
+      ]
+    }
+  },
+  "source_evidence": [
+    {
+      "run_id": "20260820T040042102821Z__level_04__benchmark_corpus__level_04_validated_constructor_portfolio_random_v1__seed42",
+      "level": "level_04",
+      "corpus_id": "level_04_validated_constructor_portfolio_random_v1",
+      "git_commit": "7a26ea157af0309eb61e764c9540ca7f6e66bf52",
+      "git_dirty": false,
+      "checksums": {
+        "manifest.json": "f28a492af866109b7b20db666eee720bd3ae009ff25db54b54989759a3b2b733",
+        "results.csv": "b4a45c4cfda9e923a6482aa578f27020db15f421e07f6a8e79fb162b3974279c",
+        "constructor_portfolio_comparison.csv": "cfd6e4b0404f4e1adb8c919db23b306e503b20e4f7fd363717e1ef3094674dca",
+        "determinism_evidence.csv": "4cb3551297ac760ff752fc4191823c879318d2c3cd48676ec9f4e894df5ac5f4"
+      }
+    },
+    {
+      "run_id": "20260820T042410896243Z__level_04__benchmark_corpus__level_04_validated_constructor_portfolio_stress_v1__seed42",
+      "level": "level_04",
+      "corpus_id": "level_04_validated_constructor_portfolio_stress_v1",
+      "git_commit": "7a26ea157af0309eb61e764c9540ca7f6e66bf52",
+      "git_dirty": false,
+      "checksums": {
+        "manifest.json": "39b334c01c669fbfcf2a488f627c39687c6b2d1a2235ad6f2e319976244ab4a3",
+        "results.csv": "635ab31a8dd4556bdab6f52e69162840fef73cbd2da2dcd696ff9276e4c62b1e",
+        "constructor_portfolio_comparison.csv": "5a4ec4b05bfa2838471b8f044eb0c8b4ca3c91f0220e8b8f151a78fc69735254",
+        "determinism_evidence.csv": "3f2c07bc5733b0be84ac8e39401b6e49cae3da8328c405d6b7312f06f2cac51c"
+      }
+    },
+    {
+      "run_id": "20260820T043226893356Z__level_04__benchmark_corpus__level_04_validated_constructor_portfolio_prefix_v1__seed42",
+      "level": "level_04",
+      "corpus_id": "level_04_validated_constructor_portfolio_prefix_v1",
+      "git_commit": "7a26ea157af0309eb61e764c9540ca7f6e66bf52",
+      "git_dirty": false,
+      "checksums": {
+        "manifest.json": "d00f1752106b5e71fb2a47abc6a305222761b9705c6a53911a7dbf066a90cb8c",
+        "results.csv": "d682ce0f41bf97801771f98bfc91ede5021f831a64a6d51541319b4b208d0e58",
+        "constructor_portfolio_comparison.csv": "10183350099add7fa7f6831a6c601d0d9191b7cfc770ad53c190d7e7a296a7f8",
+        "determinism_evidence.csv": "2933c555d9b93388aad83b8c0b0e4cac05dd0a971b1e434c857d723684d91006"
+      }
+    },
+    {
+      "run_id": "20260820T043456901393Z__level_05__benchmark_corpus__level_05_validated_constructor_portfolio_random_v1__seed42",
+      "level": "level_05",
+      "corpus_id": "level_05_validated_constructor_portfolio_random_v1",
+      "git_commit": "7a26ea157af0309eb61e764c9540ca7f6e66bf52",
+      "git_dirty": false,
+      "checksums": {
+        "manifest.json": "d254b427bb9e3d8b04ad0ac55ddda34b967e6991638b1ff17c1402be6880b675",
+        "results.csv": "a5d915627d4509c70fd913f5d9477efc4d105f8ec21515ffa097e5153c8e6c84",
+        "constructor_portfolio_comparison.csv": "771c91e0aa30539fd995fc125940129f10dad40e80fe49e883cf7339b10b1f50",
+        "determinism_evidence.csv": "44a4a73fb87ae3bf0af0d51b7038996bf1bb4004bb4982f29c62ec87a0051d03"
+      }
+    },
+    {
+      "run_id": "20260820T051122933718Z__level_05__benchmark_corpus__level_05_validated_constructor_portfolio_stress_v1__seed42",
+      "level": "level_05",
+      "corpus_id": "level_05_validated_constructor_portfolio_stress_v1",
+      "git_commit": "7a26ea157af0309eb61e764c9540ca7f6e66bf52",
+      "git_dirty": false,
+      "checksums": {
+        "manifest.json": "f50d89bf888af8dcd23bfad1590bc2c800ab40d0ccd723067e9773fe29791812",
+        "results.csv": "e4a36c1b6bf01a41730881b99c77fccc4a31fcad1d89cdff1747b9702baf5e1c",
+        "constructor_portfolio_comparison.csv": "1e62bd957c5fdfe9c8f288bef4984bba2ecc59271b28e1f5e290665b8fddd560",
+        "determinism_evidence.csv": "29d1ce365acd90dcdb2cd54f51dd2c60b2067463ad58413e41ce32183ca5ccd9"
+      }
+    },
+    {
+      "run_id": "20260820T052104757593Z__level_05__benchmark_corpus__level_05_validated_constructor_portfolio_prefix_v1__seed42",
+      "level": "level_05",
+      "corpus_id": "level_05_validated_constructor_portfolio_prefix_v1",
+      "git_commit": "7a26ea157af0309eb61e764c9540ca7f6e66bf52",
+      "git_dirty": false,
+      "checksums": {
+        "manifest.json": "c8f095e544081cc0244b92777aec9bfeaa967f49a6cf80b39e63faa62d011a24",
+        "results.csv": "faaa5051fbb5f91ee0be2201faad1a0c596671ba1d1826ada43781dc53da37fd",
+        "constructor_portfolio_comparison.csv": "95d54aaadf7aaa8d1e11243207f9848ff8054e09ccac1c9642f5090696761446",
+        "determinism_evidence.csv": "db1b7de8d75a00e3e1e4e9e69133c16fc1073df8faf8d73d87bd1da6978b6f5b"
+      }
+    }
+  ],
+  "baseline_source_evidence": [
+    {
+      "run_id": "20260814T094253684243Z__level_04__benchmark_corpus__level_04_generated_1k_500_random_v2_candidate__seed42",
+      "level": "level_04",
+      "corpus_id": "level_04_generated_1k_500_random_v2_candidate",
+      "manifest_sha256": "df824665f3b5ceba6e86428d2eb5ac6ec640f28915686995be7c793d5dd418e2",
+      "results_sha256": "a38945a4167a80054140005c9c080674ab23934b0ca3ffb75ed0343db6df7001"
+    },
+    {
+      "run_id": "20260814T094322739352Z__level_04__benchmark_corpus__level_04_generated_1k_500_stress_v2_candidate__seed42",
+      "level": "level_04",
+      "corpus_id": "level_04_generated_1k_500_stress_v2_candidate",
+      "manifest_sha256": "e1bd858a786862dadb13aaee574427563b6d96068848cda009e810e7b828d5b9",
+      "results_sha256": "d72d6633e6d083662ef4180674eb4e0cc9d96f108460acff0dd66abf84824b30"
+    },
+    {
+      "run_id": "20260814T094346306898Z__level_04__benchmark_corpus__level_04_generated_1k_500_prefix_regression_v2__seed42",
+      "level": "level_04",
+      "corpus_id": "level_04_generated_1k_500_prefix_regression_v2",
+      "manifest_sha256": "521a876e0f680ba089f21be102535b29dc22456eb755ac0b03086a9c4283f46c",
+      "results_sha256": "5b21901bf57f9a5ee0adcc41639bc525fb0be510a983cf862c28b8d7eeb5e459"
+    },
+    {
+      "run_id": "20260814T084722235547Z__level_05__benchmark_corpus__level_05_generated_1k_500_random_v2_candidate__seed42",
+      "level": "level_05",
+      "corpus_id": "level_05_generated_1k_500_random_v2_candidate",
+      "manifest_sha256": "fcd74bdec077349638ece01ca5203a0ab84fb11f0ba4c9a7eca8dd31c806de1a",
+      "results_sha256": "d89ac8c2981320cf36c3ace29085a24ea6655666ba822b57d854c8236141c6de"
+    },
+    {
+      "run_id": "20260814T094359815238Z__level_05__benchmark_corpus__level_05_generated_1k_500_stress_v2_candidate__seed42",
+      "level": "level_05",
+      "corpus_id": "level_05_generated_1k_500_stress_v2_candidate",
+      "manifest_sha256": "49f2294ffedbb99ce03304da983030e01ab4bbcd7562a4a5541048bbb14f3a0c",
+      "results_sha256": "1a8fe6e81b912313faa32602866556ed6a4049cab47661ded2d6a85066c86ae3"
+    },
+    {
+      "run_id": "20260814T084053828906Z__level_05__benchmark_corpus__level_05_generated_1k_500_prefix_regression_v2__seed42",
+      "level": "level_05",
+      "corpus_id": "level_05_generated_1k_500_prefix_regression_v2",
+      "manifest_sha256": "85932a3540a7cfbc7183583cbdced9e3067b7417c688974f8e35cd2178f18354",
+      "results_sha256": "3b4691c6a21479f037ea8574b24af63211286920a4d731520068a7cce3f4d09e"
+    }
+  ],
+  "errors": [
+    "level_05: deterministic gate failed (83/84)",
+    "level_05: median runtime ratio exceeds 1.8"
+  ],
+  "interpretation": [
+    "success_rate=1.0 only proves that the final selected solution was valid.",
+    "Promotion additionally requires deterministic output and the bounded runtime gate.",
+    "Level 4 and Level 5 must both pass; partial rollout is not allowed by this protocol."
+  ]
+}

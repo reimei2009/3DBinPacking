@@ -1,7 +1,8 @@
 # Level 5 — Khả năng chịu tải và truyền tải trọng tĩnh
 
-> Candidate đang đánh giá: portfolio bounded Best Fit + MES. Mỗi child candidate
-> phải qua validator Level 5; portfolio chưa phải mặc định và chưa expose trên UI.
+> Portfolio bounded Best Fit + MES đã được đánh giá và **NOT_PROMOTED** vì không đạt
+> deterministic/runtime gate Level 5. Best Fit, FFD và MES riêng tiếp tục là các
+> constructor được hỗ trợ; portfolio không phải mặc định và không expose trên UI.
 
 Trạng thái: **solver và inventory workflow đã qua gate prefix 20–500 kiện**.
 

@@ -1,7 +1,8 @@
 # Level 4 — Quy tắc xếp chồng
 
-> Candidate đang đánh giá: portfolio bounded Best Fit + MES có independent
-> validation. Portfolio chưa phải mặc định, repair bị tắt và chưa expose trên UI.
+> Portfolio bounded Best Fit + MES đã được đánh giá và **NOT_PROMOTED**. Level 4 đạt
+> gate riêng nhưng rollout yêu cầu cả Level 4–5 cùng đạt; thuật toán không phải mặc
+> định, repair bị tắt và không expose trên UI.
 
 ## Trạng thái
 
