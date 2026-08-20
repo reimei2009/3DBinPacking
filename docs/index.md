@@ -36,6 +36,7 @@ Tài liệu trình bày tổng hợp hiện tại:
 - [Parameter sweep](design/parameter_sweep_design.md)
 - [Kiến trúc Streamlit/Plotly](design/visualization_web_architecture.md)
 - [Git workflow](design/git_workflow.md)
+- [ADR-0047 — Bảo toàn evidence khi pipeline thất bại](decisions/ADR-0047-bao-toan-evidence-khi-pipeline-that-bai.md)
 
 ## Hướng dẫn vận hành
 

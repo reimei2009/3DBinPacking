@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Mapping
 
+from ..runtime.failure_evidence import canonical_termination_reason
+
 
 @dataclass(frozen=True)
 class FailureExplanation:
@@ -81,6 +83,20 @@ def explain_failure(
             ("Tăng container/runtime/candidate budget hoặc đổi item order/thuật toán.",),
             ("Increase containers, runtime or candidate budget, or change ordering/algorithm.",),
         ),
+        "OUTPUT_PUBLICATION_FAILED": (
+            "Không thể lưu đầy đủ kết quả", "The result could not be fully saved",
+            "Phần tính toán đã dừng nhưng bước ghi báo cáo hoặc artifact gặp lỗi kỹ thuật.",
+            "Computation stopped, but publishing reports or artifacts failed.",
+            ("Xem chi tiết kỹ thuật và chạy lại; không dùng run chưa publish đầy đủ làm evidence.",),
+            ("Inspect technical details and rerun; do not use an incompletely published run as evidence.",),
+        ),
+        "EXPERIMENT_EXECUTION_FAILED": (
+            "Lượt chạy gặp lỗi kỹ thuật", "The execution encountered a technical error",
+            "Lỗi kỹ thuật xảy ra trong pipeline; đây không phải chứng minh bài toán vô nghiệm.",
+            "A pipeline error occurred; this is not proof that the instance is infeasible.",
+            ("Xem phase và lỗi gốc trong chi tiết kỹ thuật rồi chạy lại.",),
+            ("Inspect the failure stage and original error in technical details, then rerun.",),
+        ),
     }
     selected = messages.get(failure_class, messages["HEURISTIC_SEARCH_EXHAUSTED"])
     return FailureExplanation(
@@ -143,9 +159,7 @@ def _evidence(metadata: Mapping[str, Any], language: str) -> tuple[str, ...]:
             + f": {float(metadata['capacity_limit_required_payload_kg']):.3f} / "
             f"{float(metadata.get('capacity_limit_attainable_payload_kg', 0.0)):.3f} kg"
         )
-    reason = metadata.get("construction_termination_reason") or metadata.get(
-        "inventory_construction_termination_reason"
-    )
+    reason = canonical_termination_reason(metadata)
     if reason:
         rows.append(("Lý do dừng" if vi else "Termination reason") + f": {reason}")
     raw_issues = metadata.get("hard_precheck_issues") or ()

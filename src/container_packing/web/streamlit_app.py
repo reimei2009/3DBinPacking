@@ -1302,7 +1302,9 @@ def _render_benchmark_dashboard(
         st.error(t("benchmark_no_valid_solution", language))
         diagnostic_columns = [
             column for column in (
-                "algorithm", "status", "search_termination_reason", "best_partial_placement_count",
+                "algorithm", "status", "failure_class", "failure_stage",
+                "search_termination_reason", "resolved_item_count",
+                "resolved_container_inventory_count", "best_partial_placement_count",
                 "aggregate_lower_bound", "candidate_subsets_evaluated", "error",
             ) if column in results.columns
         ]
@@ -1330,7 +1332,11 @@ def _render_benchmark_dashboard(
                 diagnostics = diagnostics.rename(columns={
                     "algorithm": "Thuật toán",
                     "status": "Kết quả",
+                    "failure_class": "Nhóm sự cố",
+                    "failure_stage": "Giai đoạn dừng",
                     "search_termination_reason": "Lý do dừng",
+                    "resolved_item_count": "Số kiện đầu vào đã xác nhận",
+                    "resolved_container_inventory_count": "Số container trong kho đã xác nhận",
                     "best_partial_placement_count": "Số kiện đã xếp tốt nhất",
                     "aggregate_lower_bound": "Cận dưới container",
                     "candidate_subsets_evaluated": "Số phương án container đã thử",

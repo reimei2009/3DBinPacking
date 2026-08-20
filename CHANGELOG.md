@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Bảo toàn quy mô input, lý do dừng và diagnostic của solver khi construction,
+  validation hoặc reporting thất bại; official objective của failure row luôn rỗng.
+- Phân biệt rõ lỗi xuất artifact với heuristic không tìm được nghiệm trong CLI,
+  benchmark và Streamlit.
+
 - Khôi phục corpus benchmark Level 1 có version, reference exact/best-known,
   quality gap và output cô lập; expose qua CLI, chưa bật Streamlit.
 - Thêm container elimination có giới hạn bằng seeded relocation, support closure

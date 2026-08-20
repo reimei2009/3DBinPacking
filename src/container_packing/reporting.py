@@ -15,6 +15,7 @@ import pandas as pd
 import yaml
 
 from .provenance import runtime_metadata, sha256_file
+from .runtime.failure_evidence import missing_failure_evidence_fields
 from .runtime.structured_logging import append_event
 from .schemas import Container, Placement, ValidationResult
 from .visualization.plotly_3d import write_html_views
@@ -106,6 +107,9 @@ def solver_payload(metadata: dict[str, Any]) -> dict[str, Any]:
         "n_items", "n_containers", "n_pairs", "n_variables", "n_constraints",
         "constraint_nnz", "big_m", "objective_priority_constant",
         "algorithm_kind", "algorithm_role", "failure_interpretation", "optimality_proven",
+        "failure_class", "failure_stage", "search_termination_reason",
+        "computation_status_before_failure", "error_type", "error_message",
+        "requested_item_count", "requested_container_count",
         "item_ordering", "point_ordering",
         "candidate_point_provider", "projected_ep_model",
         "projected_ep_points_generated", "projected_ep_duplicate_points_pruned",
@@ -470,6 +474,7 @@ def solver_payload(metadata: dict[str, Any]) -> dict[str, Any]:
 
 
 def metrics_payload(metadata: dict[str, Any], validation_valid: bool | None) -> dict[str, Any]:
+    missing_evidence = missing_failure_evidence_fields(metadata)
     return {
         "schema_version": OUTPUT_SCHEMA_VERSION,
         "level": metadata["level_id"],
@@ -489,8 +494,17 @@ def metrics_payload(metadata: dict[str, Any], validation_valid: bool | None) -> 
         "objective_reported": metadata.get("objective_reported", True),
         "container_count": metadata.get("container_count"),
         "total_container_cost": metadata.get("total_container_cost"),
-        "n_items": metadata["n_items"],
-        "n_containers_available": metadata["n_containers"],
+        "n_items": metadata.get("n_items"),
+        "n_containers_available": metadata.get("n_containers"),
+        "requested_item_count": metadata.get("requested_item_count"),
+        "requested_container_count": metadata.get("requested_container_count"),
+        "failure_evidence_complete": not missing_evidence,
+        "failure_evidence_missing_fields": missing_evidence,
+        "failure_class": metadata.get("failure_class"),
+        "failure_stage": metadata.get("failure_stage"),
+        "search_termination_reason": metadata.get("search_termination_reason"),
+        "error_type": metadata.get("error_type"),
+        "error_message": metadata.get("error_message"),
         "algorithm_runtime_seconds": metadata.get("algorithm_runtime_seconds"),
         "inventory_search_termination_reason": metadata.get(
             "inventory_search_termination_reason"

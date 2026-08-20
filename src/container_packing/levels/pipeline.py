@@ -14,6 +14,7 @@ from ..dataset_usage import DatasetExecutionIntent, validate_dataset_usage
 from ..instance_data import prepare_instance
 from ..reporting import write_run_outputs, write_status_outputs
 from ..runtime.project import find_project_root
+from ..runtime.failure_evidence import ExperimentExecutionError
 from ..runtime.run_context import create_run_directory
 from ..schemas import Container, Item, Placement, RunResult, SolveResult, ValidationIssue, ValidationResult
 
@@ -107,6 +108,18 @@ def run_configured_level(
     containers_path = _resolve_path(root, manifest["containers_csv"])
     items, containers = load_items(items_path), load_containers(containers_path)
     strategy.validate_instance(items, containers, int(manifest["n_items"]))
+    resolved_context: dict[str, Any] = {
+        "level_id": level_id,
+        "algorithm_id": algorithm_id,
+        "instance_id": manifest["instance_id"],
+        "n_items": len(items),
+        "n_containers": len(containers),
+        "requested_item_count": int(manifest["n_items"]),
+        "requested_container_count": int(
+            manifest.get("requested_used_container_count", manifest["n_containers"])
+        ),
+        "random_seed": seed,
+    }
     data_preparation_seconds = perf_counter() - pipeline_started
     tolerance = float(config.get("validation", {}).get("coordinate_tolerance_mm", 1e-4))
     overrides = dict(algorithm_parameters or {})
@@ -146,7 +159,19 @@ def run_configured_level(
             "container_search": config.get("container_search", {}),
         }
     started = perf_counter()
-    outcome = strategy.execute(algorithm_id, items, containers, settings)
+    try:
+        outcome = strategy.execute(algorithm_id, items, containers, settings)
+    except ExperimentExecutionError:
+        raise
+    except ValueError:
+        # Public configuration/input guards intentionally use ValueError. Keep
+        # that API contract; benchmark callers still convert it into a failed
+        # row without an official objective.
+        raise
+    except Exception as exc:
+        raise ExperimentExecutionError(
+            stage="construction", metadata=resolved_context, cause=exc,
+        ) from exc
     runtime = perf_counter() - started
     solve, placements = outcome.solve, outcome.placements
     prevalidation_metadata = (
@@ -173,6 +198,9 @@ def run_configured_level(
         "time_limit_seconds": config.get("solver", {}).get("time_limit_seconds") if algorithm_id == "milp_big_m" else None,
         "solver_message": solve.message,
         **outcome.metadata,
+        # Input cardinalities are authoritative pipeline fields. Constructors
+        # may report their own diagnostics but cannot erase resolved input facts.
+        **resolved_context,
         # Các trường objective authoritative phải nằm sau metadata của solver để
         # adapter không thể vô tình ghi đè final-validation contract.
         "objective_value": solve.objective_value,
@@ -221,14 +249,28 @@ def run_configured_level(
         metadata["objective_value"] = None
         metadata["pipeline_runtime_seconds"] = perf_counter() - pipeline_started
         if write_outputs and run_dir is not None:
-            write_status_outputs(run_dir, metadata, config, items_path=items_path, containers_path=containers_path, project_root=root)
+            _publish_or_raise(
+                "reporting", metadata,
+                lambda: write_status_outputs(
+                    run_dir, metadata, config,
+                    items_path=items_path, containers_path=containers_path,
+                    project_root=root,
+                ),
+            )
         returned_solve = SolveResult(
             solve.status, solve.message, None, solve.vector, solve.raw_result,
         )
         return RunResult(returned_solve, [], None, metadata)
 
     validation_started = perf_counter()
-    bundle = strategy.validate_solution(items, containers, placements, config)
+    try:
+        bundle = strategy.validate_solution(items, containers, placements, config)
+    except ExperimentExecutionError:
+        raise
+    except Exception as exc:
+        raise ExperimentExecutionError(
+            stage="independent_validation", metadata=metadata, cause=exc,
+        ) from exc
     validation_seconds = perf_counter() - validation_started
     metadata["pipeline_phase_runtime_seconds"][
         "independent_validation"
@@ -283,9 +325,20 @@ def run_configured_level(
             None, solve.vector, solve.raw_result,
         )
         if write_outputs and run_dir is not None:
-            write_run_outputs(run_dir, placements, containers, metadata, bundle.result, config, **output_arguments)
+            _publish_or_raise(
+                "reporting", metadata,
+                lambda: write_run_outputs(
+                    run_dir, placements, containers, metadata, bundle.result,
+                    config, **output_arguments,
+                ),
+            )
             if strategy.post_write_hook is not None:
-                strategy.post_write_hook(run_dir, items, containers, placements, config, metadata, bundle)
+                _publish_or_raise(
+                    "post_write", metadata,
+                    lambda: strategy.post_write_hook(
+                        run_dir, items, containers, placements, config, metadata, bundle,
+                    ),
+                )
         return RunResult(returned_solve, placements, bundle.result, metadata)
     if solve.status == "FEASIBLE_TIME_LIMIT":
         metadata["candidate_objective_value"] = metadata.get("objective_value")
@@ -321,15 +374,41 @@ def run_configured_level(
         metadata["objective_reported"] = True
     metadata["pipeline_runtime_seconds"] = perf_counter() - pipeline_started
     if write_outputs and run_dir is not None:
-        write_run_outputs(run_dir, placements, containers, metadata, bundle.result, config, **output_arguments)
+        _publish_or_raise(
+            "reporting", metadata,
+            lambda: write_run_outputs(
+                run_dir, placements, containers, metadata, bundle.result,
+                config, **output_arguments,
+            ),
+        )
         if strategy.post_write_hook is not None:
-            strategy.post_write_hook(run_dir, items, containers, placements, config, metadata, bundle)
+            _publish_or_raise(
+                "post_write", metadata,
+                lambda: strategy.post_write_hook(
+                    run_dir, items, containers, placements, config, metadata, bundle,
+                ),
+            )
     return RunResult(solve, placements, bundle.result, metadata)
 
 
 def _resolve_path(root: Path, value: str | Path) -> Path:
     path = Path(value)
     return path if path.is_absolute() else root / path
+
+
+def _publish_or_raise(
+    stage: str,
+    metadata: dict[str, Any],
+    callback: Callable[[], None],
+) -> None:
+    try:
+        callback()
+    except ExperimentExecutionError:
+        raise
+    except Exception as exc:
+        raise ExperimentExecutionError(
+            stage=stage, metadata=metadata, cause=exc,
+        ) from exc
 
 
 def _display_path(root: Path, value: Path | None) -> str | None:
