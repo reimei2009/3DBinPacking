@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Thêm observer chẩn đoán deadline MES bằng wall/performance/CPU/active clock, checkpoint
+  theo operation và suite diagnostic Level 4–5; không thay deadline, solver hay objective.
+
 - Bảo toàn quy mô input, lý do dừng và diagnostic của solver khi construction,
   validation hoặc reporting thất bại; official objective của failure row luôn rỗng.
 - Phân biệt rõ lỗi xuất artifact với heuristic không tìm được nghiệm trong CLI,

@@ -157,6 +157,7 @@ def run_configured_level(
                 "load_tolerance_kg", 1e-6
             ),
             "container_search": config.get("container_search", {}),
+            "deadline_reliability": config.get("deadline_reliability", {}),
         }
     started = perf_counter()
     try:

@@ -301,6 +301,51 @@ def execute_experiment_case(request: ExperimentRequest, repeat_index: int) -> di
             "validated_incumbent_candidates_considered"
         ),
         "search_termination_reason": canonical_termination_reason(metadata),
+        "deadline_reliability_enabled": metadata.get(
+            "deadline_reliability_enabled"
+        ),
+        "deadline_reliability_classification": metadata.get(
+            "deadline_reliability_classification"
+        ),
+        "deadline_reliability_evidence_eligible": metadata.get(
+            "deadline_reliability_evidence_eligible"
+        ),
+        "deadline_reliability_deadline_overshoot_seconds": metadata.get(
+            "deadline_reliability_deadline_overshoot_seconds"
+        ),
+        "deadline_reliability_last_checkpoint": metadata.get(
+            "deadline_reliability_last_checkpoint"
+        ),
+        "deadline_reliability_last_operation": metadata.get(
+            "deadline_reliability_last_operation"
+        ),
+        "deadline_reliability_max_operation": metadata.get(
+            "deadline_reliability_max_operation"
+        ),
+        "deadline_reliability_max_operation_active_seconds": metadata.get(
+            "deadline_reliability_max_operation_active_seconds"
+        ),
+        "deadline_reliability_wall_elapsed_seconds": metadata.get(
+            "deadline_reliability_wall_elapsed_seconds"
+        ),
+        "deadline_reliability_monotonic_elapsed_seconds": metadata.get(
+            "deadline_reliability_monotonic_elapsed_seconds"
+        ),
+        "deadline_reliability_process_cpu_seconds": metadata.get(
+            "deadline_reliability_process_cpu_seconds"
+        ),
+        "deadline_reliability_active_elapsed_seconds": metadata.get(
+            "deadline_reliability_active_elapsed_seconds"
+        ),
+        "deadline_reliability_suspend_seconds": metadata.get(
+            "deadline_reliability_suspend_seconds"
+        ),
+        "deadline_reliability_checkpoint_count": metadata.get(
+            "deadline_reliability_checkpoint_count"
+        ),
+        "deadline_reliability_active_clock_source": metadata.get(
+            "deadline_reliability_active_clock_source"
+        ),
     }
 
 

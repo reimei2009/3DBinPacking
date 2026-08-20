@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any, Callable, TYPE_CHECKING
 
 from ..algorithms.contracts import AlgorithmOutcome
 from ..algorithms.feasibility import ExactSupportFeasibilityPolicy, PlacementFeasibilityPolicy
@@ -23,6 +23,9 @@ from .stackability import (
     chain_respects_max_layers,
     infer_parent_relations,
 )
+
+if TYPE_CHECKING:
+    from ..runtime.deadline_reliability import DeadlineReliabilityObserver
 
 Level04Executor = Callable[[list[Item], list[Container], dict[str, Any]], AlgorithmOutcome]
 
@@ -47,6 +50,7 @@ class ExactSupportStackabilityPolicy:
     policy_id: str = "horizontal_orientation_geometry_payload_exact_support_stackability"
     stackability_rejected_candidates: int = 0
     stackability_valid_candidates: int = 0
+    deadline_observer: DeadlineReliabilityObserver | None = None
 
     def allows(
         self,
@@ -70,9 +74,29 @@ class ExactSupportStackabilityPolicy:
             self.stackability_rejected_candidates += 1
             return False
         projected = [*existing, candidate]
-        relations = infer_parent_relations(projected, self.attributes, epsilon_mm=self.epsilon_mm)
-        relation = next((value for value in relations if value.child_item_id == candidate.item_id), None)
-        valid = relation is not None and chain_respects_max_layers(candidate.item_id, relations, self.attributes)
+        if self.deadline_observer is None:
+            relations = infer_parent_relations(
+                projected, self.attributes, epsilon_mm=self.epsilon_mm,
+            )
+            relation = next(
+                (value for value in relations if value.child_item_id == candidate.item_id),
+                None,
+            )
+            valid = relation is not None and chain_respects_max_layers(
+                candidate.item_id, relations, self.attributes,
+            )
+        else:
+            with self.deadline_observer.operation("stackability"):
+                relations = infer_parent_relations(
+                    projected, self.attributes, epsilon_mm=self.epsilon_mm,
+                )
+                relation = next(
+                    (value for value in relations if value.child_item_id == candidate.item_id),
+                    None,
+                )
+                valid = relation is not None and chain_respects_max_layers(
+                    candidate.item_id, relations, self.attributes,
+                )
         if valid:
             self.stackability_valid_candidates += 1
         else:

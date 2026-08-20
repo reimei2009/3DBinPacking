@@ -11,6 +11,7 @@ from scipy.optimize import OptimizeResult
 
 from ..contracts import AlgorithmOutcome, SearchBudget
 from ..orientation import OrientationProvider
+from ...runtime.deadline_reliability import configured_deadline_observer
 from ...schemas import Container, Item, Placement, SolveResult
 from .configuration import ContainerSearchConfiguration
 from .inventory import NormalizedContainerInventory, normalize_container_inventory
@@ -119,6 +120,21 @@ class InventorySearchOrchestrator:
         construction_deadline = search_deadline
         if search_deadline is not None and search.consolidation.enabled:
             construction_deadline -= search.consolidation.time_limit_seconds
+        shared_deadline_observer = None
+        reliability_config = request.settings.get("deadline_reliability", {})
+        if (
+            request.algorithm_id == "maximal_space_best_fit"
+            and isinstance(reliability_config, dict)
+            and reliability_config.get("enabled", False)
+        ):
+            shared_deadline_observer = configured_deadline_observer(
+                request.settings,
+                deadline_monotonic=construction_deadline,
+                monotonic_clock=self._clock,
+            )
+            request.settings["_deadline_reliability_observer"] = (
+                shared_deadline_observer
+            )
         budget = None
         if search_deadline is not None and global_deadline is not None:
             cardinality_count = max(1, len(search.limits.cardinalities))
@@ -250,6 +266,10 @@ class InventorySearchOrchestrator:
             **construction.incumbent_store.metadata(),
             "shared_search_budget": None if budget is None else budget.snapshot(),
             "container_consolidation_baseline_subset_evidence": baseline_policy_metadata,
+            **(
+                {} if shared_deadline_observer is None
+                else shared_deadline_observer.metadata()
+            ),
         }
         final_metadata["selected_inventory_type_distribution"] = (
             _selected_type_distribution(inventory, outcome.placements)

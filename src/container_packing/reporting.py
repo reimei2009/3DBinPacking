@@ -140,6 +140,19 @@ def solver_payload(metadata: dict[str, Any]) -> dict[str, Any]:
         "candidate_subsets_evaluated", "packing_attempts", "extreme_points_evaluated",
         "construction_complete", "construction_termination_reason",
         "construction_failed_item_id", "best_partial_placement_count",
+        "deadline_reliability_enabled", "deadline_reliability_classification",
+        "deadline_reliability_evidence_eligible",
+        "deadline_reliability_deadline_overshoot_seconds",
+        "deadline_reliability_last_checkpoint", "deadline_reliability_last_operation",
+        "deadline_reliability_max_operation",
+        "deadline_reliability_max_operation_active_seconds",
+        "deadline_reliability_wall_elapsed_seconds",
+        "deadline_reliability_monotonic_elapsed_seconds",
+        "deadline_reliability_process_cpu_seconds",
+        "deadline_reliability_active_elapsed_seconds",
+        "deadline_reliability_suspend_seconds",
+        "deadline_reliability_checkpoint_count",
+        "deadline_reliability_active_clock_source",
         "unpacked_item_count", "unpacked_items", "construction_attempt_signature",
         "gap_fill_policy", "gap_detector", "gap_fill_lookahead_window_size",
         "gap_fill_max_constrained_points_per_step", "gap_fill_max_candidates_per_step",
@@ -506,6 +519,11 @@ def metrics_payload(metadata: dict[str, Any], validation_valid: bool | None) -> 
         "error_type": metadata.get("error_type"),
         "error_message": metadata.get("error_message"),
         "algorithm_runtime_seconds": metadata.get("algorithm_runtime_seconds"),
+        "deadline_reliability": {
+            key.removeprefix("deadline_reliability_"): value
+            for key, value in metadata.items()
+            if key.startswith("deadline_reliability_")
+        },
         "inventory_search_termination_reason": metadata.get(
             "inventory_search_termination_reason"
         ),
