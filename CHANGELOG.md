@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Thêm candidate portfolio Level 4–5 chạy Best Fit và MES dưới một shared deadline,
+  kiểm định độc lập từng nghiệm và chỉ giữ official objective tốt hơn.
+- Thêm corpus acceptance 84 bài/252 lượt cho mỗi Level và artifact so sánh child
+  constructor; portfolio chưa được promote hoặc expose trên UI.
+
 - Bảo toàn quy mô input, lý do dừng và diagnostic của solver khi construction,
   validation hoặc reporting thất bại; official objective của failure row luôn rỗng.
 - Phân biệt rõ lỗi xuất artifact với heuristic không tìm được nghiệm trong CLI,

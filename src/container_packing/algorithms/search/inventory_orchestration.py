@@ -11,6 +11,7 @@ from scipy.optimize import OptimizeResult
 
 from ..contracts import AlgorithmOutcome, SearchBudget
 from ..orientation import OrientationProvider
+from ...metrics import placement_signature
 from ...schemas import Container, Item, Placement, SolveResult
 from .configuration import ContainerSearchConfiguration
 from .inventory import NormalizedContainerInventory, normalize_container_inventory
@@ -66,6 +67,15 @@ class InventorySearchRequest:
 
 
 @dataclass(frozen=True)
+class InventoryConstructorVariant:
+    """Một constructor trong portfolio dùng chung inventory search và deadline."""
+
+    constructor_id: str
+    executor: InventoryConstructiveExecutor
+    budget_weight: float
+
+
+@dataclass(frozen=True)
 class _ConstructionPortfolioResult:
     outcome: AlgorithmOutcome
     policy_metadata: dict[str, object]
@@ -89,6 +99,8 @@ class InventorySearchOrchestrator:
         self,
         request: InventorySearchRequest,
         executor: InventoryConstructiveExecutor,
+        *,
+        constructor_variants: tuple[InventoryConstructorVariant, ...] = (),
     ) -> AlgorithmOutcome:
         search = request.configuration
         if not search.enabled:
@@ -104,6 +116,19 @@ class InventorySearchOrchestrator:
             raise ValueError(
                 "Inventory-aware search requires an independent candidate_validator"
             )
+        if constructor_variants:
+            if request.configuration.consolidation.enabled:
+                raise ValueError(
+                    "Validated constructor portfolio does not support consolidation; "
+                    "disable repair for this acceptance checkpoint."
+                )
+            if len(constructor_variants) < 2:
+                raise ValueError("Constructor portfolio requires at least two variants")
+            if any(value.budget_weight <= 0 for value in constructor_variants):
+                raise ValueError("Constructor portfolio budget weights must be positive")
+            constructor_ids = [value.constructor_id for value in constructor_variants]
+            if len(set(constructor_ids)) != len(constructor_ids):
+                raise ValueError("Constructor portfolio IDs must be unique")
 
         pipeline_started = self._clock()
         global_deadline = (
@@ -122,18 +147,22 @@ class InventorySearchOrchestrator:
         budget = None
         if search_deadline is not None and global_deadline is not None:
             cardinality_count = max(1, len(search.limits.cardinalities))
+            constructor_count = max(1, len(constructor_variants))
             budget = SearchBudget(
                 search_deadline_monotonic=search_deadline,
                 total_deadline_monotonic=global_deadline,
                 max_attempts=max(
                     1,
-                    len(search.construction_item_order_variants)
+                    constructor_count * len(search.construction_item_order_variants)
                     * cardinality_count,
                 ),
                 max_subsets=max(
                     1, cardinality_count * search.max_candidates_per_count,
                 ),
-                max_item_orders=max(1, len(search.construction_item_order_variants)),
+                max_item_orders=max(
+                    1,
+                    constructor_count * len(search.construction_item_order_variants),
+                ),
                 max_container_orders=1,
                 # Core constructors expose evaluated-candidate telemetry but do
                 # not yet share one configurable global candidate cap. Keep the
@@ -207,14 +236,26 @@ class InventorySearchOrchestrator:
                 )
             ),
         )
-        construction = self._run_construction_portfolio(
-            request=request,
-            executor=executor,
-            search_deadline=construction_deadline,
-            incumbent_store=incumbent_store,
-            search_budget=budget,
-            inventory=inventory,
-            aggregate_lower_bound=lower_bound.aggregate_lower_bound,
+        construction = (
+            self._run_constructor_portfolio(
+                request=request,
+                variants=constructor_variants,
+                search_deadline=construction_deadline,
+                incumbent_store=incumbent_store,
+                search_budget=budget,
+                inventory=inventory,
+                aggregate_lower_bound=lower_bound.aggregate_lower_bound,
+            )
+            if constructor_variants
+            else self._run_construction_portfolio(
+                request=request,
+                executor=executor,
+                search_deadline=construction_deadline,
+                incumbent_store=incumbent_store,
+                search_budget=budget,
+                inventory=inventory,
+                aggregate_lower_bound=lower_bound.aggregate_lower_bound,
+            )
         )
         outcome = construction.outcome
         baseline_policy_metadata = construction.policy_metadata
@@ -284,6 +325,157 @@ class InventorySearchOrchestrator:
             metadata=final_metadata,
         )
 
+    def _run_constructor_portfolio(
+        self,
+        *,
+        request: InventorySearchRequest,
+        variants: tuple[InventoryConstructorVariant, ...],
+        search_deadline: float | None,
+        incumbent_store: ValidatedIncumbentStore,
+        search_budget: SearchBudget | None,
+        inventory: NormalizedContainerInventory,
+        aggregate_lower_bound: int,
+    ) -> "_ConstructionPortfolioResult":
+        """Chạy nhiều constructor dưới một deadline và một validated incumbent."""
+
+        portfolio_started = self._clock()
+        total_weight = sum(value.budget_weight for value in variants)
+        remaining_weight = total_weight
+        rows: list[dict[str, object]] = []
+        child_results: list[tuple[InventoryConstructorVariant, _ConstructionPortfolioResult]] = []
+        for index, variant in enumerate(variants):
+            now = self._clock()
+            if search_deadline is not None and now >= search_deadline:
+                rows.append({
+                    "constructor_id": variant.constructor_id,
+                    "status": "NOT_RUN",
+                    "termination_reason": "shared_deadline_exhausted",
+                    "runtime_seconds": 0.0,
+                    "objective": None,
+                    "placement_signature": None,
+                    "selected": False,
+                })
+                remaining_weight -= variant.budget_weight
+                continue
+            phase_deadline = search_deadline
+            if search_deadline is not None and index < len(variants) - 1:
+                phase_deadline = now + (
+                    (search_deadline - now) * variant.budget_weight / remaining_weight
+                )
+            child_started = self._clock()
+            before_signature = (
+                None if incumbent_store.record is None
+                else incumbent_store.record.placement_signature
+            )
+            child = self._run_construction_portfolio(
+                request=request,
+                executor=variant.executor,
+                search_deadline=phase_deadline,
+                incumbent_store=incumbent_store,
+                search_budget=search_budget,
+                inventory=inventory,
+                aggregate_lower_bound=aggregate_lower_bound,
+                validate_non_improving=True,
+            )
+            child_results.append((variant, child))
+            validation_status = next(
+                (
+                    str(value.get("independent_validation_status"))
+                    for value in reversed(child.metadata.get(
+                        "inventory_construction_variants_attempted", []
+                    ))
+                    if value.get("independent_validation_status") != "NOT_RUN"
+                ),
+                "NOT_RUN",
+            )
+            child_objective = _objective_metadata(
+                child.outcome, request.containers, request.items,
+            ) if validation_status == "VALID" else None
+            child_signature = (
+                placement_signature(child.outcome.placements)
+                if child_objective is not None else None
+            )
+            rows.append({
+                "constructor_id": variant.constructor_id,
+                "status": child.outcome.solve.status,
+                "termination_reason": child.metadata.get(
+                    "inventory_construction_termination_reason"
+                ),
+                "runtime_seconds": self._clock() - child_started,
+                "objective": child_objective,
+                "placement_signature": child_signature,
+                "accepted_as_incumbent": (
+                    incumbent_store.record is not None
+                    and incumbent_store.record.placement_signature != before_signature
+                ),
+                "independent_validation_status": validation_status,
+                "selected": False,
+                "construction_metadata": child.metadata,
+            })
+            remaining_weight -= variant.budget_weight
+
+        if not child_results:
+            return _ConstructionPortfolioResult(
+                outcome=_time_limit_outcome(request),
+                policy_metadata={},
+                metadata={
+                    "validated_constructor_portfolio_enabled": True,
+                    "validated_constructor_portfolio_variants": rows,
+                    "validated_constructor_portfolio_selected": None,
+                    "validated_constructor_portfolio_runtime_seconds": (
+                        self._clock() - portfolio_started
+                    ),
+                    "inventory_construction_termination_reason": "search_time_limit",
+                },
+                incumbent_store=incumbent_store,
+            )
+
+        selected_outcome = incumbent_store.outcome
+        selected_constructor: str | None = None
+        selected_policy: dict[str, object] = {}
+        if selected_outcome is not None:
+            for variant, child in child_results:
+                if child.outcome is selected_outcome:
+                    selected_constructor = variant.constructor_id
+                    selected_policy = child.policy_metadata
+                    break
+            for row in rows:
+                row["selected"] = row.get("constructor_id") == selected_constructor
+            termination = "valid_portfolio_solution_found"
+        else:
+            selected_variant, selected_child = max(
+                child_results,
+                key=lambda value: int(value[1].outcome.metadata.get(
+                    "best_partial_placement_count", len(value[1].outcome.placements),
+                )),
+            )
+            selected_outcome = selected_child.outcome
+            selected_constructor = selected_variant.constructor_id
+            selected_policy = selected_child.policy_metadata
+            termination = (
+                "search_time_limit"
+                if search_deadline is not None and self._clock() >= search_deadline
+                else "bounded_search_space_exhausted"
+            )
+        return _ConstructionPortfolioResult(
+            outcome=selected_outcome,
+            policy_metadata=selected_policy,
+            metadata={
+                "validated_constructor_portfolio_enabled": True,
+                "validated_constructor_portfolio_policy": "best_fit_65_then_mes_35_v1",
+                "validated_constructor_portfolio_variants": rows,
+                "validated_constructor_portfolio_selected": selected_constructor,
+                "validated_constructor_portfolio_runtime_seconds": (
+                    self._clock() - portfolio_started
+                ),
+                "validated_constructor_portfolio_incumbent_preserved": (
+                    incumbent_store.outcome is not None
+                ),
+                "inventory_construction_termination_reason": termination,
+            },
+            incumbent_store=incumbent_store,
+        )
+
     def _run_construction_portfolio(
         self,
         *,
@@ -294,7 +486,9 @@ class InventorySearchOrchestrator:
         search_budget: SearchBudget | None,
         inventory: NormalizedContainerInventory,
         aggregate_lower_bound: int,
+        validate_non_improving: bool = False,
     ) -> "_ConstructionPortfolioResult":
+        initial_incumbent = incumbent_store.outcome
         variants = request.configuration.construction_item_order_variants
         acquisition = request.configuration.incumbent_acquisition
         use_acquisition = (
@@ -389,7 +583,10 @@ class InventorySearchOrchestrator:
                         outcome.metadata.get("candidate_feasibility_checks", 0)
                     ))
                 outcomes.append((variant, outcome, policy_metadata))
-                accepted_as_incumbent = incumbent_store.consider(outcome)
+                accepted_as_incumbent = incumbent_store.consider(
+                    outcome,
+                    validate_non_improving=validate_non_improving,
+                )
                 variant_rows.append({
                     "phase": (
                         "incumbent_acquisition" if use_acquisition else "portfolio"
@@ -406,11 +603,15 @@ class InventorySearchOrchestrator:
                         "best_partial_placement_count", len(outcome.placements),
                     ),
                     "independent_validation_status": (
-                        "VALID" if accepted_as_incumbent
-                        else "NOT_BETTER_OR_INVALID"
-                        if outcome.solve.status == "FEASIBLE"
+                        "VALID"
+                        if incumbent_store.last_decision in {
+                            "VALID_ACCEPTED", "VALID_NOT_BETTER",
+                        }
+                        else "INVALID"
+                        if incumbent_store.last_decision == "INVALID"
                         else "NOT_RUN"
                     ),
+                    "incumbent_decision": incumbent_store.last_decision,
                     "policy": policy_metadata,
                 })
                 if accepted_as_incumbent:
@@ -421,7 +622,12 @@ class InventorySearchOrchestrator:
                             else target_cardinality
                         )
                     break
-            if incumbent_store.outcome is not None and not complete_tie_break_portfolio:
+            if (
+                incumbent_store.last_decision in {
+                    "VALID_ACCEPTED", "VALID_NOT_BETTER",
+                }
+                and not complete_tie_break_portfolio
+            ):
                 break
 
         if not outcomes:
@@ -434,11 +640,22 @@ class InventorySearchOrchestrator:
                 },
                 incumbent_store=incumbent_store,
             )
-        if incumbent_store.outcome is not None:
+        if (
+            incumbent_store.outcome is not None
+            and incumbent_store.outcome is not initial_incumbent
+        ):
             selected = next(
                 value for value in outcomes if value[1] is incumbent_store.outcome
             )
             termination = "valid_solution_found"
+        elif incumbent_store.outcome is not None:
+            selected = max(
+                outcomes,
+                key=lambda value: int(value[1].metadata.get(
+                    "best_partial_placement_count", len(value[1].placements),
+                )),
+            )
+            termination = "valid_candidate_not_better"
         else:
             selected = max(
                 outcomes,
@@ -586,6 +803,29 @@ def _outcome_rank(
         sum(costs[container_id] for container_id in used_ids),
         tuple(sorted(used_ids)),
     )
+
+
+def _objective_metadata(
+    outcome: AlgorithmOutcome,
+    containers: list[Container],
+    items: list[Item],
+) -> dict[str, object] | None:
+    """Return official objective only for a complete successful child candidate."""
+
+    if outcome.solve.status not in {"OPTIMAL", "FEASIBLE"}:
+        return None
+    placed_ids = [value.item_id for value in outcome.placements]
+    required_ids = {value.item_id for value in items}
+    if len(placed_ids) != len(required_ids) or set(placed_ids) != required_ids:
+        return None
+    costs = {value.container_id: float(value.cost) for value in containers}
+    used_ids = {value.container_id for value in outcome.placements}
+    if not used_ids <= costs.keys():
+        return None
+    return {
+        "used_container_count": len(used_ids),
+        "total_container_cost": sum(costs[value] for value in used_ids),
+    }
 
 
 def _time_limit_outcome(

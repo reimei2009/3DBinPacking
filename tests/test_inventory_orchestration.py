@@ -9,6 +9,7 @@ from scipy.optimize import OptimizeResult
 from container_packing.algorithms.contracts import AlgorithmOutcome
 from container_packing.algorithms.search import (
     ContainerSearchConfiguration,
+    InventoryConstructorVariant,
     InventorySearchOrchestrator,
     InventorySearchRequest,
 )
@@ -88,6 +89,86 @@ def test_orchestrator_preserves_executor_output_and_adds_inventory_evidence() ->
     assert captured["settings"]["constructive_deadline_monotonic"] == 101.0
     assert captured["policy"].deadline_monotonic == 101.0
     assert outcome.metadata["inventory_construction_item_order_selected"] == "current"
+
+
+def test_validated_constructor_portfolio_uses_shared_budget_and_keeps_better_candidate() -> None:
+    containers = [
+        Container("C1", 100, 100, 100, 100, 10, volume_m3=0.001),
+        Container("C2", 100, 100, 100, 100, 20, volume_m3=0.001),
+    ]
+    items = [Item("I1", 10, 10, 10, 1), Item("I2", 10, 10, 10, 1)]
+    configuration = ContainerSearchConfiguration.from_mapping({
+        "enabled": True,
+        "initial_used_container_count": 1,
+        "max_used_container_count": 2,
+        "automatically_increase_container_count": True,
+        "time_limit_seconds": 5,
+        "validation_reserve_seconds": 2,
+        "construction_item_order_variants": ["current"],
+        "consolidation": {"enabled": False},
+    })
+    request = replace(
+        _request(items=items, containers=containers, configuration=configuration),
+        algorithm_id="validated_best_fit_mes_portfolio",
+        supported_algorithm_ids=frozenset({"validated_best_fit_mes_portfolio"}),
+        candidate_validator=lambda placements: len(placements) == 2,
+    )
+    deadlines: dict[str, float] = {}
+
+    def best_fit(items, containers, settings, *, container_subset_policy):
+        deadlines["best_fit"] = settings["constructive_deadline_monotonic"]
+        return AlgorithmOutcome(
+            SolveResult("FEASIBLE", "bf", 2.0, None, OptimizeResult()),
+            [
+                Placement("I1", "C1", 0, 0, 0, 10, 10, 10, 1),
+                Placement("I2", "C2", 0, 0, 0, 10, 10, 10, 1),
+            ], "best-fit", {},
+        )
+
+    def mes(items, containers, settings, *, container_subset_policy):
+        deadlines["mes"] = settings["constructive_deadline_monotonic"]
+        return AlgorithmOutcome(
+            SolveResult("FEASIBLE", "mes", 1.0, None, OptimizeResult()),
+            [
+                Placement("I1", "C1", 0, 0, 0, 10, 10, 10, 1),
+                Placement("I2", "C1", 10, 0, 0, 10, 10, 10, 1),
+            ], "mes", {},
+        )
+
+    outcome = InventorySearchOrchestrator(monotonic_clock=lambda: 100.0).execute(
+        request, best_fit,
+        constructor_variants=(
+            InventoryConstructorVariant("extreme_point_best_fit", best_fit, 0.65),
+            InventoryConstructorVariant("maximal_space_best_fit", mes, 0.35),
+        ),
+    )
+
+    assert deadlines == {"best_fit": pytest.approx(101.95), "mes": 103.0}
+    assert {value.container_id for value in outcome.placements} == {"C1"}
+    assert outcome.metadata["validated_constructor_portfolio_selected"] == "maximal_space_best_fit"
+    rows = outcome.metadata["validated_constructor_portfolio_variants"]
+    assert [value["independent_validation_status"] for value in rows] == ["VALID", "VALID"]
+    assert [value["selected"] for value in rows] == [False, True]
+
+
+def test_validated_constructor_portfolio_rejects_repair() -> None:
+    configuration = ContainerSearchConfiguration.from_mapping({
+        "enabled": True,
+        "initial_used_container_count": 1,
+        "max_used_container_count": 1,
+        "time_limit_seconds": 10,
+        "validation_reserve_seconds": 2,
+        "consolidation": {"enabled": True, "time_limit_seconds": 3},
+    })
+    executor = lambda *args, **kwargs: _feasible_outcome()
+    with pytest.raises(ValueError, match="does not support consolidation"):
+        InventorySearchOrchestrator().execute(
+            _request(configuration=configuration), executor,
+            constructor_variants=(
+                InventoryConstructorVariant("a", executor, 0.65),
+                InventoryConstructorVariant("b", executor, 0.35),
+            ),
+        )
 
 
 def test_orchestrator_unlimited_mode_has_no_deadline_but_keeps_bounded_variants() -> None:

@@ -13,7 +13,11 @@ from ..algorithms.heuristics.extreme_point_hill_climbing import solve as solve_e
 from ..algorithms.heuristics.maximal_space_best_fit import solve as solve_maximal_space_best_fit
 from ..algorithms.metaheuristics.extreme_point_simulated_annealing import solve as solve_extreme_point_simulated_annealing
 from ..algorithms.orientation import horizontal_orientation_provider
-from ..algorithms.search import exact_support_closures, InventoryLevelAdapter
+from ..algorithms.search import (
+    exact_support_closures,
+    InventoryConstructorVariant,
+    InventoryLevelAdapter,
+)
 from ..schemas import Container, Item, Placement
 from .level_04_validation import validate_solution
 from .stackability import (
@@ -28,7 +32,9 @@ Level04Executor = Callable[[list[Item], list[Container], dict[str, Any]], Algori
 
 _INVENTORY_SEARCH_ALGORITHMS = frozenset({
     "extreme_point_best_fit", "extreme_point_ffd", "maximal_space_best_fit",
+    "validated_best_fit_mes_portfolio",
 })
+_PORTFOLIO_ALGORITHM_ID = "validated_best_fit_mes_portfolio"
 _HORIZONTAL_ORIENTATION_PROVIDER = horizontal_orientation_provider()
 _INVENTORY_ADAPTER = InventoryLevelAdapter(
     level_id="level_04",
@@ -100,8 +106,12 @@ def execute_level_04(
         "extreme_point_hill_climbing": solve_extreme_point_hill_climbing,
         "extreme_point_simulated_annealing": solve_extreme_point_simulated_annealing,
     }
+    constructor_id = (
+        "extreme_point_best_fit"
+        if algorithm_id == _PORTFOLIO_ALGORITHM_ID else algorithm_id
+    )
     try:
-        executor = executors[algorithm_id]
+        executor = executors[constructor_id]
     except KeyError as exc:
         raise ValueError(
             "Level 4 implements Extreme Point FFD, Extreme Point Best Fit, "
@@ -115,40 +125,62 @@ def execute_level_04(
     support_threshold = float(support.get("threshold", 0.8))
     support_epsilon = float(support.get("epsilon_mm", 1e-4))
 
-    def execute_with_stackability(
-        selected_items: list[Item],
-        selected_containers: list[Container],
-        selected_settings: dict[str, Any],
-        *,
-        container_subset_policy: Any = None,
-    ) -> AlgorithmOutcome:
-        support_policy = ExactSupportFeasibilityPolicy(
-            threshold=support_threshold,
-            epsilon_mm=support_epsilon,
-            policy_id="horizontal_orientation_geometry_payload_exact_support",
-        )
-        policy = ExactSupportStackabilityPolicy(
-            attributes=attributes,
-            epsilon_mm=support_epsilon,
-            base=support_policy,
-        )
-        solver_settings = dict(selected_settings)
-        if algorithm_id in {
-            "extreme_point_hill_climbing", "extreme_point_simulated_annealing",
-        }:
-            solver_settings.setdefault("initial_constructor", "extreme_point_best_fit")
-            solver_settings.setdefault("repair_constructor", "extreme_point_best_fit")
-        keyword_arguments: dict[str, Any] = {
-            "policy": policy,
-            "orientation_provider": _HORIZONTAL_ORIENTATION_PROVIDER,
-        }
-        if container_subset_policy is not None:
-            keyword_arguments["container_subset_policy"] = container_subset_policy
-        return executor(
-            selected_items,
-            selected_containers,
-            solver_settings,
-            **keyword_arguments,
+    def make_executor(selected_constructor_id: str):
+        selected_executor = executors[selected_constructor_id]
+
+        def execute_with_stackability(
+            selected_items: list[Item],
+            selected_containers: list[Container],
+            selected_settings: dict[str, Any],
+            *,
+            container_subset_policy: Any = None,
+        ) -> AlgorithmOutcome:
+            support_policy = ExactSupportFeasibilityPolicy(
+                threshold=support_threshold,
+                epsilon_mm=support_epsilon,
+                policy_id="horizontal_orientation_geometry_payload_exact_support",
+            )
+            policy = ExactSupportStackabilityPolicy(
+                attributes=attributes,
+                epsilon_mm=support_epsilon,
+                base=support_policy,
+            )
+            solver_settings = dict(selected_settings)
+            if selected_constructor_id in {
+                "extreme_point_hill_climbing", "extreme_point_simulated_annealing",
+            }:
+                solver_settings.setdefault("initial_constructor", "extreme_point_best_fit")
+                solver_settings.setdefault("repair_constructor", "extreme_point_best_fit")
+            keyword_arguments: dict[str, Any] = {
+                "policy": policy,
+                "orientation_provider": _HORIZONTAL_ORIENTATION_PROVIDER,
+            }
+            if container_subset_policy is not None:
+                keyword_arguments["container_subset_policy"] = container_subset_policy
+            return selected_executor(
+                selected_items,
+                selected_containers,
+                solver_settings,
+                **keyword_arguments,
+            )
+
+        return execute_with_stackability
+
+    execute_with_stackability = make_executor(constructor_id)
+    constructor_variants: tuple[InventoryConstructorVariant, ...] = ()
+    if algorithm_id == _PORTFOLIO_ALGORITHM_ID:
+        search = settings.get("container_search", {})
+        if not bool(search.get("enabled", False)):
+            raise ValueError("Validated constructor portfolio requires inventory search")
+        if bool(search.get("consolidation", {}).get("enabled", False)):
+            raise ValueError("Validated constructor portfolio requires repair disabled")
+        constructor_variants = (
+            InventoryConstructorVariant(
+                "extreme_point_best_fit", make_executor("extreme_point_best_fit"), 0.65,
+            ),
+            InventoryConstructorVariant(
+                "maximal_space_best_fit", make_executor("maximal_space_best_fit"), 0.35,
+            ),
         )
 
     validation = settings.get("validation", {})
@@ -179,4 +211,5 @@ def execute_level_04(
         candidate_validator=candidate_validator,
         secondary_support_threshold=support_threshold,
         secondary_support_epsilon_mm=support_epsilon,
+        constructor_variants=constructor_variants,
     )

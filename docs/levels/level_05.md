@@ -1,5 +1,8 @@
 # Level 5 — Khả năng chịu tải và truyền tải trọng tĩnh
 
+> Candidate đang đánh giá: portfolio bounded Best Fit + MES. Mỗi child candidate
+> phải qua validator Level 5; portfolio chưa phải mặc định và chưa expose trên UI.
+
 Trạng thái: **solver và inventory workflow đã qua gate prefix 20–500 kiện**.
 
 Level 5 kế thừa toàn bộ Level 4 và bổ sung khả năng chịu tải của kiện cùng mô

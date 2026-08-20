@@ -113,6 +113,31 @@ _ALGORITHMS = {
             en="Greedy heuristic that maintains maximal empty spaces through six-way splitting and selects the best space.",
         ),
     ),
+    "validated_best_fit_mes_portfolio": AlgorithmDefinition(
+        algorithm_id="validated_best_fit_mes_portfolio",
+        family="validated_constructor_portfolio",
+        description=(
+            "Bounded Level 4-5 portfolio that independently validates Best Fit "
+            "and MES candidates before selecting the official objective winner"
+        ),
+        supported_levels=("level_04", "level_05"),
+        local_friendly=True,
+        web_visible=False,
+        display_name=LocalizedText(
+            vi="Best Fit + MES — chọn nghiệm tốt hơn",
+            en="Best Fit + MES — validated portfolio",
+        ),
+        localized_description=LocalizedText(
+            vi=(
+                "Thử Best Fit và Maximal Empty Spaces trong cùng ngân sách; "
+                "chỉ giữ nghiệm hoàn chỉnh, hợp lệ và tốt hơn."
+            ),
+            en=(
+                "Runs Best Fit and Maximal Empty Spaces under one budget and "
+                "keeps only the better complete validated solution."
+            ),
+        ),
+    ),
     "milp_big_m": AlgorithmDefinition(
         algorithm_id="milp_big_m",
         family="exact_milp",

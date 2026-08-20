@@ -62,6 +62,7 @@ levels:
       extreme_point_hill_climbing: {execution_class: packing_solver, maturity: accepted, role: balanced, exposure: [cli, benchmark, streamlit]}
       extreme_point_simulated_annealing: {execution_class: packing_solver, maturity: accepted, role: quality, exposure: [cli, benchmark, streamlit]}
       maximal_space_best_fit: {execution_class: packing_solver, maturity: accepted, role: geometric_comparator, exposure: [cli, benchmark, streamlit]}
+      validated_best_fit_mes_portfolio: {execution_class: packing_solver, maturity: experimental, role: validated_constructor_portfolio, exposure: [cli, benchmark]}
 
   level_05:
     maturity: accepted_research
@@ -75,6 +76,7 @@ levels:
       extreme_point_hill_climbing: {execution_class: packing_solver, maturity: accepted, role: balanced, exposure: [cli, benchmark, streamlit]}
       extreme_point_simulated_annealing: {execution_class: packing_solver, maturity: accepted, role: quality, exposure: [cli, benchmark, streamlit]}
       maximal_space_best_fit: {execution_class: packing_solver, maturity: accepted, role: geometric_comparator, exposure: [cli, benchmark, streamlit]}
+      validated_best_fit_mes_portfolio: {execution_class: packing_solver, maturity: experimental, role: validated_constructor_portfolio, exposure: [cli, benchmark]}
 
   level_06:
     maturity: experimental

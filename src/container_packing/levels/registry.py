@@ -542,6 +542,7 @@ _LEVELS["level_04"] = LevelDefinition(
         "extreme_point_ffd", "extreme_point_best_fit", "extreme_point_hill_climbing",
         "extreme_point_simulated_annealing",
         "maximal_space_best_fit",
+        "validated_best_fit_mes_portfolio",
     ),
     run=level_04.run,
     prepare=level_04.prepare,
@@ -615,6 +616,7 @@ _LEVELS["level_05"] = LevelDefinition(
     supported_algorithms=(
         "extreme_point_best_fit", "extreme_point_ffd", "extreme_point_hill_climbing",
         "extreme_point_simulated_annealing", "maximal_space_best_fit",
+        "validated_best_fit_mes_portfolio",
     ),
     run=level_05.run,
     prepare=level_05.prepare,

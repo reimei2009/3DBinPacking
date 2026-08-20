@@ -52,19 +52,23 @@ def test_registry_only_exposes_runnable_implementations():
         "extreme_point_best_fit", "extreme_point_ffd", "extreme_point_hill_climbing",
         "extreme_point_simulated_annealing",
         "maximal_space_best_fit",
+        "validated_best_fit_mes_portfolio",
     ]
     assert get_level("level_04").supported_algorithms == (
         "extreme_point_ffd", "extreme_point_best_fit", "extreme_point_hill_climbing",
         "extreme_point_simulated_annealing",
         "maximal_space_best_fit",
+        "validated_best_fit_mes_portfolio",
     )
     assert [value.algorithm_id for value in list_algorithms(level_id="level_05")] == [
         "extreme_point_best_fit", "extreme_point_ffd", "extreme_point_hill_climbing",
         "extreme_point_simulated_annealing", "maximal_space_best_fit",
+        "validated_best_fit_mes_portfolio",
     ]
     assert get_level("level_05").supported_algorithms == (
         "extreme_point_best_fit", "extreme_point_ffd", "extreme_point_hill_climbing",
         "extreme_point_simulated_annealing", "maximal_space_best_fit",
+        "validated_best_fit_mes_portfolio",
     )
     assert [value.algorithm_id for value in list_algorithms(level_id="level_06")] == [
         "extreme_point_best_fit_nesting_fixture",

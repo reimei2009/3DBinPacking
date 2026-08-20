@@ -68,7 +68,10 @@ def _settings(root: Path, *, enabled: bool = True) -> dict:
 
 @pytest.mark.parametrize(
     "algorithm_id",
-    ["extreme_point_best_fit", "extreme_point_ffd", "maximal_space_best_fit"],
+    [
+        "extreme_point_best_fit", "extreme_point_ffd", "maximal_space_best_fit",
+        "validated_best_fit_mes_portfolio",
+    ],
 )
 def test_level4_inventory_uses_catalog_rotation_and_stackability(
     root: Path, algorithm_id: str,
@@ -95,6 +98,27 @@ def test_level4_inventory_uses_catalog_rotation_and_stackability(
     assert {value.orientation_code for value in outcome.placements} == {"YXZ"}
     assert len(relations) == 1
     assert outcome.metadata["inventory_physical_container_count"] == 3
+    if algorithm_id == "validated_best_fit_mes_portfolio":
+        assert outcome.metadata["validated_constructor_portfolio_selected"] in {
+            "extreme_point_best_fit", "maximal_space_best_fit",
+        }
+        assert len(outcome.metadata["validated_constructor_portfolio_variants"]) == 2
+
+
+def test_level4_portfolio_requires_inventory_and_repair_disabled(root: Path) -> None:
+    with pytest.raises(ValueError, match="requires inventory search"):
+        execute_level_04(
+            "validated_best_fit_mes_portfolio",
+            [_item("I1")], _containers(), _settings(root, enabled=False),
+        )
+    settings = _settings(root)
+    settings["container_search"]["consolidation"] = {
+        "enabled": True, "time_limit_seconds": 1,
+    }
+    with pytest.raises(ValueError, match="requires repair disabled"):
+        execute_level_04(
+            "validated_best_fit_mes_portfolio", [_item("I1")], _containers(), settings,
+        )
 
 
 @pytest.mark.parametrize(
@@ -180,8 +204,12 @@ def test_level4_inventory_config_is_isolated_and_solver_qualified(
     assert config["dataset_policy"]["expected_usage_class"] == "solver_research"
 
 
+@pytest.mark.parametrize("algorithm_id", [
+    "extreme_point_best_fit",
+    "validated_best_fit_mes_portfolio",
+])
 def test_level4_inventory_pipeline_writes_isolated_valid_rotated_stack(
-    root: Path, tmp_path: Path,
+    root: Path, tmp_path: Path, algorithm_id: str,
 ) -> None:
     raw_items = tmp_path / "items.csv"
     raw_items.write_text(
@@ -224,7 +252,7 @@ def test_level4_inventory_pipeline_writes_isolated_valid_rotated_stack(
     )
 
     result = run_experiment(ExperimentRequest(
-        "level_04", "extreme_point_best_fit", config_path, 2, 1,
+        "level_04", algorithm_id, config_path, 2, 1,
     ))
 
     assert result.solve.status == "FEASIBLE"

@@ -7,6 +7,7 @@ chính thức hay solver. Mọi so sánh chất lượng đều khóa theo input
 from __future__ import annotations
 
 from itertools import combinations
+import json
 
 import pandas as pd
 
@@ -19,6 +20,125 @@ _REPAIR_COMPARISON_COLUMNS = [
     "repair_runtime_p50_seconds", "repair_termination_reason", "outcome",
     "incumbent_preserved",
 ]
+
+
+def build_constructor_portfolio_comparison(results: pd.DataFrame) -> pd.DataFrame:
+    """Materialize paired Best Fit/MES evidence embedded in portfolio executions."""
+
+    columns = [
+        "level", "case_id", "random_seed", "repeat", "input_fingerprint",
+        "selected_constructor", "selected_used_container_count",
+        "selected_total_container_cost", "best_fit_status", "best_fit_validation",
+        "best_fit_used_container_count", "best_fit_total_container_cost",
+        "best_fit_runtime_seconds", "mes_status", "mes_validation",
+        "mes_used_container_count", "mes_total_container_cost", "mes_runtime_seconds",
+        "selected_matches_best_child", "outcome_vs_best_fit",
+        "portfolio_runtime_seconds", "runtime_ratio_vs_best_fit",
+        "incumbent_preserved",
+    ]
+    if results.empty or "validated_constructor_portfolio_enabled" not in results:
+        return pd.DataFrame(columns=columns)
+    rows: list[dict[str, object]] = []
+    portfolio = results[
+        results["validated_constructor_portfolio_enabled"].fillna(False).astype(bool)
+    ]
+    for _, record in portfolio.iterrows():
+        raw = record.get("validated_constructor_portfolio_variants_json", "[]")
+        variants = json.loads(raw) if isinstance(raw, str) else list(raw or [])
+        by_id = {str(value.get("constructor_id")): value for value in variants}
+        best_fit = by_id.get("extreme_point_best_fit", {})
+        mes = by_id.get("maximal_space_best_fit", {})
+        best_fit_objective = _portfolio_objective(best_fit)
+        mes_objective = _portfolio_objective(mes)
+        valid_objectives = [
+            value for value in (best_fit_objective, mes_objective) if value is not None
+        ]
+        selected_objective = _row_objective(record)
+        expected = min(valid_objectives) if valid_objectives else None
+        bf_runtime = _optional_float(best_fit.get("runtime_seconds"))
+        portfolio_runtime = _optional_float(
+            record.get("validated_constructor_portfolio_runtime_seconds")
+        )
+        rows.append({
+            "level": record.get("level"),
+            "case_id": record.get("case_id", record.get("scenario_id")),
+            "random_seed": record.get("random_seed"),
+            "repeat": record.get("repeat"),
+            "input_fingerprint": record.get("input_fingerprint"),
+            "selected_constructor": record.get(
+                "validated_constructor_portfolio_selected"
+            ),
+            "selected_used_container_count": (
+                None if selected_objective is None else selected_objective[0]
+            ),
+            "selected_total_container_cost": (
+                None if selected_objective is None else selected_objective[1]
+            ),
+            "best_fit_status": best_fit.get("status"),
+            "best_fit_validation": best_fit.get("independent_validation_status"),
+            "best_fit_used_container_count": (
+                None if best_fit_objective is None else best_fit_objective[0]
+            ),
+            "best_fit_total_container_cost": (
+                None if best_fit_objective is None else best_fit_objective[1]
+            ),
+            "best_fit_runtime_seconds": bf_runtime,
+            "mes_status": mes.get("status"),
+            "mes_validation": mes.get("independent_validation_status"),
+            "mes_used_container_count": (
+                None if mes_objective is None else mes_objective[0]
+            ),
+            "mes_total_container_cost": (
+                None if mes_objective is None else mes_objective[1]
+            ),
+            "mes_runtime_seconds": _optional_float(mes.get("runtime_seconds")),
+            "selected_matches_best_child": selected_objective == expected,
+            "outcome_vs_best_fit": _paired_outcome(selected_objective, best_fit_objective),
+            "portfolio_runtime_seconds": portfolio_runtime,
+            "runtime_ratio_vs_best_fit": (
+                None
+                if bf_runtime in {None, 0.0} or portfolio_runtime is None
+                else portfolio_runtime / bf_runtime
+            ),
+            "incumbent_preserved": record.get(
+                "validated_constructor_portfolio_incumbent_preserved"
+            ),
+        })
+    return pd.DataFrame(rows, columns=columns)
+
+
+def _portfolio_objective(value: dict[str, object]) -> tuple[int, float] | None:
+    if value.get("independent_validation_status") != "VALID":
+        return None
+    objective = value.get("objective")
+    if not isinstance(objective, dict):
+        return None
+    return int(objective["used_container_count"]), float(objective["total_container_cost"])
+
+
+def _row_objective(value: pd.Series) -> tuple[int, float] | None:
+    if not bool(value.get("success", False)):
+        return None
+    count = value.get("used_container_count")
+    cost = value.get("total_container_cost")
+    if pd.isna(count) or pd.isna(cost):
+        return None
+    return int(count), float(cost)
+
+
+def _paired_outcome(
+    selected: tuple[int, float] | None,
+    baseline: tuple[int, float] | None,
+) -> str:
+    if selected is None or baseline is None:
+        return "UNAVAILABLE"
+    return "WIN" if selected < baseline else "TIE" if selected == baseline else "LOSS"
+
+
+def _optional_float(value: object) -> float | None:
+    if value is None or pd.isna(value):
+        return None
+    return float(value)
 
 
 def _official_rows(results: pd.DataFrame) -> pd.DataFrame:

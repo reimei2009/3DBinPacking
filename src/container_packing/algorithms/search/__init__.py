@@ -41,6 +41,7 @@ from .subset_generation import (
     midpoint_cardinality_ladder,
 )
 from .inventory_orchestration import (
+    InventoryConstructorVariant,
     InventoryConstructiveExecutor,
     InventorySearchOrchestrator,
     InventorySearchRequest,
@@ -69,6 +70,7 @@ __all__ = [
     "HardPrecheckResult",
     "InventorySearchLimits",
     "InventoryConstructiveExecutor",
+    "InventoryConstructorVariant",
     "InventorySearchOrchestrator",
     "InventorySearchRequest",
     "InventoryLevelAdapter",

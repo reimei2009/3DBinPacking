@@ -68,7 +68,10 @@ def _settings(root: Path, *, enabled: bool = True) -> dict:
 
 @pytest.mark.parametrize(
     "algorithm_id",
-    ["extreme_point_best_fit", "extreme_point_ffd", "maximal_space_best_fit"],
+    [
+        "extreme_point_best_fit", "extreme_point_ffd", "maximal_space_best_fit",
+        "validated_best_fit_mes_portfolio",
+    ],
 )
 def test_level5_inventory_uses_rotation_and_validates_recursive_load(
     root: Path, algorithm_id: str,
@@ -91,6 +94,11 @@ def test_level5_inventory_uses_rotation_and_validates_recursive_load(
     assert {value.orientation_code for value in outcome.placements} == {"YXZ"}
     assert len(checked.edges) == 1
     assert outcome.metadata["inventory_physical_container_count"] == 3
+    if algorithm_id == "validated_best_fit_mes_portfolio":
+        assert outcome.metadata["validated_constructor_portfolio_selected"] in {
+            "extreme_point_best_fit", "maximal_space_best_fit",
+        }
+        assert len(outcome.metadata["validated_constructor_portfolio_variants"]) == 2
 
 
 @pytest.mark.parametrize(
@@ -202,8 +210,12 @@ def test_level5_inventory_config_is_isolated_and_solver_qualified(
     assert config["dataset_policy"]["expected_usage_class"] == "solver_research"
 
 
+@pytest.mark.parametrize("algorithm_id", [
+    "extreme_point_best_fit",
+    "validated_best_fit_mes_portfolio",
+])
 def test_level5_inventory_pipeline_writes_isolated_valid_load_graph(
-    root: Path, tmp_path: Path,
+    root: Path, tmp_path: Path, algorithm_id: str,
 ) -> None:
     raw_items = tmp_path / "items.csv"
     raw_items.write_text(
@@ -246,7 +258,7 @@ def test_level5_inventory_pipeline_writes_isolated_valid_load_graph(
     )
 
     result = run_experiment(ExperimentRequest(
-        "level_05", "extreme_point_best_fit", config_path, 2, 1,
+        "level_05", algorithm_id, config_path, 2, 1,
     ))
 
     assert result.solve.status == "FEASIBLE"

@@ -29,6 +29,8 @@ Tài liệu trình bày tổng hợp hiện tại:
 - [Benchmark chuẩn Level 2](benchmarks/level_02_benchmark_v2.md)
 - [Profiling runtime Benchmark V2 Level 2](benchmarks/level_02_runtime_profiling.md)
 - [A/B repair UI Level 3](benchmarks/level_03_repair_ui_ab.md)
+- [Portfolio Best Fit + MES cho Level 4–5](benchmarks/validated_constructor_portfolio_level4_5.md)
+- [ADR-0048 — Portfolio Best Fit và MES có kiểm định](decisions/ADR-0048-validated-best-fit-mes-portfolio.md)
 - [Evidence repair UI Level 3 ngày 2026-08-17](reports/manual/level_03_repair_ui_acceptance_20260817.md)
 - [Evidence canonical Level 2 ngày 2026-08-13](reports/manual/level_02_canonical_benchmark_20260813.md)
 - [Corpus nghiên cứu Level 1](benchmarks/level1_research_corpus.md)

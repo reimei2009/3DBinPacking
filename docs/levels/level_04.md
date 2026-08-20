@@ -1,5 +1,8 @@
 # Level 4 — Quy tắc xếp chồng
 
+> Candidate đang đánh giá: portfolio bounded Best Fit + MES có independent
+> validation. Portfolio chưa phải mặc định, repair bị tắt và chưa expose trên UI.
+
 ## Trạng thái
 
 Level 4 đã có orientation ngang, exact support, stackability policy, independent

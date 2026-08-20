@@ -12,6 +12,7 @@ from .configuration import ContainerSearchConfiguration
 from .incumbent import CandidateValidator
 from .inventory_consolidation import SupportClosureProvider
 from .inventory_orchestration import (
+    InventoryConstructorVariant,
     InventoryConstructiveExecutor,
     InventorySearchOrchestrator,
     InventorySearchRequest,
@@ -46,6 +47,7 @@ class InventoryLevelAdapter:
         support_closure_provider: SupportClosureProvider | None = None,
         secondary_support_threshold: float | None = None,
         secondary_support_epsilon_mm: float = 1e-4,
+        constructor_variants: tuple[InventoryConstructorVariant, ...] = (),
     ) -> AlgorithmOutcome:
         search = ContainerSearchConfiguration.from_mapping(
             settings.get("container_search")
@@ -69,4 +71,5 @@ class InventoryLevelAdapter:
                 secondary_support_epsilon_mm=secondary_support_epsilon_mm,
             ),
             executor,
+            constructor_variants=constructor_variants,
         )

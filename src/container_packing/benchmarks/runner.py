@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
+import json
 from pathlib import Path
 from time import perf_counter
 from typing import Any, Sequence
@@ -299,6 +300,26 @@ def execute_experiment_case(request: ExperimentRequest, repeat_index: int) -> di
         ),
         "validated_incumbent_candidates_considered": metadata.get(
             "validated_incumbent_candidates_considered"
+        ),
+        "validated_constructor_portfolio_enabled": metadata.get(
+            "validated_constructor_portfolio_enabled", False,
+        ),
+        "validated_constructor_portfolio_policy": metadata.get(
+            "validated_constructor_portfolio_policy"
+        ),
+        "validated_constructor_portfolio_selected": metadata.get(
+            "validated_constructor_portfolio_selected"
+        ),
+        "validated_constructor_portfolio_runtime_seconds": metadata.get(
+            "validated_constructor_portfolio_runtime_seconds"
+        ),
+        "validated_constructor_portfolio_incumbent_preserved": metadata.get(
+            "validated_constructor_portfolio_incumbent_preserved"
+        ),
+        "validated_constructor_portfolio_variants_json": json.dumps(
+            metadata.get("validated_constructor_portfolio_variants", []),
+            sort_keys=True,
+            ensure_ascii=False,
         ),
         "search_termination_reason": canonical_termination_reason(metadata),
     }

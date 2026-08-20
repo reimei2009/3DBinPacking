@@ -30,6 +30,7 @@ from .distribution import (
     build_case_algorithm_summary,
     build_case_differences,
     build_case_features,
+    build_constructor_portfolio_comparison,
     build_determinism_evidence,
     build_distribution_summary,
     build_pairwise_outcomes,
@@ -676,6 +677,7 @@ def run_benchmark_corpus(
     distribution_summary = build_distribution_summary(results)
     determinism_evidence = build_determinism_evidence(results)
     repair_comparison = build_repair_comparison(results)
+    constructor_portfolio_comparison = build_constructor_portfolio_comparison(results)
     selection_overlap = build_selection_overlap(selections_by_case)
 
     results.to_csv(benchmark_dir / "results.csv", index=False, encoding="utf-8")
@@ -693,6 +695,11 @@ def run_benchmark_corpus(
     distribution_summary.to_csv(benchmark_dir / "distribution_summary.csv", index=False, encoding="utf-8")
     determinism_evidence.to_csv(benchmark_dir / "determinism_evidence.csv", index=False, encoding="utf-8")
     repair_comparison.to_csv(benchmark_dir / "repair_comparison.csv", index=False, encoding="utf-8")
+    constructor_portfolio_comparison.to_csv(
+        benchmark_dir / "constructor_portfolio_comparison.csv",
+        index=False,
+        encoding="utf-8",
+    )
     selection_overlap.to_csv(benchmark_dir / "selection_overlap.csv", index=False, encoding="utf-8")
     write_json(benchmark_dir / "summary.json", {
         "schema_version": OUTPUT_SCHEMA_VERSION,
@@ -756,6 +763,7 @@ def run_benchmark_corpus(
                 "benchmark/case_algorithm_summary.csv", "benchmark/case_differences.csv",
                 "benchmark/distribution_summary.csv",
                 "benchmark/determinism_evidence.csv", "benchmark/repair_comparison.csv",
+                "benchmark/constructor_portfolio_comparison.csv",
                 "benchmark/selection_overlap.csv",
             ],
             "diagnostics": ["logs/run.log"],

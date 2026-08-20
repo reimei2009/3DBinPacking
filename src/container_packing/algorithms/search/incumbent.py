@@ -54,6 +54,7 @@ class ValidatedIncumbentStore:
         self.candidates_rejected_not_better = 0
         self.candidates_rejected_invalid = 0
         self.improvements_accepted = 0
+        self.last_decision = "NOT_CONSIDERED"
 
     @property
     def record(self) -> ValidatedIncumbent | None:
@@ -67,27 +68,38 @@ class ValidatedIncumbentStore:
     def objective(self) -> OfficialObjective | None:
         return None if self._record is None else self._record.objective
 
-    def consider(self, outcome: AlgorithmOutcome) -> bool:
+    def consider(
+        self,
+        outcome: AlgorithmOutcome,
+        *,
+        validate_non_improving: bool = False,
+    ) -> bool:
         """Kiểm định và nhận candidate nếu nó cải thiện objective chính thức."""
 
         self.candidates_considered += 1
         if not self._is_complete(outcome):
             self.candidates_rejected_incomplete += 1
+            self.last_decision = "INCOMPLETE"
             return False
         objective = self._objective(outcome.placements)
-        if self._record is not None and objective > self._record.objective:
-            self.candidates_rejected_not_better += 1
-            return False
-        if (
+        official_not_better = bool(
             self._record is not None
-            and objective == self._record.objective
-            and self._secondary_score_factory is None
-        ):
+            and (
+                objective > self._record.objective
+                or (
+                    objective == self._record.objective
+                    and self._secondary_score_factory is None
+                )
+            )
+        )
+        if official_not_better and not validate_non_improving:
             self.candidates_rejected_not_better += 1
+            self.last_decision = "NOT_BETTER_NOT_VALIDATED"
             return False
         self.candidates_validated += 1
         if not self._validator(outcome.placements):
             self.candidates_rejected_invalid += 1
+            self.last_decision = "INVALID"
             return False
         secondary_score = (
             None
@@ -102,6 +114,11 @@ class ValidatedIncumbentStore:
             and secondary_score >= self._record.secondary_score
         ):
             self.candidates_rejected_not_better += 1
+            self.last_decision = "VALID_NOT_BETTER"
+            return False
+        if official_not_better:
+            self.candidates_rejected_not_better += 1
+            self.last_decision = "VALID_NOT_BETTER"
             return False
         self._record = ValidatedIncumbent(
             outcome=outcome,
@@ -110,6 +127,7 @@ class ValidatedIncumbentStore:
             secondary_score=secondary_score,
         )
         self.improvements_accepted += 1
+        self.last_decision = "VALID_ACCEPTED"
         return True
 
     def metadata(self) -> dict[str, object]:

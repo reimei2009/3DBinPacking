@@ -12,7 +12,11 @@ from ..algorithms.heuristics.extreme_point_hill_climbing import solve as solve_e
 from ..algorithms.heuristics.maximal_space_best_fit import solve as solve_maximal_space_best_fit
 from ..algorithms.metaheuristics.extreme_point_simulated_annealing import solve as solve_extreme_point_simulated_annealing
 from ..algorithms.orientation import horizontal_orientation_provider
-from ..algorithms.search import exact_support_closures, InventoryLevelAdapter
+from ..algorithms.search import (
+    exact_support_closures,
+    InventoryConstructorVariant,
+    InventoryLevelAdapter,
+)
 from ..schemas import Container, Item, Placement
 from .level_04_algorithms import ExactSupportStackabilityPolicy
 from .level_04_validation import validate_solution as validate_level4_solution
@@ -28,7 +32,9 @@ from .stackability import (
 
 _INVENTORY_SEARCH_ALGORITHMS = frozenset({
     "extreme_point_best_fit", "extreme_point_ffd", "maximal_space_best_fit",
+    "validated_best_fit_mes_portfolio",
 })
+_PORTFOLIO_ALGORITHM_ID = "validated_best_fit_mes_portfolio"
 _HORIZONTAL_ORIENTATION_PROVIDER = horizontal_orientation_provider()
 _INVENTORY_ADAPTER = InventoryLevelAdapter(
     level_id="level_05",
@@ -118,8 +124,12 @@ def execute_level_05(
         "extreme_point_hill_climbing": solve_extreme_point_hill_climbing,
         "extreme_point_simulated_annealing": solve_extreme_point_simulated_annealing,
     }
+    constructor_id = (
+        "extreme_point_best_fit"
+        if algorithm_id == _PORTFOLIO_ALGORITHM_ID else algorithm_id
+    )
     try:
-        executor = executors[algorithm_id]
+        executor = executors[constructor_id]
     except KeyError as exc:
         raise ValueError(
             "Level 5 implements Extreme Point Best Fit, FFD, Maximal Empty Spaces "
@@ -142,34 +152,54 @@ def execute_level_05(
         item.item_id: attributes_for_item(item, stack_settings) for item in items
     }
 
-    def execute_with_load_bearing(
-        selected_items: list[Item],
-        selected_containers: list[Container],
-        selected_settings: dict[str, Any],
-        *,
-        container_subset_policy: Any = None,
-    ):
-        # Partial repack may pass only the items being rebuilt while retaining
-        # seeded placements. The load graph still needs attributes for every
-        # original item, including those seeded placements.
-        load_policy = build_level_05_feasibility_policy(items, selected_settings)
-        solver_settings = dict(selected_settings)
-        if algorithm_id in {
-            "extreme_point_hill_climbing", "extreme_point_simulated_annealing",
-        }:
-            solver_settings.setdefault("initial_constructor", "extreme_point_best_fit")
-            solver_settings.setdefault("repair_constructor", "extreme_point_best_fit")
-        keyword_arguments: dict[str, Any] = {
-            "policy": load_policy,
-            "orientation_provider": _HORIZONTAL_ORIENTATION_PROVIDER,
-        }
-        if container_subset_policy is not None:
-            keyword_arguments["container_subset_policy"] = container_subset_policy
-        return executor(
-            selected_items,
-            selected_containers,
-            solver_settings,
-            **keyword_arguments,
+    def make_executor(selected_constructor_id: str):
+        selected_executor = executors[selected_constructor_id]
+
+        def execute_with_load_bearing(
+            selected_items: list[Item],
+            selected_containers: list[Container],
+            selected_settings: dict[str, Any],
+            *,
+            container_subset_policy: Any = None,
+        ):
+            # Seeded placements still require attributes from every original item.
+            load_policy = build_level_05_feasibility_policy(items, selected_settings)
+            solver_settings = dict(selected_settings)
+            if selected_constructor_id in {
+                "extreme_point_hill_climbing", "extreme_point_simulated_annealing",
+            }:
+                solver_settings.setdefault("initial_constructor", "extreme_point_best_fit")
+                solver_settings.setdefault("repair_constructor", "extreme_point_best_fit")
+            keyword_arguments: dict[str, Any] = {
+                "policy": load_policy,
+                "orientation_provider": _HORIZONTAL_ORIENTATION_PROVIDER,
+            }
+            if container_subset_policy is not None:
+                keyword_arguments["container_subset_policy"] = container_subset_policy
+            return selected_executor(
+                selected_items,
+                selected_containers,
+                solver_settings,
+                **keyword_arguments,
+            )
+
+        return execute_with_load_bearing
+
+    execute_with_load_bearing = make_executor(constructor_id)
+    constructor_variants: tuple[InventoryConstructorVariant, ...] = ()
+    if algorithm_id == _PORTFOLIO_ALGORITHM_ID:
+        search = settings.get("container_search", {})
+        if not bool(search.get("enabled", False)):
+            raise ValueError("Validated constructor portfolio requires inventory search")
+        if bool(search.get("consolidation", {}).get("enabled", False)):
+            raise ValueError("Validated constructor portfolio requires repair disabled")
+        constructor_variants = (
+            InventoryConstructorVariant(
+                "extreme_point_best_fit", make_executor("extreme_point_best_fit"), 0.65,
+            ),
+            InventoryConstructorVariant(
+                "maximal_space_best_fit", make_executor("maximal_space_best_fit"), 0.35,
+            ),
         )
 
     def candidate_validator(placements: list[Placement]) -> bool:
@@ -212,6 +242,7 @@ def execute_level_05(
         ),
         secondary_support_threshold=support_threshold,
         secondary_support_epsilon_mm=support_epsilon,
+        constructor_variants=constructor_variants,
     )
 
 
