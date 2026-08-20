@@ -4,6 +4,9 @@
 
 - Thêm observer chẩn đoán deadline MES bằng wall/performance/CPU/active clock, checkpoint
   theo operation và suite diagnostic Level 4–5; không thay deadline, solver hay objective.
+- Đóng điều tra MES deadline reliability với 18/18 lượt hợp lệ, 6 nhóm deterministic,
+  không có overshoot hoặc nhiễu môi trường; không cần cooperative hardening/watchdog.
+  Portfolio V1 vẫn `NOT_PROMOTED` và MES tiếp tục là research comparator.
 
 - Bảo toàn quy mô input, lý do dừng và diagnostic của solver khi construction,
   validation hoặc reporting thất bại; official objective của failure row luôn rỗng.

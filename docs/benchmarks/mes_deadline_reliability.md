@@ -23,7 +23,8 @@ Chạy tuần tự và không để máy sleep. Sau đó tạo report:
 .\.venv\Scripts\python.exe .\scripts\build_mes_deadline_reliability_report.py `
   --level-04-run <thu-muc-run-level-04> `
   --level-05-run <thu-muc-run-level-05> `
-  --output-dir docs\reports\manual\mes_deadline_reliability_20260820
+  --output-dir docs\reports\manual `
+  --expected-source-commit <commit-cua-hai-run>
 ```
 
 ## Cách đọc
@@ -37,3 +38,15 @@ Chạy tuần tự và không để máy sleep. Sau đó tạo report:
 Nếu toàn bộ evidence sạch, operation dài nhất không quá 1 giây và overshoot không vượt
 1,8 giây thì không sửa cooperative MES. Nếu vượt gate, report chỉ rõ operation để mở
 đúng một batch hardening. Chưa dùng subprocess watchdog ở checkpoint này.
+
+## Kết quả chính thức
+
+Hai run ngày 2026-08-20 đạt 18/18 lượt `FEASIBLE + VALID`, 6 nhóm case–algorithm
+deterministic và không có execution nhiễu môi trường. Overshoot lớn nhất bằng 0 giây;
+operation dài nhất là `exact_support`, khoảng 0,01093 giây. Quyết định là
+`NO_COOPERATIVE_HARDENING_REQUIRED`: không cần sửa cooperative deadline hoặc thêm
+subprocess watchdog.
+
+Kết quả này không thay đổi quyết định Portfolio V1 `NOT_PROMOTED`. Report có checksum và
+provenance đầy đủ nằm tại
+[MES deadline reliability ngày 2026-08-20](../reports/manual/mes_deadline_reliability_20260820.md).

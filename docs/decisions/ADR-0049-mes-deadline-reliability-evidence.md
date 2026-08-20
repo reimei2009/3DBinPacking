@@ -2,7 +2,7 @@
 
 ## Trạng thái
 
-Accepted for diagnostic — 2026-08-20.
+Investigation complete — `NO_COOPERATIVE_HARDENING_REQUIRED`, 2026-08-20.
 
 ## Bối cảnh
 
@@ -24,10 +24,18 @@ Portfolio V1 vẫn là `NOT_PROMOTED`; quyết định này không diễn giải
 - Run nhiễu môi trường được giữ nguyên nhưng không đủ điều kiện acceptance.
 - Chỉ mở hardening khi active-time operation vượt 1 giây hoặc overshoot sạch vượt
   `max(1 giây, 1% deadline)`.
+- Evidence chính thức gồm 18/18 lượt `FEASIBLE + VALID`, 6 nhóm deterministic,
+  không có execution nhiễu môi trường và không có deadline overshoot.
+- Operation dài nhất là `exact_support`, khoảng 0,01093 giây. Không mở cooperative
+  hardening và không dùng subprocess watchdog.
 
 ## Hệ quả và giới hạn
 
 Telemetry mặc định tắt và chỉ bật trong suite diagnostic. Các run diagnostic không tham
 gia canonical ranking. Independent validator tiếp tục chạy đường riêng không dùng
 observer. Portable fallback không thể tách Modern Standby chi tiết như Windows.
-Level 6 tiếp tục đóng băng.
+Portfolio V1 tiếp tục `NOT_PROMOTED`; evidence mới không đảo ngược gate runtime và
+deterministic Level 5. MES tiếp tục là research comparator và Level 6 tiếp tục đóng băng.
+
+Report đã khóa checksum và provenance tại
+[MES deadline reliability ngày 2026-08-20](../reports/manual/mes_deadline_reliability_20260820.md).

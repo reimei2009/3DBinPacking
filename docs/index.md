@@ -39,6 +39,7 @@ Tài liệu trình bày tổng hợp hiện tại:
 - [ADR-0047 — Bảo toàn evidence khi pipeline thất bại](decisions/ADR-0047-bao-toan-evidence-khi-pipeline-that-bai.md)
 - [Chẩn đoán deadline MES Level 4–5](benchmarks/mes_deadline_reliability.md)
 - [ADR-0049 — Evidence độ tin cậy deadline MES](decisions/ADR-0049-mes-deadline-reliability-evidence.md)
+- [Evidence MES deadline reliability ngày 2026-08-20](reports/manual/mes_deadline_reliability_20260820.md)
 
 ## Hướng dẫn vận hành
 
