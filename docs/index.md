@@ -40,6 +40,8 @@ Tài liệu trình bày tổng hợp hiện tại:
 - [Chẩn đoán deadline MES Level 4–5](benchmarks/mes_deadline_reliability.md)
 - [ADR-0049 — Evidence độ tin cậy deadline MES](decisions/ADR-0049-mes-deadline-reliability-evidence.md)
 - [Evidence MES deadline reliability ngày 2026-08-20](reports/manual/mes_deadline_reliability_20260820.md)
+- [ADR-0050 — Governance objective và benchmark canonical](decisions/ADR-0050-objective-va-benchmark-governance.md)
+- [Review MES Level 4–5 ngày 2026-08-20](reports/manual/level_04_05_mes_comparator_review_20260820.md)
 
 ## Hướng dẫn vận hành
 

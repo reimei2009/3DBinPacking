@@ -28,10 +28,12 @@ def main(argv: list[str] | None = None) -> int:
         "prefix_regression": args.prefix_run_dir,
     })
     json_path, markdown_path = write_stratified_evidence(report, args.output_prefix)
-    print(f"Status : {report['status']}")
+    print(f"Functional gate : {report['functional_gate']['status']}")
+    print(f"Provenance gate : {report['provenance_gate']['status']}")
+    print(f"Decision        : {report['governance_decision']}")
     print(f"JSON   : {json_path}")
     print(f"Report : {markdown_path}")
-    return 0 if report["status"] == "PASS" else 2
+    return 0 if report["promotion_to_canonical_allowed"] else 2
 
 
 if __name__ == "__main__":

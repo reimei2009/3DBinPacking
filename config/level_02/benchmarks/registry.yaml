@@ -8,6 +8,7 @@ benchmarks:
     protocol_file: config/level_02/benchmarks/generated_1k_500_random_candidate.yaml
     run_mode: cli_manual
     baseline_algorithm: extreme_point_best_fit
+    governance_status: canonical_pending_clean_rerun
   - benchmark_id: level_02_generated_stress_v2_candidate
     level_id: level_02
     kind: research
@@ -16,6 +17,7 @@ benchmarks:
     protocol_file: config/level_02/benchmarks/generated_1k_500_stress_candidate.yaml
     run_mode: cli_manual
     baseline_algorithm: extreme_point_best_fit
+    governance_status: canonical_pending_clean_rerun
   - benchmark_id: level_02_generated_prefix_v2_candidate
     level_id: level_02
     kind: research
@@ -24,6 +26,7 @@ benchmarks:
     protocol_file: config/level_02/benchmarks/generated_1k_500_prefix_regression.yaml
     run_mode: cli_manual
     baseline_algorithm: extreme_point_best_fit
+    governance_status: canonical_pending_clean_rerun
   - benchmark_id: level_02_generated_canonical_v1
     level_id: level_02
     kind: canonical
@@ -32,6 +35,7 @@ benchmarks:
     protocol_file: config/level_02/benchmarks/generated_1k_500_distribution_corpus.yaml
     run_mode: cli_manual
     baseline_algorithm: extreme_point_best_fit
+    governance_status: canonical_active
   - benchmark_id: level_02_generated_quick_v3
     level_id: level_02
     kind: canonical

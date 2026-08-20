@@ -174,8 +174,10 @@ Ba protocol chạy tuần tự:
 ```
 
 Sau khi cả ba hoàn thành, report promotion được tạo bằng một command với ba run
-directory cụ thể. Report chỉ trả `PASS` khi đủ 84 bài, 756 lượt, mọi success được
+directory cụ thể. Functional gate yêu cầu đủ 84 bài, 756 lượt, mọi success được
 validator độc lập xác nhận `VALID`, và 252 nhóm bài–thuật toán deterministic.
+Provenance gate còn yêu cầu cùng source commit, `git_dirty=false` và checksum khớp
+cho manifest, results, determinism và pairwise artifact.
 
 ```powershell
 .\.venv\Scripts\python.exe .\scripts\build_level2_stratified_benchmark_report.py `
@@ -186,8 +188,8 @@ validator độc lập xác nhận `VALID`, và 252 nhóm bài–thuật toán d
 ```
 
 Không tạo report tổng hợp khi mới có một hoặc hai tầng. V2 chỉ được đề nghị promote
-sau khi report trên trả `PASS`; việc promote và đánh dấu V1 `superseded` là một
-checkpoint riêng.
+khi **cả functional và provenance gate đều PASS**; việc promote và đánh dấu V1
+`superseded` là một checkpoint riêng.
 
 ### Recovery có kiểm soát
 
@@ -205,9 +207,12 @@ Runner chỉ giữ row independently `VALID`, xác minh request/provenance trùn
 chạy lại các row còn thiếu trong một run directory mới. Manifest recovery ghi rõ
 số execution được kế thừa, số execution chạy lại và checksum artifact nguồn.
 
-Gate ngày 2026-08-13 đã hoàn thành `84 bài / 756 lượt / 756 VALID`, với `252/252`
-nhóm case–algorithm deterministic. Report bất biến nằm tại
-`docs/reports/manual/level_02_stratified_benchmark_v2_20260813.{json,md}`.
+Run ngày 2026-08-13 hoàn thành `84 bài / 756 lượt / 756 VALID`, với `252/252` nhóm
+case–algorithm deterministic, nên functional gate PASS. Cả ba manifest đều ghi
+`git_dirty=true`, vì vậy provenance gate FAIL và quyết định hiện tại là
+`CANONICAL_PENDING_CLEAN_RERUN`. Report khóa SHA-256 nằm tại
+`docs/reports/manual/level_02_stratified_benchmark_v2_20260813.{json,md}`; V1 vẫn
+là canonical.
 
 ## Chạy thủ công
 

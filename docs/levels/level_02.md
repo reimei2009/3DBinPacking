@@ -97,11 +97,13 @@ thuật toán qua ba repeat. Ba tầng không bị gộp thống kê: random dù
 phối, stress dùng kiểm tra sức chịu đựng, prefix dùng phát hiện hồi quy. V1 tiếp tục
 là canonical cho đến khi V2 hoàn thành đủ 84 bài/756 lượt và qua promotion gate.
 
-Gate V2 ngày 2026-08-13 đã đạt đủ 84 bài, 756 lượt `VALID` và 252/252 nhóm
-deterministic. Tầng random có 3 thắng/57 hòa/0 thua của FFD và 6 thắng/53 hòa/1
-thua của MES khi so với Best Fit. Stress và prefix vẫn được báo riêng. Evidence nằm
-tại `docs/reports/manual/level_02_stratified_benchmark_v2_20260813.{json,md}`;
-việc đổi registry canonical là checkpoint quản trị riêng, không rewrite V1.
+Gate chức năng V2 ngày 2026-08-13 đã đạt đủ 84 bài, 756 lượt `VALID` và 252/252
+nhóm deterministic. Tuy nhiên cả ba source run có `git_dirty=true`, nên provenance
+gate thất bại và quyết định là `CANONICAL_PENDING_CLEAN_RERUN`. Tầng random có 3
+thắng/57 hòa/0 thua của FFD và 6 thắng/53 hòa/1 thua của MES khi so với Best Fit.
+Stress và prefix vẫn được báo riêng. Evidence cùng checksum artifact nằm tại
+`docs/reports/manual/level_02_stratified_benchmark_v2_20260813.{json,md}`. V1 tiếp
+tục là canonical; V2 vẫn là research candidate cho đến khi chạy lại sạch.
 
 Sau khi cả ba tầng V2 trả `PASS`, quy trình
 [profiling runtime Level 2](../benchmarks/level_02_runtime_profiling.md) đo phase từ
