@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Expose shared inventory workflows for Level 4–5 on Streamlit using the
+  qualified 1,000-item/500-container source and the individually accepted Best
+  Fit, FFD, and MES constructors. Repair remains hidden/off and Portfolio V1
+  remains `NOT_PROMOTED`.
+
 - Thêm observer chẩn đoán deadline MES bằng wall/performance/CPU/active clock, checkpoint
   theo operation và suite diagnostic Level 4–5; không thay deadline, solver hay objective.
 - Đóng điều tra MES deadline reliability với 18/18 lượt hợp lệ, 6 nhóm deterministic,

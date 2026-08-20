@@ -64,7 +64,9 @@ _RUNTIME_UNSET = object()
 _INVENTORY_BENCHMARK_ALGORITHMS = frozenset({
     "extreme_point_best_fit", "extreme_point_ffd", "maximal_space_best_fit",
 })
-_INVENTORY_WEB_LEVELS = frozenset({"level_01", "level_02", "level_03"})
+_INVENTORY_WEB_LEVELS = frozenset({
+    "level_01", "level_02", "level_03", "level_04", "level_05",
+})
 _BENCHMARK_RUNTIME_PRESETS: dict[str, float | None | object] = {
     "30 giây": 30.0,
     "60 giây": 60.0,
@@ -230,6 +232,11 @@ def _inventory_repair_ui_qualified(
     if profile is None:
         return default
     return bool(profile.get("repair_ui_qualified", default))
+
+
+def _inventory_ui_qualified(profile: dict[str, Any] | None) -> bool:
+    """Return whether one source may expose shared inventory orchestration."""
+    return bool(profile and profile.get("inventory_ui_qualified", False))
 
 
 def _inventory_repair_ui_help(level_id: str, language: str) -> str:
@@ -2046,14 +2053,25 @@ def _render_benchmark_controls(
             runtime_options = list(_BENCHMARK_RUNTIME_PRESETS)
             if not _unbounded_inventory_search_allowed():
                 runtime_options.remove("Không giới hạn — local")
+            inherited_runtime_mode = next(
+                (
+                    label for label, value in _BENCHMARK_RUNTIME_PRESETS.items()
+                    if value == inherited_runtime
+                ),
+                "Không giới hạn — local"
+                if inherited_runtime is None and "Không giới hạn — local" in runtime_options
+                else "Tùy chỉnh",
+            )
             runtime_mode = st.selectbox(
                 "Thời gian tối đa cho mỗi thuật toán" if language == "vi" else "Runtime limit per algorithm",
-                runtime_options, index=min(3, len(runtime_options) - 1),
+                runtime_options, index=runtime_options.index(inherited_runtime_mode),
                 key="benchmark_runtime_mode",
             )
             custom_runtime = float(st.number_input(
                 "Thời gian tùy chỉnh (giây)" if language == "vi" else "Custom runtime (seconds)",
-                min_value=1.0, value=120.0, step=1.0, key="benchmark_custom_runtime",
+                min_value=1.0,
+                value=float(inherited_runtime if inherited_runtime is not None else 120.0),
+                step=1.0, key="benchmark_custom_runtime",
             ))
             selected_runtime = _BENCHMARK_RUNTIME_PRESETS[runtime_mode]
             runtime_limit = custom_runtime if selected_runtime is _RUNTIME_UNSET else selected_runtime
@@ -2354,8 +2372,8 @@ def _render_benchmark_comparison(
     inventory_search_enabled: bool,
     repair_ui_qualified: bool,
     active_data: ActiveDataContext,
+    level_algorithms: list[str],
 ) -> None:
-    level_algorithms = [value.algorithm_id for value in list_algorithms(level_id=level_id)]
     default_algorithms = [
         value for value in ("extreme_point_ffd", "extreme_point_best_fit", "maximal_space_best_fit")
         if value in level_algorithms
@@ -2687,12 +2705,8 @@ def main() -> None:
         value.algorithm_id for value in list_algorithms(level_id=level_id)
         if value.web_visible
     ]
-    level3_inventory_source = bool(
-        level_id == "level_03"
-        and inventory_profile is not None
-        and inventory_profile.get("inventory_search_default", False)
-    )
-    if level3_inventory_source:
+    qualified_inventory_source = _inventory_ui_qualified(inventory_profile)
+    if qualified_inventory_source:
         algorithm_ids = [
             value for value in algorithm_ids
             if value in _INVENTORY_BENCHMARK_ALGORITHMS
@@ -2712,15 +2726,36 @@ def main() -> None:
     )
     algorithm = get_algorithm(algorithm_id)
     st.sidebar.caption(f"{algorithm_family(algorithm.family, language)}: {algorithm.description_for(language)}")
-    if level3_inventory_source:
+    if qualified_inventory_source:
+        if level_id == "level_03":
+            contract_message_vi = (
+                "Level 3 cho phép xoay ngang XYZ/YXZ và kiểm tra độc lập hình học, "
+                "tải trọng cùng vùng đỡ."
+            )
+            contract_message_en = (
+                "Level 3 permits horizontal XYZ/YXZ rotations and independently "
+                "checks geometry, payload, and support."
+            )
+        elif level_id == "level_04":
+            contract_message_vi = (
+                "Level 4 cho phép xoay ngang XYZ/YXZ, yêu cầu vùng đỡ chính xác và "
+                "kiểm tra độc lập quy tắc xếp chồng."
+            )
+            contract_message_en = (
+                "Level 4 permits horizontal XYZ/YXZ rotations, requires exact support, "
+                "and independently checks stackability rules."
+            )
+        else:
+            contract_message_vi = (
+                "Level 5 bổ sung truyền tải trọng tĩnh trên vùng đỡ. Dữ liệu khả năng "
+                "chịu tải là profile nghiên cứu synthetic, không phải chứng nhận an toàn cơ học."
+            )
+            contract_message_en = (
+                "Level 5 adds static load transfer over support contacts. Load-bearing "
+                "data is synthetic research evidence, not a mechanical safety certificate."
+            )
         st.sidebar.info(
-            "Level 3 cho phép xoay ngang mỗi kiện theo hai hướng XYZ/YXZ. "
-            "Mọi phương án hoàn chỉnh đều được kiểm tra lại độc lập về hình học, "
-            "tải trọng và vùng đỡ trước khi hiển thị."
-            if language == "vi" else
-            "Level 3 permits horizontal XYZ/YXZ item rotations. Every complete "
-            "solution is independently rechecked for geometry, payload, and support "
-            "before it is displayed."
+            contract_message_vi if language == "vi" else contract_message_en
         )
     if level_id == "level_08":
         st.sidebar.warning(
@@ -2938,6 +2973,16 @@ def main() -> None:
                     if language == "vi" else
                     "Best Fit is recommended when solution quality is the priority; "
                     "FFD is a fast comparator and may use more containers."
+                )
+            )
+        elif algorithm_id == "maximal_space_best_fit" and level_id in {"level_04", "level_05"}:
+            st.sidebar.info(
+                (
+                    "MES là comparator hình học: có thể tốt hơn hoặc kém hơn tùy trường hợp. "
+                    "Best Fit vẫn là lựa chọn mặc định đã được khuyến nghị."
+                    if language == "vi" else
+                    "MES is a geometric comparator and may be better or worse depending "
+                    "on the case. Best Fit remains the recommended default."
                 )
             )
         st.sidebar.caption(
@@ -3548,6 +3593,7 @@ def main() -> None:
             inventory_search_enabled=inventory_search_enabled,
             repair_ui_qualified=repair_ui_qualified,
             active_data=active_data,
+            level_algorithms=algorithm_ids,
         )
     with history_tab:
         runs = discover_runs(level_id, root=root, limit=100)
