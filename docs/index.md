@@ -25,6 +25,7 @@ Tài liệu trình bày tổng hợp hiện tại:
 - [Productization readiness và shadow evaluation](design/productization_readiness.md)
 - [Productization readiness baseline 2026-08-21](reports/manual/productization_readiness_baseline_20260821.md)
 - [Repair Early-stop V1 — NOT_PROMOTED](reports/manual/level_02_repair_early_stop_v1_20260821.md)
+- [Productization Shadow SLO 2026-08-21 — NOT_READY](reports/manual/productization_shadow_slo_20260821.md)
 - [ADR-0051 — Ưu tiên productization readiness](decisions/ADR-0051-productization-readiness-before-new-optimization.md)
 - [Quản trị tài liệu](design/documentation_governance.md)
 - [Cấu trúc project](design/folder_structure.md)

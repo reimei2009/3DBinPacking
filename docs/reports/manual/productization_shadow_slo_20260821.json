@@ -1,0 +1,51 @@
+{
+  "schema_version": "1.0",
+  "evidence_id": "productization_shadow_slo_20260821",
+  "status": "SHADOW_NOT_READY",
+  "decision_reason": "UI response p95 exceeds the declared 2-second shadow SLO.",
+  "shadow": {
+    "run_id": "20260821T045330532447Z__level_02__benchmark_corpus__level_02_company_like_shadow_v1__seed42",
+    "execution_count": 162,
+    "valid_execution_count": 162,
+    "deterministic_group_count": 54,
+    "timeout_rate": 0.0,
+    "invalid_rate": 0.0
+  },
+  "ui_response": {
+    "run_id": "20260821T080437867470Z__level_02__ui_response_profile__i101_c500__seed0",
+    "metric_version": "warm_streamlit_rerun_v1",
+    "git_commit": "7d241ef76a6f42b707c7a27fe78d4ff72a363ac1",
+    "git_dirty": false,
+    "warmup_count": 3,
+    "sample_count": 30,
+    "cold_start_seconds": 0.6651267999841366,
+    "minimum_seconds": 2.2054515999916475,
+    "p50_seconds": 2.7914059500035364,
+    "p95_seconds": 3.099314025005151,
+    "maximum_seconds": 3.5370459999830928,
+    "slo_limit_seconds": 2.0,
+    "samples_seconds": [
+      2.9680825999821536, 2.9228695000056177, 2.7665390000038315,
+      2.9498432999826036, 2.690240099997027, 2.535517999989679,
+      2.6481319000013173, 3.144723300007172, 2.961910000012722,
+      2.826771699998062, 2.9109913000138476, 2.6121339999954216,
+      2.5666926999983843, 2.9046538999828044, 3.043813800002681,
+      2.511788899981184, 2.2054515999916475, 2.3781114999728743,
+      3.5370459999830928, 2.719675499974983, 2.7521962999890093,
+      2.8162729000032414, 3.0094086000171956, 2.8222901999833994,
+      2.6753860999888275, 2.6634707000048365, 2.9184344000241254,
+      2.861794299999019, 2.747987499984447, 2.760285100026522
+    ]
+  },
+  "artifact_checksums": {
+    "shadow/manifest.json": "015dc92135ae10ba56447bff0bec2a4132c16d3a5298263c3550de75a429ecd9",
+    "shadow/benchmark/results.csv": "9d15649265cb33c8fcea10da3fd1e46a792f096f8ea138598b00a42706251769",
+    "shadow/benchmark/determinism_evidence.csv": "cc9225cf75701731d106b1bb707bbfe03ee7f2797faa227813739d2c01fd565c",
+    "shadow/benchmark/pairwise_outcomes.csv": "12c7fd6cfe0a7577424d50af259907307a934db0cbedf92256a65b8f63626157",
+    "ui/manifest.json": "0778e5ea3102df35afbdf6daada1e7c36ba1ce1a0ad9a34a09db986f68899a27",
+    "ui/metrics/ui_response.json": "31c0bc2232815fc5dd8f7d6051d18f2abf1aee9b784db38b7ddf2b22d0479e6a",
+    "evaluation/manifest.json": "0bc304b3305da0857020c5f384e98d32bbd7b91557cfde0a923dadc973a24695",
+    "evaluation/reports/productization_shadow_slo.json": "41c2f8fe90b2ae438e63f90ab606b340daf9ba91ebde73a44c1b077929050486",
+    "evaluation/reports/productization_shadow_slo.md": "3f43d7b592c815e207a566ba85340770035ec3f74d6169a81942ba905a58d16b"
+  }
+}

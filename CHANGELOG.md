@@ -2,6 +2,8 @@
 
 - Chuẩn hóa phép đo UI response bằng 30 warm Streamlit rerun có manifest/checksum,
   đồng thời sửa Shadow SLO evaluator đọc trực tiếp `validation_valid` từ artifact.
+- Shadow SLO ngày 2026-08-21 giữ `SHADOW_NOT_READY`: 162/162 lượt benchmark hợp lệ,
+  nhưng UI p95 3,099 giây vượt giới hạn 2 giây.
 - Đóng Repair Early-stop V1 ở trạng thái `NOT_PROMOTED`: runtime trung vị giảm
   69,89% nhưng có 2 cặp regression official objective; bổ sung telemetry timeline
   opt-in và corpus diagnostic 18 lượt để tìm tín hiệu trước khi cân nhắc V2.

@@ -191,6 +191,18 @@ def test_ui_evidence_is_checksum_verified_and_requires_clean_source(
         )
 
 
+def test_published_shadow_slo_evidence_keeps_all_ui_samples(root: Path) -> None:
+    report = json.loads((
+        root / "docs/reports/manual/productization_shadow_slo_20260821.json"
+    ).read_text(encoding="utf-8"))
+    ui = report["ui_response"]
+    summary = summarize_ui_response_samples(ui["samples_seconds"])
+    assert report["status"] == "SHADOW_NOT_READY"
+    assert summary["sample_count"] == 30
+    assert summary["p95_seconds"] == pytest.approx(ui["p95_seconds"])
+    assert ui["p95_seconds"] > ui["slo_limit_seconds"]
+
+
 def test_shadow_slo_rejects_objective_on_failed_execution(root: Path) -> None:
     contract = load_company_corpus_contract(CONTRACT, root=root)
     frame = _shadow_results()
