@@ -151,6 +151,41 @@ class ContainerEliminationConfiguration:
 
 
 @dataclass(frozen=True)
+class RepairEarlyStopConfiguration:
+    """Opt-in stop rule after a bounded streak without incumbent improvement."""
+
+    enabled: bool = False
+    minimum_runtime_seconds: float = 5.0
+    maximum_no_improvement_candidates: int = 24
+
+    @classmethod
+    def from_mapping(
+        cls, value: dict[str, Any] | None,
+    ) -> "RepairEarlyStopConfiguration":
+        raw = dict(value or {})
+        return cls(
+            enabled=_strict_bool(raw.get("enabled", False), "early_stop.enabled"),
+            minimum_runtime_seconds=_non_negative_float(
+                raw.get("minimum_runtime_seconds", 5.0),
+                "early_stop.minimum_runtime_seconds",
+            ),
+            maximum_no_improvement_candidates=_positive_int(
+                raw.get("maximum_no_improvement_candidates", 24),
+                "early_stop.maximum_no_improvement_candidates",
+            ),
+        )
+
+    def metadata(self) -> dict[str, object]:
+        return {
+            "repair_early_stop_enabled": self.enabled,
+            "repair_early_stop_minimum_runtime_seconds": self.minimum_runtime_seconds,
+            "repair_early_stop_maximum_no_improvement_candidates": (
+                self.maximum_no_improvement_candidates
+            ),
+        }
+
+
+@dataclass(frozen=True)
 class ConsolidationConfiguration:
     """Ngân sách thử đóng bớt container sau construction đầu tiên."""
 
@@ -164,6 +199,7 @@ class ConsolidationConfiguration:
     container_elimination: ContainerEliminationConfiguration = (
         ContainerEliminationConfiguration()
     )
+    early_stop: RepairEarlyStopConfiguration = RepairEarlyStopConfiguration()
 
     @classmethod
     def from_mapping(cls, value: dict[str, Any] | None) -> "ConsolidationConfiguration":
@@ -225,9 +261,15 @@ class ConsolidationConfiguration:
         elimination = ContainerEliminationConfiguration.from_mapping(
             raw.get("container_elimination")
         )
+        early_stop = RepairEarlyStopConfiguration.from_mapping(raw.get("early_stop"))
         return cls(
-            enabled, time_limit, max_candidates,
-            phase_fractions, variants, elimination,
+            enabled=enabled,
+            time_limit_seconds=time_limit,
+            max_candidates=max_candidates,
+            improvement_phase_time_fractions=phase_fractions,
+            item_order_variants=variants,
+            container_elimination=elimination,
+            early_stop=early_stop,
         )
 
     def metadata(self) -> dict[str, object]:
@@ -241,6 +283,7 @@ class ConsolidationConfiguration:
             "container_consolidation_target_mode": "capacity_lower_bound",
             "container_consolidation_item_order_variants": list(self.item_order_variants),
             **self.container_elimination.metadata(),
+            **self.early_stop.metadata(),
         }
 
 

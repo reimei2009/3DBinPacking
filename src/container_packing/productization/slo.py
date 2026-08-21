@@ -22,8 +22,13 @@ def evaluate_shadow_slo(
     source = Path(run_dir).resolve()
     manifest_path = source / "manifest.json"
     results_path = source / "benchmark" / "results.csv"
-    if not manifest_path.is_file() or not results_path.is_file():
-        raise ValueError("Shadow SLO evaluation requires manifest.json and benchmark/results.csv")
+    determinism_path = source / "benchmark" / "determinism_evidence.csv"
+    pairwise_path = source / "benchmark" / "pairwise_outcomes.csv"
+    required_artifacts = (manifest_path, results_path, determinism_path, pairwise_path)
+    if not all(path.is_file() for path in required_artifacts):
+        raise ValueError(
+            "Shadow SLO evaluation requires manifest, results, determinism and pairwise artifacts"
+        )
     try:
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         results = pd.read_csv(results_path)
@@ -36,6 +41,8 @@ def evaluate_shadow_slo(
         artifact_checksums={
             "manifest.json": sha256_file(manifest_path),
             "benchmark/results.csv": sha256_file(results_path),
+            "benchmark/determinism_evidence.csv": sha256_file(determinism_path),
+            "benchmark/pairwise_outcomes.csv": sha256_file(pairwise_path),
         },
         ui_response_p95_seconds=ui_response_p95_seconds,
     )
@@ -50,7 +57,7 @@ def evaluate_shadow_slo_frame(
     ui_response_p95_seconds: float | None = None,
 ) -> dict[str, Any]:
     required = {
-        "success", "status", "validation_status", "objective_value",
+        "level", "success", "status", "validation_status", "objective_value",
         "used_container_count", "total_container_cost", "algorithm", "item_count",
         "input_fingerprint", "case_id", "wall_runtime_seconds", "peak_rss_bytes",
         "placement_signature", "random_seed",
@@ -91,6 +98,8 @@ def evaluate_shadow_slo_frame(
         limit = runtime_limits.get(count)
         if p95 is None:
             errors.append(f"{algorithm}/{count}: fewer than {minimum_samples} runtime samples")
+        elif limit is None:
+            errors.append(f"{algorithm}/{count}: no runtime p95 SLO is declared")
         elif p95 > float(limit):
             errors.append(f"{algorithm}/{count}: runtime p95 {p95:.3f}s exceeds {limit:.3f}s")
         memory_p95 = None if memories.empty else float(memories.quantile(0.95))

@@ -2738,6 +2738,18 @@ def main() -> None:
         st.sidebar.info(
             contract_message_vi if language == "vi" else contract_message_en
         )
+        if (
+            inventory_profile is not None
+            and inventory_profile.get("evidence_class") == "synthetic_research"
+            and not bool(inventory_profile.get("production_ready", False))
+        ):
+            st.sidebar.warning(
+                "Nguồn này là dữ liệu nghiên cứu synthetic. Kết quả dùng cho thử nghiệm/shadow, "
+                "không phải chứng nhận an toàn hoặc cam kết SLA production."
+                if language == "vi" else
+                "This source is synthetic research data. Results are for testing/shadow "
+                "evaluation, not a safety certificate or production SLA."
+            )
     if level_id == "level_08":
         st.sidebar.warning(
             "Level 8 đang ở mức thực nghiệm: LIFO dùng mô hình đường tháo thẳng tĩnh; chưa mô phỏng thiết bị, vùng chứa tạm hoặc chuỗi dỡ vật lý chính xác."

@@ -288,6 +288,18 @@ def execute_experiment_case(request: ExperimentRequest, repeat_index: int) -> di
         "container_consolidation_termination_reason": metadata.get(
             "container_consolidation_termination_reason"
         ),
+        "repair_early_stop_enabled": metadata.get("repair_early_stop_enabled"),
+        "repair_early_stop_triggered": metadata.get("repair_early_stop_triggered"),
+        "repair_early_stop_reason": metadata.get("repair_early_stop_reason"),
+        "repair_no_improvement_candidates": metadata.get(
+            "repair_no_improvement_candidates"
+        ),
+        "repair_objective_improvement_count": metadata.get(
+            "repair_objective_improvement_count"
+        ),
+        "repair_objective_improvements_per_second": metadata.get(
+            "repair_objective_improvements_per_second"
+        ),
         "best_partial_placement_count": metadata.get(
             "best_partial_placement_count"
         ),

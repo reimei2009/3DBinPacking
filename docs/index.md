@@ -23,6 +23,7 @@ Tài liệu trình bày tổng hợp hiện tại:
 ## Kiến trúc và quy trình
 
 - [Productization readiness và shadow evaluation](design/productization_readiness.md)
+- [Productization readiness baseline 2026-08-21](reports/manual/productization_readiness_baseline_20260821.md)
 - [ADR-0051 — Ưu tiên productization readiness](decisions/ADR-0051-productization-readiness-before-new-optimization.md)
 - [Quản trị tài liệu](design/documentation_governance.md)
 - [Cấu trúc project](design/folder_structure.md)

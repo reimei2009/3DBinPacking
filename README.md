@@ -100,6 +100,7 @@ và simulation logic không nằm trong Streamlit. Xem
 Xem:
 
 - [quy trình chạy và kiểm thử thủ công](docs/guides/manual_test_flow.md);
+- [productization readiness và shadow evaluation](docs/design/productization_readiness.md);
 - [thiết kế benchmark](docs/design/benchmark_design.md);
 - [benchmark chuẩn Level 2](docs/benchmarks/level_02_benchmark_v2.md);
 - [dữ liệu synthetic quy mô lớn](docs/datasets/large_synthetic_instances.md);

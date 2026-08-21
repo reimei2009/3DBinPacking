@@ -15,6 +15,8 @@ profiles:
     label_en: "Research fleet — 1,000 items / 500 containers / 10 types"
     config_file: config/level_03/experiments/inventory_items_1000_fleet_500.yaml
     generated: true
+    evidence_class: synthetic_research
+    production_ready: false
     expected_item_count: 1000
     dataset_profile_id: level_02_inventory_items_1000_fleet_500_t10_v1
     expected_physical_container_count: 500

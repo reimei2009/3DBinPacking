@@ -19,6 +19,14 @@ _REPAIR_COMPARISON_COLUMNS = [
     "repair_runtime_p50_seconds", "repair_termination_reason", "outcome",
     "incumbent_preserved",
 ]
+_REPAIR_EARLY_STOP_COLUMNS = [
+    "level", "algorithm", "comparison_group", "comparison_input_fingerprint",
+    "item_count", "standard_containers", "early_stop_containers", "standard_cost",
+    "early_stop_cost", "standard_runtime_p50_seconds",
+    "early_stop_runtime_p50_seconds", "runtime_reduction_ratio",
+    "early_stop_trigger_rate", "improvement_per_second_p50", "quality_outcome",
+    "incumbent_preserved",
+]
 
 
 def _official_rows(results: pd.DataFrame) -> pd.DataFrame:
@@ -393,6 +401,84 @@ def _quality(values: dict[str, object]) -> tuple[float, float] | None:
     if containers is None or cost is None:
         return None
     return float(containers), float(cost)
+
+
+def build_repair_early_stop_comparison(results: pd.DataFrame) -> pd.DataFrame:
+    """Compare standard repair with the same repair plus an opt-in stop rule."""
+    frame = _official_rows(results)
+    required = {
+        "comparison_group", "benchmark_variant_id", "comparison_input_fingerprint",
+    }
+    if not required.issubset(frame.columns):
+        return pd.DataFrame(columns=_REPAIR_EARLY_STOP_COLUMNS)
+    variants = {"repair_standard", "repair_early_stop"}
+    frame = frame.dropna(subset=list(required)).copy()
+    frame = frame[frame["benchmark_variant_id"].astype(str).isin(variants)]
+    if frame.empty:
+        return pd.DataFrame(columns=_REPAIR_EARLY_STOP_COLUMNS)
+    records: list[dict[str, object]] = []
+    keys = ["level", "algorithm", "comparison_group", "comparison_input_fingerprint"]
+    for key, group in frame.groupby(keys, dropna=False, sort=True):
+        present = set(group["benchmark_variant_id"].astype(str))
+        if present != variants:
+            raise ValueError(
+                f"Repair early-stop comparison {key[2]}/{key[1]} must contain exactly "
+                f"{sorted(variants)}"
+            )
+        values: dict[str, dict[str, object]] = {}
+        for variant, rows in group.groupby("benchmark_variant_id", sort=True):
+            valid = rows[rows["success"].fillna(False)]
+            objective_rows = valid[["used_container_count", "total_container_cost"]].drop_duplicates()
+            if len(objective_rows) > 1:
+                raise ValueError(f"Repair early-stop variant {variant} is not deterministic")
+            objective = None if objective_rows.empty else tuple(objective_rows.iloc[0])
+            runtime = pd.to_numeric(rows["wall_runtime_seconds"], errors="coerce").median()
+            improvement_rate = pd.to_numeric(
+                rows.get("repair_objective_improvements_per_second", pd.Series(dtype=float)),
+                errors="coerce",
+            ).median()
+            values[str(variant)] = {
+                "quality": objective,
+                "runtime": float(runtime),
+                "trigger_rate": float(
+                    rows.get("repair_early_stop_triggered", pd.Series(False, index=rows.index))
+                    .fillna(False).astype(bool).mean()
+                ),
+                "improvement_rate": None if pd.isna(improvement_rate) else float(improvement_rate),
+            }
+        standard = values["repair_standard"]
+        early = values["repair_early_stop"]
+        standard_quality = standard["quality"]
+        early_quality = early["quality"]
+        if early_quality is None:
+            outcome = "NO_VALID_EARLY_STOP_RESULT"
+        elif standard_quality is None or early_quality < standard_quality:
+            outcome = "IMPROVED"
+        elif early_quality == standard_quality:
+            outcome = "UNCHANGED"
+        else:
+            outcome = "REGRESSION"
+        standard_runtime = float(standard["runtime"])
+        early_runtime = float(early["runtime"])
+        records.append({
+            "level": key[0], "algorithm": key[1], "comparison_group": key[2],
+            "comparison_input_fingerprint": key[3],
+            "item_count": int(group["item_count"].iloc[0]),
+            "standard_containers": None if standard_quality is None else standard_quality[0],
+            "early_stop_containers": None if early_quality is None else early_quality[0],
+            "standard_cost": None if standard_quality is None else standard_quality[1],
+            "early_stop_cost": None if early_quality is None else early_quality[1],
+            "standard_runtime_p50_seconds": standard_runtime,
+            "early_stop_runtime_p50_seconds": early_runtime,
+            "runtime_reduction_ratio": (
+                0.0 if standard_runtime <= 0 else (standard_runtime - early_runtime) / standard_runtime
+            ),
+            "early_stop_trigger_rate": early["trigger_rate"],
+            "improvement_per_second_p50": early["improvement_rate"],
+            "quality_outcome": outcome,
+            "incumbent_preserved": outcome != "REGRESSION",
+        })
+    return pd.DataFrame(records, columns=_REPAIR_EARLY_STOP_COLUMNS)
 
 
 def _first_non_null(values: pd.Series | None) -> object | None:

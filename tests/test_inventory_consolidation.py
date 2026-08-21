@@ -152,6 +152,55 @@ def test_invalid_or_incomplete_consolidation_candidate_never_replaces_baseline()
     assert result.metadata["incumbent_final_container_count"] == 2
 
 
+def test_repair_early_stop_preserves_incumbent_and_reports_reason() -> None:
+    baseline = _outcome(("C1", "C2"))
+    items = [Item("I1", 1, 1, 1, 1), Item("I2", 1, 1, 1, 1)]
+    containers = [
+        Container("C1", 10, 10, 10, 10, 5, volume_m3=0.000001),
+        Container("C2", 10, 10, 10, 10, 5, volume_m3=0.000001),
+    ]
+
+    def executor(items, containers, settings, *, container_subset_policy):
+        next(iter(container_subset_policy.candidates(containers, items)))
+        return AlgorithmOutcome(
+            SolveResult("INFEASIBLE_HEURISTIC", "partial", None, None, OptimizeResult()),
+            [], "test", {},
+        )
+
+    result = BoundedInventoryConsolidator().execute(
+        baseline=baseline,
+        items=items,
+        containers=containers,
+        settings={},
+        search=_configuration(
+            container_elimination={"enabled": False},
+            early_stop={
+                "enabled": True,
+                "minimum_runtime_seconds": 0,
+                "maximum_no_improvement_candidates": 1,
+            },
+        ),
+        aggregate_lower_bound=1,
+        executor=executor,
+        candidate_validator=lambda placements: True,
+    )
+
+    assert result.outcome is baseline
+    assert result.metadata["repair_early_stop_triggered"] is True
+    assert result.metadata["repair_early_stop_reason"] == "no_incumbent_improvement_streak"
+    assert result.metadata["repair_objective_improvement_count"] == 0
+    assert result.metadata["repair_objective_improvements_per_second"] == 0.0
+    assert result.metadata["container_consolidation_termination_reason"] == (
+        "early_stop_no_improvement"
+    )
+
+
+def test_repair_early_stop_configuration_is_disabled_by_default() -> None:
+    default = _configuration().consolidation
+    assert default.early_stop.enabled is False
+    assert default.metadata()["repair_early_stop_enabled"] is False
+
+
 def test_validator_invalid_lower_cardinality_rebuild_never_replaces_baseline() -> None:
     baseline = _outcome(("C1", "C2"))
     items = [Item("I1", 1, 1, 1, 1), Item("I2", 1, 1, 1, 1)]

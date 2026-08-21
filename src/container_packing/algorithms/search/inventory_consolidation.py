@@ -203,6 +203,11 @@ class BoundedInventoryConsolidator:
             "container_consolidation_closed_container_ids": [],
             "container_consolidation_runtime_seconds": 0.0,
             "container_consolidation_termination_reason": "disabled",
+            "repair_early_stop_triggered": False,
+            "repair_early_stop_reason": None,
+            "repair_no_improvement_candidates": 0,
+            "repair_objective_improvement_count": 0,
+            "repair_objective_improvements_per_second": 0.0,
             "incumbent_initial_container_count": initial_count,
             "incumbent_final_container_count": initial_count,
             "incumbent_initial_container_cost": initial_cost,
@@ -246,6 +251,7 @@ class BoundedInventoryConsolidator:
             )
             return ConsolidationResult(baseline, metadata)
         baseline = incumbent_store.outcome
+        accepted_before_repair = incumbent_store.improvements_accepted
         if initial_count <= aggregate_lower_bound:
             metadata["container_consolidation_termination_reason"] = "already_at_lower_bound"
             metadata["container_elimination_termination_reason"] = "already_at_lower_bound"
@@ -284,6 +290,40 @@ class BoundedInventoryConsolidator:
             )
         local_runtime = self._clock() - local_started
         elimination_ids = {value.container_id for value in selected.placements}
+        if bool(elimination_metadata.get("repair_early_stop_triggered", False)):
+            final_count = len(elimination_ids)
+            runtime = self._clock() - started
+            improvement_count = initial_count - final_count
+            objective_improvement_count = max(
+                0, incumbent_store.improvements_accepted - accepted_before_repair,
+            )
+            metadata.update({
+                **elimination_metadata,
+                "container_consolidation_attempted": True,
+                "container_consolidation_final_count": final_count,
+                "container_consolidation_closed_container_ids": sorted(
+                    initial_ids - elimination_ids
+                ),
+                "container_consolidation_runtime_seconds": runtime,
+                "container_consolidation_termination_reason": "early_stop_no_improvement",
+                "incumbent_final_container_count": final_count,
+                "incumbent_final_container_cost": _rank(selected, containers)[1],
+                "incumbent_improvement_count": improvement_count,
+                "incumbent_gap_to_capacity_lower_bound": max(
+                    0, final_count - aggregate_lower_bound,
+                ),
+                "repair_objective_improvements_per_second": (
+                    objective_improvement_count / runtime if runtime > 0 else 0.0
+                ),
+                "repair_objective_improvement_count": objective_improvement_count,
+                "container_consolidation_phase_runtime_seconds": {
+                    "local_repair": local_runtime,
+                    "full_rebuild": 0.0,
+                },
+                **_utilization_evidence(selected, containers, prefix="incumbent_final"),
+                **incumbent_store.metadata(),
+            })
+            return ConsolidationResult(selected, metadata)
         if len(elimination_ids) <= aggregate_lower_bound:
             metadata.update({
                 **elimination_metadata,
@@ -323,6 +363,10 @@ class BoundedInventoryConsolidator:
         variants_attempted: list[dict[str, object]] = []
         cardinalities_attempted: list[int] = []
         first_failed_cardinality: int | None = None
+        no_improvement_candidates = int(
+            elimination_metadata.get("repair_no_improvement_candidates", 0)
+        )
+        early_stop_triggered = False
         rebuild_started = self._clock()
         # `decreasing_volume` is the canonical constructor order and therefore
         # duplicates `current`. Keep `current` because construction only probes
@@ -407,9 +451,21 @@ class BoundedInventoryConsolidator:
                     break
                 if candidate.solve.status != "FEASIBLE" or not candidate.placements:
                     row["independent_validation_status"] = "NOT_RUN"
+                    no_improvement_candidates += max(1, policy.generated)
+                    early_stop_triggered = _repair_early_stop_reached(
+                        config,
+                        elapsed_seconds=self._clock() - started,
+                        no_improvement_candidates=no_improvement_candidates,
+                    )
                     continue
                 if _rank(candidate, containers) >= _rank(selected, containers):
                     row["independent_validation_status"] = "NOT_BETTER"
+                    no_improvement_candidates += max(1, policy.generated)
+                    early_stop_triggered = _repair_early_stop_reached(
+                        config,
+                        elapsed_seconds=self._clock() - started,
+                        no_improvement_candidates=no_improvement_candidates,
+                    )
                     continue
                 invalid_before = incumbent_store.candidates_rejected_invalid
                 if incumbent_store.consider(candidate):
@@ -418,12 +474,21 @@ class BoundedInventoryConsolidator:
                     row["independent_validation_status"] = "VALID"
                     row["accepted"] = True
                     target_improved = True
+                    no_improvement_candidates = 0
                     break
                 row["independent_validation_status"] = (
                     "INVALID"
                     if incumbent_store.candidates_rejected_invalid > invalid_before
                     else "REJECTED"
                 )
+                no_improvement_candidates += max(1, policy.generated)
+                early_stop_triggered = _repair_early_stop_reached(
+                    config,
+                    elapsed_seconds=self._clock() - started,
+                    no_improvement_candidates=no_improvement_candidates,
+                )
+                if early_stop_triggered:
+                    break
             if not target_improved:
                 first_failed_cardinality = target
                 break
@@ -433,6 +498,9 @@ class BoundedInventoryConsolidator:
 
         runtime = self._clock() - started
         final_count = len(selected_ids)
+        objective_improvement_count = max(
+            0, incumbent_store.improvements_accepted - accepted_before_repair,
+        )
         timed_out = self._clock() >= deadline
         metadata.update({
             **elimination_metadata,
@@ -449,6 +517,7 @@ class BoundedInventoryConsolidator:
             "container_consolidation_runtime_seconds": runtime,
             "container_consolidation_termination_reason": (
                 "valid_consolidated" if final_count < initial_count
+                else "early_stop_no_improvement" if early_stop_triggered
                 else "consolidation_time_limit" if timed_out
                 else "candidate_limit" if candidates_evaluated >= config.max_candidates
                 else "heuristic_consolidation_failed"
@@ -463,6 +532,15 @@ class BoundedInventoryConsolidator:
             ),
             **incumbent_store.metadata(),
             "incumbent_improvement_target_cardinalities": targets,
+            "repair_early_stop_triggered": early_stop_triggered,
+            "repair_early_stop_reason": (
+                "no_incumbent_improvement_streak" if early_stop_triggered else None
+            ),
+            "repair_no_improvement_candidates": no_improvement_candidates,
+            "repair_objective_improvement_count": objective_improvement_count,
+            "repair_objective_improvements_per_second": (
+                objective_improvement_count / runtime if runtime > 0 else 0.0
+            ),
             **_utilization_evidence(
                 selected, containers, prefix="incumbent_final",
             ),
@@ -518,8 +596,12 @@ class BoundedInventoryConsolidator:
         duplicate_candidates_skipped = 0
         closure_expansion_count = 0
         phase_runtime_seconds: dict[str, float] = defaultdict(float)
+        no_improvement_candidates = 0
+        early_stop_triggered = False
 
         for phase_index, phase in enumerate(phase_names):
+            if early_stop_triggered:
+                break
             phase_deadline = min(deadline, phase_deadlines[phase_index])
             if self._clock() >= phase_deadline:
                 continue
@@ -536,7 +618,8 @@ class BoundedInventoryConsolidator:
             )
             for target_id in ranked_targets:
                 if (
-                    self._clock() >= phase_deadline
+                    early_stop_triggered
+                    or self._clock() >= phase_deadline
                     or candidates >= elimination.maximum_candidates
                 ):
                     break
@@ -626,7 +709,8 @@ class BoundedInventoryConsolidator:
                     continue
                 for spec in specs:
                     if (
-                        self._clock() >= phase_deadline
+                        early_stop_triggered
+                        or self._clock() >= phase_deadline
                         or candidates >= elimination.maximum_candidates
                     ):
                         break
@@ -709,15 +793,28 @@ class BoundedInventoryConsolidator:
                         rejection_counts["deadline_after_candidate"] += 1
                         row["validation_status"] = "NOT_RUN_DEADLINE"
                         attempts.append(row)
+                        no_improvement_candidates += 1
                         break
                     if candidate.solve.status != "FEASIBLE":
                         rejection_counts[str(candidate.solve.status).lower()] += 1
                         attempts.append(row)
+                        no_improvement_candidates += 1
+                        early_stop_triggered = _repair_early_stop_reached(
+                            config,
+                            elapsed_seconds=self._clock() - started,
+                            no_improvement_candidates=no_improvement_candidates,
+                        )
                         continue
                     if len(candidate.placements) != len(items):
                         rejection_counts["incomplete_candidate"] += 1
                         row["validation_status"] = "INCOMPLETE"
                         attempts.append(row)
+                        no_improvement_candidates += 1
+                        early_stop_triggered = _repair_early_stop_reached(
+                            config,
+                            elapsed_seconds=self._clock() - started,
+                            no_improvement_candidates=no_improvement_candidates,
+                        )
                         continue
                     if _rank(candidate, containers) < _rank(selected, containers):
                         candidate = AlgorithmOutcome(
@@ -740,6 +837,12 @@ class BoundedInventoryConsolidator:
                                 else "REJECTED"
                             )
                             attempts.append(row)
+                            no_improvement_candidates += 1
+                            early_stop_triggered = _repair_early_stop_reached(
+                                config,
+                                elapsed_seconds=self._clock() - started,
+                                no_improvement_candidates=no_improvement_candidates,
+                            )
                             continue
                         row["validation_status"] = "VALID"
                         previous_count = len({
@@ -759,12 +862,19 @@ class BoundedInventoryConsolidator:
                             "container_count_after": len(candidate_ids),
                         })
                         target_failure_reasons.pop(target_id, None)
+                        no_improvement_candidates = 0
                         attempts.append(row)
                         break
                     rejection_counts["not_better_than_incumbent"] += 1
                     row["validation_status"] = "NOT_BETTER"
                     row["accepted"] = False
                     attempts.append(row)
+                    no_improvement_candidates += 1
+                    early_stop_triggered = _repair_early_stop_reached(
+                        config,
+                        elapsed_seconds=self._clock() - started,
+                        no_improvement_candidates=no_improvement_candidates,
+                    )
 
         final_ids = {value.container_id for value in selected.placements}
         initial_ids = {value.container_id for value in baseline.placements}
@@ -832,11 +942,31 @@ class BoundedInventoryConsolidator:
             "container_elimination_runtime_seconds": self._clock() - started,
             "container_elimination_termination_reason": (
                 "VALID_CLUSTER_ELIMINATION" if len(final_ids) < len(initial_ids)
+                else "EARLY_STOP_NO_IMPROVEMENT" if early_stop_triggered
                 else "TIME_LIMIT_WITH_INCUMBENT_PRESERVED" if timed_out
                 else "CANDIDATE_LIMIT" if candidates >= elimination.maximum_candidates
                 else "NO_VALID_CLUSTER_REPACK"
             ),
+            "repair_early_stop_triggered": early_stop_triggered,
+            "repair_early_stop_reason": (
+                "no_incumbent_improvement_streak" if early_stop_triggered else None
+            ),
+            "repair_no_improvement_candidates": no_improvement_candidates,
         }
+
+
+def _repair_early_stop_reached(
+    config: ConsolidationConfiguration,
+    *,
+    elapsed_seconds: float,
+    no_improvement_candidates: int,
+) -> bool:
+    policy = config.early_stop
+    return bool(
+        policy.enabled
+        and elapsed_seconds >= policy.minimum_runtime_seconds
+        and no_improvement_candidates >= policy.maximum_no_improvement_candidates
+    )
 
 
 def inventory_item_order(items: list[Item], variant: str) -> list[str]:
@@ -935,6 +1065,9 @@ def _empty_elimination_metadata(
         "container_elimination_termination_reason": (
             "not_started" if config.container_elimination.enabled else "disabled"
         ),
+        "repair_early_stop_triggered": False,
+        "repair_early_stop_reason": None,
+        "repair_no_improvement_candidates": 0,
     }
 
 

@@ -10,6 +10,37 @@ python scripts\run_experiment.py --interactive
 
 The interactive command asks for level, algorithm, item count, container count, and environment. Press Enter to accept each displayed default. Terminal output includes solver/validation status, selected containers, load summary, coordinates, dimensions, runtime, and final run directory.
 
+## Worktree-safe quality gate
+
+When working from any Git worktree, run the wrapper below instead of relying on an
+editable package installed from another checkout:
+
+```powershell
+python scripts\run_quality_gate.py --scope all
+```
+
+It verifies the imported package path, materializes deterministic test profiles,
+runs the full suite, and checks `git diff --check`.
+
+## Company-like shadow evaluation
+
+The company-like corpus is synthetic shadow evidence, not company data or a safety
+certificate. Materialize and run it manually:
+
+```powershell
+python scripts\prepare_company_shadow_corpus.py
+python scripts\run_benchmark_corpus.py `
+  --corpus config\level_02\benchmarks\company_like_shadow_manual.yaml
+```
+
+Evaluate a completed artifact only when UI p95 evidence is available:
+
+```powershell
+python scripts\evaluate_productization_shadow.py `
+  --run-dir outputs\level_02\runs\<run_id> `
+  --ui-response-p95-seconds <measured-value>
+```
+
 By default, 20 placements are displayed. Use `--preview-limit 5`, `--preview-limit 0`, or `--json-only` when needed. Full artifacts are always stored under `outputs/<level_id>/runs/<run_id>/`.
 
 ## Level 2 support-only

@@ -3,6 +3,9 @@
 - Thêm productization readiness gate: CI an toàn giữa các worktree, company-like
   shadow corpus có provenance/field governance, SLO evaluator fail-closed và quyết
   định không triển khai Contact/Support Cache V3 khi chưa có profiling mới.
+- Thêm repair early-stop opt-in cùng A/B 48 lượt cho Best Fit/FFD ở 300–500 kiện;
+  mặc định tiếp tục tắt và chỉ promotion sau evidence không LOSS, VALID và giảm
+  runtime overhead. UI gắn nhãn rõ nguồn synthetic research/shadow.
 - Promote Benchmark Level 2 V2 sau clean rerun: 84 bài, 756 lượt `VALID`, 252 nhóm
   deterministic, ba manifest `git_dirty=false` và checksum gate đạt. Random là tầng
   quality chính; stress/prefix là supporting evidence. V1 chuyển sang `superseded`.
