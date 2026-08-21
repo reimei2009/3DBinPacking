@@ -1,0 +1,25 @@
+extends: base_large_instances.yaml
+profile_id: company_like_shadow_1k_500_v1
+seed: 260821
+usage_class: solver_research
+source:
+  container_types: [C1, C2, C3, C4, C5, C6, C7, C8, C9, C10]
+item_population:
+  count: 1000
+  weight_noise_percent: 5
+container_fleet:
+  quantities:
+    C1: 80
+    C2: 70
+    C3: 65
+    C4: 60
+    C5: 55
+    C6: 50
+    C7: 40
+    C8: 35
+    C9: 25
+    C10: 20
+level_08_enrichment:
+  delivery_stop_count: 10
+output:
+  directory: data/interim/productization/company_like_shadow_1k_500_v1

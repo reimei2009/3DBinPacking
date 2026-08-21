@@ -1,0 +1,9 @@
+extends: inventory_items_1000_fleet_500.yaml
+paths:
+  raw_items_csv: data/interim/productization/company_like_shadow_1k_500_v1/solver_items.csv
+  raw_containers_csv: data/interim/productization/company_like_shadow_1k_500_v1/solver_containers.csv
+  processed_dir: data/processed/level_02/company_like_shadow_1k_500_v1
+  manifest_json: data/processed/level_02/company_like_shadow_1k_500_v1/latest_manifest.json
+dataset_policy:
+  generation_manifest: data/interim/productization/company_like_shadow_1k_500_v1/generation_manifest.json
+  expected_usage_class: solver_research

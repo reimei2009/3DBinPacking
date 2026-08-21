@@ -1,0 +1,33 @@
+schema_version: "1.0"
+corpus_id: company_like_shadow_1k_500_v1
+evidence_class: synthetic_calibrated_shadow
+source:
+  generation_profile: config/synthetic/company_like_shadow_v1.yaml
+  calibration_source: internal_logistics_assumptions_v1_not_company_measurements
+field_governance:
+  dimensions: {status: transformed, provenance: empirical_public_template_sampling}
+  weight: {status: transformed, provenance: empirical_template_plus_seeded_5_percent_noise}
+  container_mix: {status: transformed, provenance: declared_shadow_fleet_mix_v1}
+  container_cost: {status: preserved, provenance: experimental_relative_cost_not_finance_data}
+  load_bearing: {status: transformed, provenance: synthetic_weight_factor_v1_not_material_test}
+  safety_clearance: {status: unsupported, provenance: no_company_measurement_available}
+  measurement_error: {status: unsupported, provenance: no_device_error_model_available}
+benchmark:
+  algorithms: [extreme_point_best_fit, extreme_point_ffd, maximal_space_best_fit]
+  scales: [100, 300, 500]
+  case_families: [representative_random, largest_volume, heaviest, payload_pressure]
+slo:
+  required_valid_rate: 1.0
+  maximum_timeout_rate: 0.0
+  maximum_invalid_rate: 0.0
+  runtime_p95_seconds: {"100": 60, "300": 120, "500": 180}
+  maximum_peak_rss_bytes: 1073741824
+  ui_response_p95_seconds: 2.0
+  minimum_runtime_samples_per_scale: 10
+caching_reconsideration:
+  minimum_profile_share: 0.30
+  minimum_expected_hit_rate: 0.40
+  minimum_projected_wall_improvement: 0.20
+safety_statement:
+  vi: Dữ liệu shadow synthetic phục vụ đánh giá kỹ thuật, không phải chứng nhận an toàn cơ học hoặc SLA production.
+  en: Synthetic shadow data is technical evaluation evidence, not a mechanical safety certificate or production SLA.

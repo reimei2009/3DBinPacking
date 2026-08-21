@@ -1,0 +1,37 @@
+schema_version: "1.1"
+corpus_id: level_02_company_like_shadow_v1
+level_id: level_02
+environment: local
+seeds: [42]
+repeats: 3
+default_config: config/level_02/experiments/company_like_shadow_v1.yaml
+matrix:
+  case_prefix: shadow
+  benchmark_stratum: company_like_shadow
+  group: productization_readiness
+  dataset_family: company_like_shadow_1k_500_v1
+  expected_outcome: feasible
+  algorithms: [extreme_point_best_fit, extreme_point_ffd, maximal_space_best_fit]
+  scales:
+    - {item_count: 100, time_limit_seconds: 60, scale_bucket: medium}
+    - {item_count: 300, time_limit_seconds: 120, scale_bucket: large}
+    - {item_count: 500, time_limit_seconds: 180, scale_bucket: scale}
+  selections:
+    - selection_id: random
+      item_selection: stable_random
+      difficulty: representative_random
+      selection_seeds: [101, 202, 303]
+    - {selection_id: largest, item_selection: largest_volume, difficulty: bulky}
+    - {selection_id: heaviest, item_selection: heaviest, difficulty: heavy}
+    - {selection_id: payload, item_selection: payload_pressure, difficulty: payload_pressure}
+  container_limits:
+    maximum_multiplier: 2.0
+    maximum_extra: 4
+    maximum_cap: 30
+  config_overrides:
+    container_search:
+      enabled: true
+      automatically_increase_container_count: true
+      validation_reserve_seconds: 3
+      secondary_search_score: {enabled: false}
+      consolidation: {enabled: false, container_elimination: {enabled: false}}

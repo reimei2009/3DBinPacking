@@ -1,5 +1,8 @@
 # Changelog
 
+- Thêm productization readiness gate: CI an toàn giữa các worktree, company-like
+  shadow corpus có provenance/field governance, SLO evaluator fail-closed và quyết
+  định không triển khai Contact/Support Cache V3 khi chưa có profiling mới.
 - Promote Benchmark Level 2 V2 sau clean rerun: 84 bài, 756 lượt `VALID`, 252 nhóm
   deterministic, ba manifest `git_dirty=false` và checksum gate đạt. Random là tầng
   quality chính; stress/prefix là supporting evidence. V1 chuyển sang `superseded`.
