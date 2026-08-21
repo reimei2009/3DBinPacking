@@ -1,5 +1,11 @@
 # Changelog
 
+- Chuẩn hóa phép đo UI response bằng 30 warm Streamlit rerun có manifest/checksum,
+  đồng thời sửa Shadow SLO evaluator đọc trực tiếp `validation_valid` từ artifact.
+- Đóng Repair Early-stop V1 ở trạng thái `NOT_PROMOTED`: runtime trung vị giảm
+  69,89% nhưng có 2 cặp regression official objective; bổ sung telemetry timeline
+  opt-in và corpus diagnostic 18 lượt để tìm tín hiệu trước khi cân nhắc V2.
+
 - Thêm productization readiness gate: CI an toàn giữa các worktree, company-like
   shadow corpus có provenance/field governance, SLO evaluator fail-closed và quyết
   định không triển khai Contact/Support Cache V3 khi chưa có profiling mới.

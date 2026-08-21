@@ -36,16 +36,36 @@ fingerprint. Không lấy trung bình raw container count/cost xuyên quy mô.
 - Best Fit là baseline, MES/FFD là comparator; không thuật toán nào được gọi là
   optimum nếu thiếu exact proof.
 
+UI response dùng metric versioned `warm_streamlit_rerun_v1`: thời gian một
+Streamlit server-side rerun đã warm, không gồm solver, browser paint hoặc network.
+Phép đo bỏ 3 lượt warmup, giữ nguyên toàn bộ 30 mẫu chính thức và tính p95 theo
+cùng phép nội suy của evaluator. Cold start được lưu riêng và không tham gia gate 2 giây.
+
 ## Lệnh vận hành
 
 ```powershell
 python scripts\prepare_company_shadow_corpus.py
 python scripts\run_benchmark_corpus.py `
   --corpus config\level_02\benchmarks\company_like_shadow_manual.yaml
+python scripts\measure_ui_response.py `
+  --level level_02 `
+  --profile items_1000_fleet_500_t10 `
+  --warmups 3 `
+  --samples 30
 python scripts\evaluate_productization_shadow.py `
   --run-dir outputs\level_02\runs\<run_id> `
-  --ui-response-p95-seconds <giá-trị-đo>
+  --ui-evidence-run-dir outputs\level_02\runs\<ui-response-run-id>
 ```
+
+Evaluator chỉ nhận UI evidence có manifest sạch và checksum hợp lệ; một số p95
+nhập tay không đủ provenance để hoàn tất Shadow SLO.
+
+## Repair early-stop
+
+Repair Early-stop V1 là `NOT_PROMOTED`: 48/48 lượt `VALID`, 16/16 nhóm
+deterministic và runtime trung vị giảm 69,89%, nhưng 2/8 cặp làm xấu official
+objective. Diagnostic tiếp theo chỉ thu telemetry timeline; không thay threshold
+và không tham gia canonical ranking.
 
 Kiểm thử từ một Git worktree phải chạy qua:
 

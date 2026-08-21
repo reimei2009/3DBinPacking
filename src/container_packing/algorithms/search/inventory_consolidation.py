@@ -5,7 +5,9 @@ from __future__ import annotations
 from collections import defaultdict
 from collections.abc import Iterable
 from dataclasses import dataclass
+from hashlib import sha256
 from itertools import combinations
+import json
 from time import perf_counter
 from typing import Any, Callable, Protocol
 
@@ -208,6 +210,11 @@ class BoundedInventoryConsolidator:
             "repair_no_improvement_candidates": 0,
             "repair_objective_improvement_count": 0,
             "repair_objective_improvements_per_second": 0.0,
+            **_repair_signal_metadata(
+                [],
+                initial_objective=(initial_count, initial_cost),
+                enabled=config.signal_telemetry_enabled,
+            ),
             "incumbent_initial_container_count": initial_count,
             "incumbent_final_container_count": initial_count,
             "incumbent_initial_container_cost": initial_cost,
@@ -287,6 +294,7 @@ class BoundedInventoryConsolidator:
                 incumbent_store=incumbent_store,
                 config=config,
                 orientation_provider=active_orientation_provider,
+                repair_started=started,
             )
         local_runtime = self._clock() - local_started
         elimination_ids = {value.container_id for value in selected.placements}
@@ -316,6 +324,11 @@ class BoundedInventoryConsolidator:
                     objective_improvement_count / runtime if runtime > 0 else 0.0
                 ),
                 "repair_objective_improvement_count": objective_improvement_count,
+                **_repair_signal_metadata(
+                    list(elimination_metadata.get("container_elimination_attempts", [])),
+                    initial_objective=(initial_count, initial_cost),
+                    enabled=config.signal_telemetry_enabled,
+                ),
                 "container_consolidation_phase_runtime_seconds": {
                     "local_repair": local_runtime,
                     "full_rebuild": 0.0,
@@ -342,6 +355,11 @@ class BoundedInventoryConsolidator:
                     "local_repair": local_runtime,
                     "full_rebuild": 0.0,
                 },
+                **_repair_signal_metadata(
+                    list(elimination_metadata.get("container_elimination_attempts", [])),
+                    initial_objective=(initial_count, initial_cost),
+                    enabled=config.signal_telemetry_enabled,
+                ),
                 **_utilization_evidence(
                     selected, containers, prefix="incumbent_final",
                 ),
@@ -441,6 +459,14 @@ class BoundedInventoryConsolidator:
                     "used_container_count": len(candidate_ids),
                     "attempt_deadline_monotonic": attempt_deadline,
                     "runtime_seconds": self._clock() - attempt_started,
+                    **_repair_candidate_signal_fields(
+                        enabled=config.signal_telemetry_enabled,
+                        elapsed_seconds=self._clock() - started,
+                        operator=f"full_rebuild:{variant}",
+                        best_partial_placement_count=candidate.metadata.get(
+                            "best_partial_placement_count", 0,
+                        ),
+                    ),
                 })
                 row = variants_attempted[-1]
                 if self._clock() >= deadline:
@@ -473,6 +499,8 @@ class BoundedInventoryConsolidator:
                     selected_ids = candidate_ids
                     row["independent_validation_status"] = "VALID"
                     row["accepted"] = True
+                    if config.signal_telemetry_enabled:
+                        row["accepted_objective"] = list(_rank(candidate, containers))
                     target_improved = True
                     no_improvement_candidates = 0
                     break
@@ -541,6 +569,14 @@ class BoundedInventoryConsolidator:
             "repair_objective_improvements_per_second": (
                 objective_improvement_count / runtime if runtime > 0 else 0.0
             ),
+            **_repair_signal_metadata(
+                [
+                    *list(elimination_metadata.get("container_elimination_attempts", [])),
+                    *variants_attempted,
+                ],
+                initial_objective=(initial_count, initial_cost),
+                enabled=config.signal_telemetry_enabled,
+            ),
             **_utilization_evidence(
                 selected, containers, prefix="incumbent_final",
             ),
@@ -560,6 +596,7 @@ class BoundedInventoryConsolidator:
         incumbent_store: ValidatedIncumbentStore,
         config: ConsolidationConfiguration,
         orientation_provider: OrientationProvider,
+        repair_started: float,
     ) -> tuple[AlgorithmOutcome, dict[str, object]]:
         """Đóng container bằng seeded relocation trước khi fallback full rebuild."""
         elimination = config.container_elimination
@@ -788,6 +825,14 @@ class BoundedInventoryConsolidator:
                             "support_rejected_candidates", 0,
                         ),
                         "runtime_seconds": candidate_runtime,
+                        **_repair_candidate_signal_fields(
+                            enabled=config.signal_telemetry_enabled,
+                            elapsed_seconds=self._clock() - repair_started,
+                            operator=f"{phase}:{spec.order_mode}",
+                            best_partial_placement_count=candidate.metadata.get(
+                                "best_partial_placement_count", 0,
+                            ),
+                        ),
                     }
                     if self._clock() >= phase_deadline:
                         rejection_counts["deadline_after_candidate"] += 1
@@ -850,6 +895,10 @@ class BoundedInventoryConsolidator:
                         })
                         selected = incumbent_store.outcome or selected
                         row["accepted"] = True
+                        if config.signal_telemetry_enabled:
+                            row["accepted_objective"] = list(
+                                _rank(candidate, containers)
+                            )
                         accepted.append({
                             "phase": phase,
                             "closed_container_id": target_id,
@@ -967,6 +1016,99 @@ def _repair_early_stop_reached(
         and elapsed_seconds >= policy.minimum_runtime_seconds
         and no_improvement_candidates >= policy.maximum_no_improvement_candidates
     )
+
+
+def _repair_signal_metadata(
+    attempts: list[dict[str, object]],
+    *,
+    initial_objective: tuple[int, float],
+    enabled: bool,
+) -> dict[str, object]:
+    """Summarize repair progress without changing candidate evaluation semantics."""
+    if not enabled:
+        return {
+            "repair_signal_schema_version": None,
+            "repair_signal_candidate_count": 0,
+            "repair_improvement_events": [],
+            "repair_first_improvement_seconds": None,
+            "repair_last_improvement_seconds": None,
+            "repair_longest_no_improvement_before_later_improvement": 0,
+            "repair_best_partial_placement_count": 0,
+            "repair_objective_trajectory_sha256": None,
+        }
+    events: list[dict[str, object]] = []
+    semantic_events: list[dict[str, object]] = []
+    no_improvement_streak = 0
+    longest_before_later_improvement = 0
+    best_partial = 0
+    for candidate_index, row in enumerate(attempts, start=1):
+        partial = row.get("best_partial_placement_count", 0)
+        try:
+            best_partial = max(best_partial, int(partial or 0))
+        except (TypeError, ValueError):
+            pass
+        if not bool(row.get("accepted", False)):
+            no_improvement_streak += 1
+            continue
+        longest_before_later_improvement = max(
+            longest_before_later_improvement, no_improvement_streak,
+        )
+        objective = list(row.get("accepted_objective") or [])
+        event = {
+            "candidate_index": candidate_index,
+            "elapsed_seconds": row.get("repair_elapsed_seconds"),
+            "operator": row.get("repair_operator"),
+            "objective": objective,
+            "preceding_no_improvement_candidates": no_improvement_streak,
+        }
+        events.append(event)
+        semantic_events.append({
+            "candidate_index": candidate_index,
+            "operator": row.get("repair_operator"),
+            "objective": objective,
+        })
+        no_improvement_streak = 0
+    trajectory = {
+        "initial_objective": list(initial_objective),
+        "improvements": semantic_events,
+    }
+    trajectory_sha256 = sha256(
+        json.dumps(
+            trajectory, sort_keys=True, separators=(",", ":"), ensure_ascii=True,
+        ).encode("utf-8")
+    ).hexdigest()
+    return {
+        "repair_signal_schema_version": "v1",
+        "repair_signal_candidate_count": len(attempts),
+        "repair_improvement_events": events,
+        "repair_first_improvement_seconds": (
+            None if not events else events[0]["elapsed_seconds"]
+        ),
+        "repair_last_improvement_seconds": (
+            None if not events else events[-1]["elapsed_seconds"]
+        ),
+        "repair_longest_no_improvement_before_later_improvement": (
+            longest_before_later_improvement
+        ),
+        "repair_best_partial_placement_count": best_partial,
+        "repair_objective_trajectory_sha256": trajectory_sha256,
+    }
+
+
+def _repair_candidate_signal_fields(
+    *,
+    enabled: bool,
+    elapsed_seconds: float,
+    operator: str,
+    best_partial_placement_count: object,
+) -> dict[str, object]:
+    if not enabled:
+        return {}
+    return {
+        "repair_elapsed_seconds": elapsed_seconds,
+        "repair_operator": operator,
+        "best_partial_placement_count": best_partial_placement_count,
+    }
 
 
 def inventory_item_order(items: list[Item], variant: str) -> list[str]:

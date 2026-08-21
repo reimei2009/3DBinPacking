@@ -230,7 +230,7 @@ def _validate_slo(slo: dict[str, Any], scales: tuple[int, ...]) -> None:
             raise ValueError(f"slo.runtime_p95_seconds.{scale} must be positive")
     for name in (
         "maximum_peak_rss_bytes", "ui_response_p95_seconds",
-        "minimum_runtime_samples_per_scale",
+        "minimum_runtime_samples_per_scale", "minimum_ui_response_samples",
     ):
         if float(slo.get(name, 0)) <= 0:
             raise ValueError(f"slo.{name} must be positive")

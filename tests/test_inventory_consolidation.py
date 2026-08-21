@@ -22,6 +22,7 @@ from container_packing.levels.level_02_validation import (
 )
 from container_packing.algorithms.search.inventory_consolidation import (
     DestinationCompatibility,
+    _repair_signal_metadata,
     adaptive_cluster_repack_specs,
     build_adaptive_cluster_repack_portfolio,
     rank_destination_compatibility,
@@ -199,6 +200,76 @@ def test_repair_early_stop_configuration_is_disabled_by_default() -> None:
     default = _configuration().consolidation
     assert default.early_stop.enabled is False
     assert default.metadata()["repair_early_stop_enabled"] is False
+    assert default.signal_telemetry_enabled is False
+    assert default.metadata()["repair_signal_telemetry_enabled"] is False
+
+
+def test_repair_signal_trajectory_is_deterministic_and_time_is_diagnostic() -> None:
+    first = _repair_signal_metadata(
+        [
+            {"accepted": False, "best_partial_placement_count": 8},
+            {
+                "accepted": True, "accepted_objective": [4, 8000],
+                "repair_elapsed_seconds": 2.5, "repair_operator": "local:volume",
+                "best_partial_placement_count": 10,
+            },
+        ],
+        initial_objective=(5, 10000),
+        enabled=True,
+    )
+    second = _repair_signal_metadata(
+        [
+            {"accepted": False, "best_partial_placement_count": 8},
+            {
+                "accepted": True, "accepted_objective": [4, 8000],
+                "repair_elapsed_seconds": 9.5, "repair_operator": "local:volume",
+                "best_partial_placement_count": 10,
+            },
+        ],
+        initial_objective=(5, 10000),
+        enabled=True,
+    )
+    assert first["repair_first_improvement_seconds"] == 2.5
+    assert first["repair_longest_no_improvement_before_later_improvement"] == 1
+    assert first["repair_best_partial_placement_count"] == 10
+    assert (
+        first["repair_objective_trajectory_sha256"]
+        == second["repair_objective_trajectory_sha256"]
+    )
+    disabled = _repair_signal_metadata(
+        [], initial_objective=(5, 10000), enabled=False,
+    )
+    assert disabled["repair_signal_schema_version"] is None
+
+
+def test_repair_signal_telemetry_does_not_change_selected_solution() -> None:
+    items = [Item("I1", 1, 1, 1, 1), Item("I2", 1, 1, 1, 1)]
+    containers = [
+        Container("C1", 10, 10, 10, 10, 5, volume_m3=0.000001),
+        Container("C2", 10, 10, 10, 10, 5, volume_m3=0.000001),
+    ]
+
+    def executor(items, containers, settings, *, container_subset_policy):
+        next(iter(container_subset_policy.candidates(containers, items)))
+        return _outcome(("C1", "C1"))
+
+    outcomes = []
+    for enabled in (False, True):
+        outcomes.append(BoundedInventoryConsolidator().execute(
+            baseline=_outcome(("C1", "C2")), items=items, containers=containers,
+            settings={}, search=_configuration(
+                container_elimination={"enabled": False},
+                signal_telemetry_enabled=enabled,
+            ), aggregate_lower_bound=1, executor=executor,
+            candidate_validator=lambda placements: True,
+        ))
+    assert outcomes[0].outcome.placements == outcomes[1].outcome.placements
+    assert (
+        outcomes[0].metadata["container_consolidation_candidates_evaluated"]
+        == outcomes[1].metadata["container_consolidation_candidates_evaluated"]
+    )
+    assert outcomes[0].metadata["repair_signal_schema_version"] is None
+    assert outcomes[1].metadata["repair_signal_schema_version"] == "v1"
 
 
 def test_validator_invalid_lower_cardinality_rebuild_never_replaces_baseline() -> None:

@@ -1,0 +1,52 @@
+{
+  "schema_version": "1.0",
+  "evidence_id": "level_02_repair_early_stop_v1_20260821",
+  "decision": "NOT_PROMOTED",
+  "reason": "Early-stop reduced runtime but regressed the official objective.",
+  "source": {
+    "run_id": "20260821T050205618641Z__level_02__benchmark_corpus__level_02_company_like_repair_early_stop_ab_v1__seed42",
+    "run_dir": "outputs/level_02/runs/20260821T050205618641Z__level_02__benchmark_corpus__level_02_company_like_repair_early_stop_ab_v1__seed42",
+    "corpus_id": "level_02_company_like_repair_early_stop_ab_v1",
+    "git_commit": "2ce047c8f96bf9f389583b085280ae8d76f63b98",
+    "git_dirty": false
+  },
+  "coverage": {
+    "case_count": 8,
+    "execution_count": 48,
+    "valid_execution_count": 48,
+    "deterministic_group_count": 16,
+    "paired_comparison_count": 8
+  },
+  "quality_outcomes": {
+    "IMPROVED": 0,
+    "UNCHANGED": 6,
+    "REGRESSION": 2
+  },
+  "median_runtime_reduction_percent": 69.88811890860845,
+  "regressions": [
+    {
+      "algorithm": "extreme_point_best_fit",
+      "comparison_group": "repair_early_stop_random101_i500",
+      "item_count": 500,
+      "standard_containers": 20.0,
+      "early_stop_containers": 21.0,
+      "standard_cost": 40000.0,
+      "early_stop_cost": 41700.0
+    },
+    {
+      "algorithm": "extreme_point_ffd",
+      "comparison_group": "repair_early_stop_random101_i500",
+      "item_count": 500,
+      "standard_containers": 20.0,
+      "early_stop_containers": 21.0,
+      "standard_cost": 40000.0,
+      "early_stop_cost": 41700.0
+    }
+  ],
+  "artifact_checksums": {
+    "manifest.json": "a43650baf7d2201ef0a3f3c21d5be8944877927ad7c1e1a06c63c16ae7a1a091",
+    "benchmark/results.csv": "8cf8c82e5d7c4d5afd398a23c79aaadd2b32f02f67fd7d7de5c63e92a12cf137",
+    "benchmark/determinism_evidence.csv": "98d83a055f67d840af64a198de1058dcb39e757ff6f9f8cf1268266da2da7267",
+    "benchmark/repair_early_stop_comparison.csv": "34aeca0d305370e0845d26e7ed9b4ec09d6bda55a7aaa2cf6517e54009fc2521"
+  }
+}

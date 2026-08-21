@@ -9,14 +9,17 @@ from typing import Any
 import pandas as pd
 
 from ..benchmarks.distribution import build_determinism_evidence, build_pairwise_outcomes
-from ..provenance import sha256_file
+from ..provenance import runtime_metadata, sha256_file
+from ..runtime.run_context import create_run_directory
 from .company_corpus import CompanyCorpusContract
+from .ui_latency import load_ui_response_evidence
 
 
 def evaluate_shadow_slo(
     run_dir: str | Path,
     contract: CompanyCorpusContract,
     *,
+    ui_evidence_run_dir: str | Path | None = None,
     ui_response_p95_seconds: float | None = None,
 ) -> dict[str, Any]:
     source = Path(run_dir).resolve()
@@ -34,7 +37,16 @@ def evaluate_shadow_slo(
         results = pd.read_csv(results_path)
     except (OSError, json.JSONDecodeError, pd.errors.ParserError) as exc:
         raise ValueError(f"Cannot read shadow benchmark evidence: {exc}") from exc
-    return evaluate_shadow_slo_frame(
+    ui_evidence = None
+    qualified_ui_value = ui_response_p95_seconds
+    if ui_evidence_run_dir is not None:
+        ui_evidence = load_ui_response_evidence(
+            ui_evidence_run_dir,
+            expected_level=str(manifest.get("level", "level_02")),
+            minimum_samples=int(contract.slo["minimum_ui_response_samples"]),
+        )
+        qualified_ui_value = float(ui_evidence["metrics"]["p95_seconds"])
+    report = evaluate_shadow_slo_frame(
         results,
         contract,
         manifest=manifest,
@@ -44,8 +56,15 @@ def evaluate_shadow_slo(
             "benchmark/determinism_evidence.csv": sha256_file(determinism_path),
             "benchmark/pairwise_outcomes.csv": sha256_file(pairwise_path),
         },
-        ui_response_p95_seconds=ui_response_p95_seconds,
+        ui_response_p95_seconds=qualified_ui_value,
     )
+    report["ui_response_evidence"] = ui_evidence
+    if ui_evidence is None:
+        report["errors"].append(
+            "Provenance-qualified UI response evidence is not available"
+        )
+        report["status"] = "SHADOW_NOT_READY"
+    return report
 
 
 def evaluate_shadow_slo_frame(
@@ -56,17 +75,17 @@ def evaluate_shadow_slo_frame(
     artifact_checksums: dict[str, str] | None = None,
     ui_response_p95_seconds: float | None = None,
 ) -> dict[str, Any]:
+    frame = _normalize_shadow_results(results)
     required = {
         "level", "success", "status", "validation_status", "objective_value",
         "used_container_count", "total_container_cost", "algorithm", "item_count",
         "input_fingerprint", "case_id", "wall_runtime_seconds", "peak_rss_bytes",
         "placement_signature", "random_seed",
     }
-    missing = required - set(results.columns)
+    missing = required - set(frame.columns)
     if missing:
         raise ValueError("Shadow results are missing: " + ", ".join(sorted(missing)))
-    frame = results.copy()
-    frame["success"] = frame["success"].fillna(False).astype(bool)
+    frame["success"] = _boolean_series(frame["success"])
     failure = ~frame["success"]
     leaked = failure & (
         frame["objective_value"].notna()
@@ -158,6 +177,83 @@ def evaluate_shadow_slo_frame(
         "errors": errors,
         "safety_statement_vi": contract.safety_statement_vi,
     }
+
+
+def publish_shadow_slo_evaluation(
+    shadow_run_dir: str | Path,
+    ui_evidence_run_dir: str | Path,
+    contract: CompanyCorpusContract,
+    *,
+    root: Path,
+) -> tuple[Path, dict[str, Any]]:
+    """Publish a new immutable evaluation run referencing both source artifacts."""
+    project_root = root.resolve()
+    report = evaluate_shadow_slo(
+        shadow_run_dir,
+        contract,
+        ui_evidence_run_dir=ui_evidence_run_dir,
+    )
+    level_id = str(report.get("manifest", {}).get("level", "level_02"))
+    run_id, run_dir = create_run_directory(
+        project_root / "outputs",
+        level_id,
+        "productization_shadow_evaluation",
+        0,
+        0,
+        0,
+    )
+    reports_dir = run_dir / "reports"
+    reports_dir.mkdir(parents=True)
+    json_path = reports_dir / "productization_shadow_slo.json"
+    markdown_path = reports_dir / "productization_shadow_slo.md"
+    json_path.write_text(
+        json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8",
+    )
+    markdown_path.write_text(render_shadow_slo_markdown(report), encoding="utf-8")
+    manifest = {
+        "project": "3d-container-packing",
+        "run_type": "productization_shadow_evaluation",
+        "run_id": run_id,
+        "level": level_id,
+        "status": report["status"],
+        "shadow_run_dir": str(Path(shadow_run_dir).resolve()),
+        "ui_evidence_run_dir": str(Path(ui_evidence_run_dir).resolve()),
+        "report_checksums": {
+            "reports/productization_shadow_slo.json": sha256_file(json_path),
+            "reports/productization_shadow_slo.md": sha256_file(markdown_path),
+        },
+        **runtime_metadata(project_root),
+    }
+    (run_dir / "manifest.json").write_text(
+        json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8",
+    )
+    return run_dir, report
+
+
+def _normalize_shadow_results(results: pd.DataFrame) -> pd.DataFrame:
+    frame = results.copy()
+    if "validation_status" not in frame and "validation_valid" in frame:
+        valid = _boolean_series(frame["validation_valid"])
+        frame["validation_status"] = valid.map({True: "VALID", False: "INVALID"})
+    return frame
+
+
+def _boolean_series(values: pd.Series) -> pd.Series:
+    def parse(value: Any) -> bool:
+        if pd.isna(value):
+            return False
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, (int, float)):
+            return bool(value)
+        normalized = str(value).strip().lower()
+        if normalized in {"true", "1", "yes"}:
+            return True
+        if normalized in {"false", "0", "no", ""}:
+            return False
+        raise ValueError(f"Cannot parse boolean evidence value {value!r}")
+
+    return values.map(parse).astype(bool)
 
 
 def render_shadow_slo_markdown(report: dict[str, Any]) -> str:

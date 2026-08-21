@@ -33,13 +33,38 @@ python scripts\run_benchmark_corpus.py `
   --corpus config\level_02\benchmarks\company_like_shadow_manual.yaml
 ```
 
-Evaluate a completed artifact only when UI p95 evidence is available:
+Measure warm Streamlit reruns without invoking the solver:
+
+```powershell
+python scripts\measure_ui_response.py `
+  --level level_02 `
+  --profile items_1000_fleet_500_t10 `
+  --warmups 3 `
+  --samples 30
+```
+
+Then evaluate a completed shadow artifact with the printed UI evidence run:
 
 ```powershell
 python scripts\evaluate_productization_shadow.py `
   --run-dir outputs\level_02\runs\<run_id> `
-  --ui-response-p95-seconds <measured-value>
+  --ui-evidence-run-dir outputs\level_02\runs\<ui-response-run-id>
 ```
+
+The UI metric is a warm server-side Streamlit rerun. It excludes solver time,
+browser rendering, and network latency. The evaluator rejects dirty, missing,
+undersampled, or checksum-mismatched evidence.
+
+Run the heavier repair-signal diagnostic manually after the implementation
+checkpoint is clean:
+
+```powershell
+python scripts\run_benchmark_corpus.py `
+  --corpus config\level_02\benchmarks\repair_signal_diagnostic_manual.yaml
+```
+
+It runs 18 diagnostic executions (three paired inputs, Best Fit and FFD, three
+repeats) with full repair and no early-stop. It is not canonical quality evidence.
 
 By default, 20 placements are displayed. Use `--preview-limit 5`, `--preview-limit 0`, or `--json-only` when needed. Full artifacts are always stored under `outputs/<level_id>/runs/<run_id>/`.
 

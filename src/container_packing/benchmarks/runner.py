@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
+import json
 from pathlib import Path
 from time import perf_counter
 from typing import Any, Sequence
@@ -299,6 +300,31 @@ def execute_experiment_case(request: ExperimentRequest, repeat_index: int) -> di
         ),
         "repair_objective_improvements_per_second": metadata.get(
             "repair_objective_improvements_per_second"
+        ),
+        "repair_signal_telemetry_enabled": metadata.get(
+            "repair_signal_telemetry_enabled"
+        ),
+        "repair_signal_schema_version": metadata.get("repair_signal_schema_version"),
+        "repair_signal_candidate_count": metadata.get("repair_signal_candidate_count"),
+        "repair_improvement_events": json.dumps(
+            metadata.get("repair_improvement_events", []),
+            sort_keys=True,
+            separators=(",", ":"),
+        ),
+        "repair_first_improvement_seconds": metadata.get(
+            "repair_first_improvement_seconds"
+        ),
+        "repair_last_improvement_seconds": metadata.get(
+            "repair_last_improvement_seconds"
+        ),
+        "repair_longest_no_improvement_before_later_improvement": metadata.get(
+            "repair_longest_no_improvement_before_later_improvement"
+        ),
+        "repair_best_partial_placement_count": metadata.get(
+            "repair_best_partial_placement_count"
+        ),
+        "repair_objective_trajectory_sha256": metadata.get(
+            "repair_objective_trajectory_sha256"
         ),
         "best_partial_placement_count": metadata.get(
             "best_partial_placement_count"

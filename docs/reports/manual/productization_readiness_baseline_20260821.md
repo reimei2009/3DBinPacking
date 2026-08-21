@@ -15,11 +15,12 @@ shadow evaluation có kiểm soát, nhưng chưa đủ evidence để tuyên b�
 - Corpus contract phân loại đầy đủ cost/load-bearing/safety clearance/measurement
   error và ghi rõ đây là `synthetic_calibrated_shadow`.
 
-## Evidence chưa chạy
+## Evidence sau checkpoint
 
-- Shadow benchmark 162 lượt chưa được chạy trong checkpoint code này.
+- Shadow benchmark đã có 162/162 lượt `VALID` và deterministic.
 - UI response p95 chưa có phép đo đủ mẫu.
-- Repair early-stop A/B 48 lượt chưa được chạy.
+- Repair early-stop A/B đạt 48/48 lượt `VALID`, nhưng quyết định là
+  `NOT_PROMOTED` vì 2 cặp làm xấu official objective.
 - Chưa có cost, vật liệu, safety clearance hoặc sai số đo do doanh nghiệp cung cấp.
 
 Vì vậy evaluator phải trả `SHADOW_NOT_READY` nếu thiếu artifact hoặc UI latency.
@@ -33,15 +34,18 @@ runtime có khả năng giảm ≥20%.
 ## Lệnh evidence thủ công kế tiếp
 
 ```powershell
-python scripts\run_benchmark_corpus.py `
-  --corpus config\level_02\benchmarks\company_like_shadow_manual.yaml
+python scripts\measure_ui_response.py `
+  --level level_02 `
+  --profile items_1000_fleet_500_t10 `
+  --warmups 3 `
+  --samples 30
 
 python scripts\evaluate_productization_shadow.py `
   --run-dir outputs\level_02\runs\<run_id> `
-  --ui-response-p95-seconds <giá-trị-đo>
+  --ui-evidence-run-dir outputs\level_02\runs\<ui-response-run-id>
 
 python scripts\run_benchmark_corpus.py `
-  --corpus config\level_02\benchmarks\repair_early_stop_ab_manual.yaml
+  --corpus config\level_02\benchmarks\repair_signal_diagnostic_manual.yaml
 ```
 
 Chỉ nghiệm complete và independently `VALID` được có official objective. Report

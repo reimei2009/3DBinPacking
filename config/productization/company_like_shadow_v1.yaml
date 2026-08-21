@@ -23,6 +23,7 @@ slo:
   runtime_p95_seconds: {"100": 60, "300": 120, "500": 180}
   maximum_peak_rss_bytes: 1073741824
   ui_response_p95_seconds: 2.0
+  minimum_ui_response_samples: 30
   minimum_runtime_samples_per_scale: 10
 caching_reconsideration:
   minimum_profile_share: 0.30

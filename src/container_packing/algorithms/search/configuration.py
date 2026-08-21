@@ -200,6 +200,7 @@ class ConsolidationConfiguration:
         ContainerEliminationConfiguration()
     )
     early_stop: RepairEarlyStopConfiguration = RepairEarlyStopConfiguration()
+    signal_telemetry_enabled: bool = False
 
     @classmethod
     def from_mapping(cls, value: dict[str, Any] | None) -> "ConsolidationConfiguration":
@@ -262,6 +263,10 @@ class ConsolidationConfiguration:
             raw.get("container_elimination")
         )
         early_stop = RepairEarlyStopConfiguration.from_mapping(raw.get("early_stop"))
+        signal_telemetry_enabled = _strict_bool(
+            raw.get("signal_telemetry_enabled", False),
+            "consolidation.signal_telemetry_enabled",
+        )
         return cls(
             enabled=enabled,
             time_limit_seconds=time_limit,
@@ -270,6 +275,7 @@ class ConsolidationConfiguration:
             item_order_variants=variants,
             container_elimination=elimination,
             early_stop=early_stop,
+            signal_telemetry_enabled=signal_telemetry_enabled,
         )
 
     def metadata(self) -> dict[str, object]:
@@ -284,6 +290,7 @@ class ConsolidationConfiguration:
             "container_consolidation_item_order_variants": list(self.item_order_variants),
             **self.container_elimination.metadata(),
             **self.early_stop.metadata(),
+            "repair_signal_telemetry_enabled": self.signal_telemetry_enabled,
         }
 
 

@@ -16,6 +16,16 @@ from container_packing.productization.company_corpus import (
     prepare_company_shadow_corpus,
 )
 from container_packing.productization.slo import evaluate_shadow_slo_frame
+from container_packing.productization.repair_evidence import (
+    EXPECTED_CORPUS_ID,
+    evaluate_repair_early_stop_v1,
+)
+from container_packing.productization.ui_latency import (
+    UI_RESPONSE_METRIC_VERSION,
+    collect_warm_rerun_samples,
+    load_ui_response_evidence,
+    summarize_ui_response_samples,
+)
 from container_packing.provenance import sha256_file
 
 
@@ -30,6 +40,7 @@ def test_company_shadow_contract_is_governed_and_not_production(root: Path) -> N
         "extreme_point_best_fit", "extreme_point_ffd", "maximal_space_best_fit",
     }
     assert contract.field_governance["safety_clearance"]["status"] == "unsupported"
+    assert contract.slo["minimum_ui_response_samples"] == 30
     assert "không phải chứng nhận" in contract.safety_statement_vi
 
 
@@ -126,6 +137,60 @@ def test_shadow_slo_passes_only_with_complete_runtime_and_ui_evidence(root: Path
     assert any("UI response" in value for value in missing_ui["errors"])
 
 
+def test_shadow_slo_reads_validation_valid_from_real_corpus_schema(root: Path) -> None:
+    contract = load_company_corpus_contract(CONTRACT, root=root)
+    frame = _shadow_results().drop(columns=["validation_status"])
+    frame["validation_valid"] = True
+    report = evaluate_shadow_slo_frame(
+        frame, contract, ui_response_p95_seconds=0.5,
+    )
+    assert report["status"] == "SHADOW_PASS"
+
+
+def test_ui_measurement_excludes_warmups_and_uses_declared_quantile() -> None:
+    observed: list[int] = []
+    ticks = iter(float(value) for value in range(12))
+    warmups, samples = collect_warm_rerun_samples(
+        observed.append, warmups=2, samples=4, clock=lambda: next(ticks),
+    )
+    assert observed == [0, 1, 2, 3, 4, 5]
+    assert warmups == [1.0, 1.0]
+    assert samples == [1.0, 1.0, 1.0, 1.0]
+    assert summarize_ui_response_samples(samples)["p95_seconds"] == 1.0
+
+
+def test_ui_evidence_is_checksum_verified_and_requires_clean_source(
+    tmp_path: Path,
+) -> None:
+    metrics_dir = tmp_path / "metrics"
+    metrics_dir.mkdir()
+    metrics = {
+        "metric_version": UI_RESPONSE_METRIC_VERSION,
+        "level_id": "level_02",
+        "samples_seconds": [float(value) / 100 for value in range(30)],
+    }
+    metrics.update(summarize_ui_response_samples(metrics["samples_seconds"]))
+    metrics_path = metrics_dir / "ui_response.json"
+    metrics_path.write_text(json.dumps(metrics), encoding="utf-8")
+    manifest_path = tmp_path / "manifest.json"
+    manifest = {
+        "run_type": "ui_response_profile", "status": "SUCCESS",
+        "level": "level_02", "metric_version": UI_RESPONSE_METRIC_VERSION,
+        "git_dirty": False, "metrics_sha256": sha256_file(metrics_path),
+    }
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    evidence = load_ui_response_evidence(
+        tmp_path, expected_level="level_02", minimum_samples=30,
+    )
+    assert evidence["metrics"]["sample_count"] == 30
+
+    metrics_path.write_text(json.dumps({**metrics, "p95_seconds": 99}), encoding="utf-8")
+    with pytest.raises(ValueError, match="checksum mismatch"):
+        load_ui_response_evidence(
+            tmp_path, expected_level="level_02", minimum_samples=30,
+        )
+
+
 def test_shadow_slo_rejects_objective_on_failed_execution(root: Path) -> None:
     contract = load_company_corpus_contract(CONTRACT, root=root)
     frame = _shadow_results()
@@ -160,6 +225,20 @@ def test_repair_early_stop_ab_contract_has_48_paired_executions(root: Path) -> N
     }
 
 
+def test_repair_signal_diagnostic_has_18_full_repair_executions(root: Path) -> None:
+    corpus = load_benchmark_corpus(
+        "config/level_02/benchmarks/repair_signal_diagnostic_manual.yaml",
+        project_root=root,
+    )
+    assert len(corpus.cases) == 3
+    assert sum(len(case.algorithms) for case in corpus.cases) * corpus.repeats == 18
+    assert {case.item_count for case in corpus.cases} == {300, 500}
+    for case in corpus.cases:
+        consolidation = case.config_overrides["container_search"]["consolidation"]
+        assert consolidation["signal_telemetry_enabled"] is True
+        assert consolidation["early_stop"]["enabled"] is False
+
+
 def test_repair_early_stop_comparison_is_paired_by_algorithm() -> None:
     rows = []
     for algorithm in ("extreme_point_best_fit", "extreme_point_ffd"):
@@ -184,3 +263,55 @@ def test_repair_early_stop_comparison_is_paired_by_algorithm() -> None:
     assert comparison.quality_outcome.eq("UNCHANGED").all()
     assert comparison.incumbent_preserved.all()
     assert comparison.runtime_reduction_ratio.eq(0.375).all()
+
+
+def test_repair_v1_evidence_is_fail_closed_and_records_regression(
+    tmp_path: Path,
+) -> None:
+    benchmark = tmp_path / "benchmark"
+    benchmark.mkdir()
+    (tmp_path / "manifest.json").write_text(json.dumps({
+        "corpus_id": EXPECTED_CORPUS_ID, "status": "SUCCESS",
+        "git_dirty": False, "git_commit": "source", "run_id": "repair-run",
+    }), encoding="utf-8")
+    rows = []
+    deterministic_rows = []
+    for case_index in range(8):
+        case_id = f"case-{case_index}"
+        algorithm = (
+            "extreme_point_best_fit" if case_index % 2 == 0 else "extreme_point_ffd"
+        )
+        for repeat in range(3):
+            rows.append({
+                "case_id": case_id, "algorithm": algorithm, "success": True,
+                "validation_valid": True, "official_objective": "[4, 8000]",
+            })
+        for other_algorithm in (algorithm, "companion"):
+            deterministic_rows.append({
+                "case_id": case_id, "algorithm": other_algorithm,
+                "deterministic": True,
+            })
+    pd.DataFrame(rows * 2).iloc[:48].to_csv(
+        benchmark / "results.csv", index=False,
+    )
+    pd.DataFrame(deterministic_rows).to_csv(
+        benchmark / "determinism_evidence.csv", index=False,
+    )
+    comparison = pd.DataFrame([{
+        "algorithm": "extreme_point_best_fit",
+        "comparison_group": f"group-{index}", "item_count": 500,
+        "standard_containers": 4, "early_stop_containers": 5 if index == 0 else 4,
+        "standard_cost": 8000.0, "early_stop_cost": 10000.0 if index == 0 else 8000.0,
+        "runtime_reduction_ratio": 0.5,
+        "quality_outcome": "REGRESSION" if index == 0 else "UNCHANGED",
+    } for index in range(8)])
+    comparison.to_csv(benchmark / "repair_early_stop_comparison.csv", index=False)
+
+    report = evaluate_repair_early_stop_v1(tmp_path)
+    assert report["decision"] == "NOT_PROMOTED"
+    assert report["quality_outcomes"] == {
+        "IMPROVED": 0, "UNCHANGED": 7, "REGRESSION": 1,
+    }
+    (benchmark / "repair_early_stop_comparison.csv").unlink()
+    with pytest.raises(ValueError, match="requires manifest"):
+        evaluate_repair_early_stop_v1(tmp_path)
