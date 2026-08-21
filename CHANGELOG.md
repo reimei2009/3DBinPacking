@@ -1,9 +1,12 @@
 # Changelog
 
+- Promote Benchmark Level 2 V2 sau clean rerun: 84 bài, 756 lượt `VALID`, 252 nhóm
+  deterministic, ba manifest `git_dirty=false` và checksum gate đạt. Random là tầng
+  quality chính; stress/prefix là supporting evidence. V1 chuyển sang `superseded`.
 - Khóa governance objective/benchmark: official objective vẫn là số container rồi
   chi phí; secondary policy `utilization_void_support_margin_v1` chỉ tie-break nghiệm
-  `VALID` cùng objective. Evidence V2 giờ khóa SHA-256 và tách functional/provenance
-  gate; V2 giữ `CANONICAL_PENDING_CLEAN_RERUN` vì ba source run còn dirty.
+  `VALID` cùng objective. Evidence V2 khóa SHA-256 và tách functional/provenance
+  gate; run dirty ngày 2026-08-13 được giữ làm evidence lịch sử.
 - Ghi nhận MES Level 4–5 là `ACCEPTED_COMPARATOR_NOT_DEFAULT`; Best Fit vẫn mặc định
   và Constructor Portfolio V1 tiếp tục `NOT_PROMOTED`.
 

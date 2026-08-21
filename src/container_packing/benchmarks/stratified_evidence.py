@@ -336,29 +336,39 @@ def write_stratified_evidence(
             f"- `{value['comparator']}`: {value['wins']} thắng / "
             f"{value['ties']} hòa / {value['losses']} thua so với Best Fit."
         )
+    lines.extend(["", "## Diễn giải governance", ""])
+    if report["promotion_to_canonical_allowed"]:
+        lines.extend([
+            "V2 đã đạt cả functional và provenance gate. Ba source run cùng commit, "
+            "đều `git_dirty=false`, và toàn bộ checksum gate đạt; V2 đủ điều kiện "
+            "canonical còn V1 chuyển sang evidence lịch sử `superseded`.",
+        ])
+    else:
+        lines.extend([
+            "V2 chưa thay V1 vì functional hoặc provenance gate chưa đạt. V1 tiếp tục "
+            "là canonical; V2 giữ vai trò research candidate cho đến khi clean rerun "
+            "và toàn bộ checksum gate đạt.",
+        ])
     lines.extend([
-        "",
-        "## Diễn giải governance",
-        "",
-        "V2 đã đạt gate chức năng nhưng chưa thay V1 vì các source run hiện tại được tạo "
-        "khi working tree còn thay đổi. V1 tiếp tục là canonical; V2 giữ vai trò research "
-        "candidate cho đến khi chạy lại sạch và toàn bộ checksum gate đạt.",
         "",
         "`proven_optimal` chỉ dành cho exact proof; `best_observed` chỉ là nghiệm tốt nhất "
         "trên cùng input fingerprint; aggregate lower bound chỉ là cận capacity sơ bộ.",
-        "",
-        "## Clean rerun bắt buộc trước promotion",
-        "",
-        "```powershell",
-        ".\\.venv\\Scripts\\python.exe .\\scripts\\run_benchmark_corpus.py `",
-        "  --corpus config\\level_02\\benchmarks\\generated_1k_500_random_candidate.yaml",
-        "",
-        ".\\.venv\\Scripts\\python.exe .\\scripts\\run_benchmark_corpus.py `",
-        "  --corpus config\\level_02\\benchmarks\\generated_1k_500_stress_candidate.yaml",
-        "",
-        ".\\.venv\\Scripts\\python.exe .\\scripts\\run_benchmark_corpus.py `",
-        "  --corpus config\\level_02\\benchmarks\\generated_1k_500_prefix_regression.yaml",
-        "```",
     ])
+    if not report["promotion_to_canonical_allowed"]:
+        lines.extend([
+            "",
+            "## Clean rerun bắt buộc trước promotion",
+            "",
+            "```powershell",
+            ".\\.venv\\Scripts\\python.exe .\\scripts\\run_benchmark_corpus.py `",
+            "  --corpus config\\level_02\\benchmarks\\generated_1k_500_random_candidate.yaml",
+            "",
+            ".\\.venv\\Scripts\\python.exe .\\scripts\\run_benchmark_corpus.py `",
+            "  --corpus config\\level_02\\benchmarks\\generated_1k_500_stress_candidate.yaml",
+            "",
+            ".\\.venv\\Scripts\\python.exe .\\scripts\\run_benchmark_corpus.py `",
+            "  --corpus config\\level_02\\benchmarks\\generated_1k_500_prefix_regression.yaml",
+            "```",
+        ])
     markdown_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return json_path, markdown_path

@@ -574,10 +574,19 @@ def test_level2_benchmark_catalog_separates_canonical_academic_and_research(root
     catalog = load_benchmark_catalog(
         root / "config/level_02/benchmarks/registry.yaml", project_root=root,
     )
-    assert catalog.get("level_02_generated_canonical_v1").kind == "canonical"
+    legacy_v1 = catalog.get("level_02_generated_canonical_v1")
+    assert legacy_v1.kind == "superseded"
+    assert legacy_v1.run_mode == "read_only"
+    assert legacy_v1.replacement_id == "level_02_generated_random_v2_candidate"
     assert catalog.get("level_02_mpv_acceptance_v1").kind == "academic"
     assert catalog.get("level_02_repair_ab_v1").kind == "research"
-    assert catalog.get("level_02_generated_random_v2_candidate").kind == "research"
+    for benchmark_id in (
+        "level_02_generated_random_v2_candidate",
+        "level_02_generated_stress_v2_candidate",
+        "level_02_generated_prefix_v2_candidate",
+    ):
+        assert catalog.get(benchmark_id).kind == "canonical"
+    assert catalog.get("level_02_generated_quick_v3").kind == "research"
     legacy = catalog.get("level_02_capacity_repair_legacy_v1")
     assert legacy.kind == "superseded"
     assert legacy.replacement_id == "level_02_repair_ab_v1"

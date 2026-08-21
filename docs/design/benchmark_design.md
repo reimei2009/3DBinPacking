@@ -60,6 +60,11 @@ Functional `PASS` không tự động cho phép promotion. Thiếu artifact, che
 hoặc source run dirty đều fail closed. Quy tắc objective/reference authoritative nằm
 tại [ADR-0050](../decisions/ADR-0050-objective-va-benchmark-governance.md).
 
+Level 2 V2 là canonical sau clean rerun ngày 2026-08-20: 84 bài, 756 lượt `VALID`,
+252 nhóm deterministic và ba manifest `git_dirty=false`. Random là tầng quality
+chính; stress và prefix là supporting evidence và không được trộn vào WIN/TIE/LOSS
+random. V1 là `superseded`; quick UI chỉ là smoke protocol.
+
 ## Corpus nghiên cứu có định danh
 
 `config/level_01/benchmarks/research_corpus.yaml` định nghĩa các case có tên thay vì chỉ dùng tích Descartes giữa số item và container. Mỗi case khai báo nhóm quy mô, độ khó, số item/container, kết quả kỳ vọng, thuật toán, config và mô tả. Một lần chạy ghi aggregate bất biến dưới `outputs/level_01/runs/<run_id>/`; từng source run vẫn là experiment được independent validator kiểm tra.

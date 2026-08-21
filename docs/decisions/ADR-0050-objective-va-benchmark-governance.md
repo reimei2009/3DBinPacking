@@ -36,10 +36,15 @@ source commit hoặc checksum không khớp.
 
 ## Áp dụng hiện tại
 
-Level 2 V1 tiếp tục là canonical. V2 ngày 2026-08-13 đạt functional gate với 84 bài,
-756 lượt và 252 nhóm deterministic, nhưng cả ba source run đều `git_dirty=true`.
-Trạng thái governance là `CANONICAL_PENDING_CLEAN_RERUN`; registry V2 vẫn là
-`research` cho đến khi chạy lại sạch.
+Level 2 V2 là benchmark canonical từ clean rerun ngày 2026-08-20. Ba tầng đạt
+84 bài, 756 lượt `VALID`, 252 nhóm deterministic, dùng cùng source commit và đều
+`git_dirty=false`; checksum của manifest, results, determinism và pairwise artifact
+đã được khóa và xác minh. Random là tầng kết luận chất lượng chính; stress và prefix
+là evidence hỗ trợ, không bị trộn vào WIN/TIE/LOSS random. V1 chuyển sang
+`superseded` và chỉ đọc như evidence lịch sử.
+
+Run V2 ngày 2026-08-13 vẫn được giữ nguyên để chứng minh functional gate trước đó,
+nhưng không phải canonical vì `git_dirty=true`.
 
 MES Level 4–5 được chấp nhận làm comparator riêng lẻ, không phải thuật toán mặc định.
 Best Fit tiếp tục là mặc định. Constructor Portfolio V1 vẫn `NOT_PROMOTED` và không
@@ -48,5 +53,6 @@ tham gia UI/canonical registry.
 ## Hệ quả
 
 Không được claim optimum từ best-observed hoặc lower bound. Không lấy trung bình raw
-objective giữa các quy mô. Artifact thiếu/sai checksum fail closed. Việc promote V2
-và đánh dấu V1 `superseded` chỉ diễn ra ở checkpoint riêng sau clean rerun.
+objective giữa các quy mô. Artifact thiếu/sai checksum fail closed. Quick benchmark
+trên UI chỉ là smoke check; hoàn thành quick không thay thế hoặc tái xác nhận full
+canonical V2.

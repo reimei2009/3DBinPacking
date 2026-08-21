@@ -421,12 +421,16 @@ def test_level2_benchmark_catalog_is_separated_for_nontechnical_users(root: Path
         "So sánh tùy chỉnh",
         "Benchmark học thuật MPV",
         "Đánh giá tác động của repair",
-        "Benchmark V2 đang đánh giá",
     }.issubset(expander_labels)
+    assert "Benchmark V2 đang đánh giá" not in expander_labels
     metric_labels = {value.label for value in page.metric}
     assert {"Nguồn dữ liệu", "Quy mô", "Số bài kiểm tra", "Tổng lượt chạy"}.issubset(
         metric_labels
     )
+    metrics = {value.label: value.value for value in page.metric}
+    assert metrics["Số bài kiểm tra"] == "84"
+    assert metrics["Tổng lượt chạy"] == "756"
+    assert metrics["Benchmark chuẩn V2"] == "Đã nghiệm thu"
 
 
 def test_multi_case_dashboard_explains_quality_and_hides_under_sampled_p95(

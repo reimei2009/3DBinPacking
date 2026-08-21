@@ -7,6 +7,7 @@ import pytest
 from container_packing.benchmarks.stratified_evidence import (
     build_stratified_evidence,
     verify_stratified_evidence_checksums,
+    write_stratified_evidence,
 )
 from container_packing.benchmarks.distribution import (
     build_determinism_evidence,
@@ -90,6 +91,11 @@ def test_stratified_evidence_requires_all_three_valid_deterministic_layers(
     assert all(value["ties"] == 60 for value in report["random_distribution_pairwise_vs_best_fit"])
     assert verify_stratified_evidence_checksums(report, runs) == ()
 
+    _, markdown_path = write_stratified_evidence(report, tmp_path / "clean_report")
+    markdown = markdown_path.read_text(encoding="utf-8")
+    assert "đủ điều kiện canonical" in markdown
+    assert "Clean rerun bắt buộc" not in markdown
+
 
 def test_stratified_evidence_blocks_dirty_source_from_canonical_promotion(
     tmp_path: Path,
@@ -119,6 +125,9 @@ def test_stratified_evidence_blocks_dirty_source_from_canonical_promotion(
     assert report["provenance_gate"]["status"] == "FAIL"
     assert report["governance_decision"] == "CANONICAL_PENDING_CLEAN_RERUN"
     assert report["promotion_to_canonical_allowed"] is False
+
+    _, markdown_path = write_stratified_evidence(report, tmp_path / "dirty_report")
+    assert "Clean rerun bắt buộc" in markdown_path.read_text(encoding="utf-8")
 
 
 def test_stratified_evidence_fails_closed_for_missing_artifact(tmp_path: Path) -> None:

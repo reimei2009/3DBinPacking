@@ -2,48 +2,50 @@ schema_version: "1.0"
 benchmarks:
   - benchmark_id: level_02_generated_random_v2_candidate
     level_id: level_02
-    kind: research
-    label_vi: "Benchmark V2 ứng viên — phân phối random"
+    kind: canonical
+    label_vi: "Benchmark chuẩn V2 — phân phối random"
     description_vi: "60 bài random ở 6 quy mô; đây là tầng chính để đánh giá phân phối."
     protocol_file: config/level_02/benchmarks/generated_1k_500_random_candidate.yaml
     run_mode: cli_manual
     baseline_algorithm: extreme_point_best_fit
-    governance_status: canonical_pending_clean_rerun
+    governance_status: canonical_active_primary
   - benchmark_id: level_02_generated_stress_v2_candidate
     level_id: level_02
-    kind: research
-    label_vi: "Benchmark V2 ứng viên — stress"
+    kind: canonical
+    label_vi: "Benchmark chuẩn V2 — stress"
     description_vi: "18 bài có chủ đích về thể tích, khối lượng và mật độ tải trọng."
     protocol_file: config/level_02/benchmarks/generated_1k_500_stress_candidate.yaml
     run_mode: cli_manual
     baseline_algorithm: extreme_point_best_fit
-    governance_status: canonical_pending_clean_rerun
+    governance_status: canonical_active_supporting
   - benchmark_id: level_02_generated_prefix_v2_candidate
     level_id: level_02
-    kind: research
-    label_vi: "Benchmark V2 ứng viên — hồi quy prefix"
+    kind: canonical
+    label_vi: "Benchmark chuẩn V2 — hồi quy prefix"
     description_vi: "6 bài theo thứ tự nguồn để phát hiện hồi quy; không dùng kết luận phân phối."
     protocol_file: config/level_02/benchmarks/generated_1k_500_prefix_regression.yaml
     run_mode: cli_manual
     baseline_algorithm: extreme_point_best_fit
-    governance_status: canonical_pending_clean_rerun
+    governance_status: canonical_active_supporting
   - benchmark_id: level_02_generated_canonical_v1
     level_id: level_02
-    kind: canonical
-    label_vi: "Benchmark chuẩn Level 2 — nguồn 1.000 kiện / kho 500 container"
-    description_vi: "24 bài kiểm tra ở 6 quy mô; Best Fit là mốc đối chiếu."
+    kind: superseded
+    label_vi: "Benchmark Level 2 V1 — evidence lịch sử"
+    description_vi: "24 bài kiểm tra ở 6 quy mô; đã được thay bằng benchmark phân tầng V2."
     protocol_file: config/level_02/benchmarks/generated_1k_500_distribution_corpus.yaml
-    run_mode: cli_manual
+    run_mode: read_only
     baseline_algorithm: extreme_point_best_fit
-    governance_status: canonical_active
+    governance_status: superseded
+    replacement_id: level_02_generated_random_v2_candidate
   - benchmark_id: level_02_generated_quick_v3
     level_id: level_02
-    kind: canonical
+    kind: research
     label_vi: "Kiểm tra nhanh benchmark chuẩn"
     description_vi: "6 bài kiểm tra ở 20, 50 và 100 kiện; chạy trực tiếp trên UI."
     protocol_file: config/level_02/benchmarks/ui_quick_generated_1k_500_v2.yaml
     run_mode: ui_quick
     baseline_algorithm: extreme_point_best_fit
+    governance_status: smoke_only
   - benchmark_id: level_02_repair_ab_v1
     level_id: level_02
     kind: research

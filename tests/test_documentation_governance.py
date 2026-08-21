@@ -149,33 +149,41 @@ def test_research_and_web_algorithm_governance_is_consistent() -> None:
     assert "validated_best_fit_mes_portfolio" not in registered
 
 
-def test_level2_v2_remains_candidate_until_clean_provenance_gate(root: Path) -> None:
+def test_level2_v2_clean_evidence_is_canonical_and_v1_is_superseded(root: Path) -> None:
     report = json.loads((
-        root / "docs/reports/manual/level_02_stratified_benchmark_v2_20260813.json"
+        root / "docs/reports/manual/level_02_stratified_benchmark_v2_clean_20260820.json"
     ).read_text(encoding="utf-8"))
     assert report["functional_gate"]["status"] == "PASS"
-    assert report["provenance_gate"]["status"] == "FAIL"
-    assert report["governance_decision"] == "CANONICAL_PENDING_CLEAN_RERUN"
-    assert report["promotion_to_canonical_allowed"] is False
+    assert report["provenance_gate"]["status"] == "PASS"
+    assert report["governance_decision"] == "CANONICAL_PROMOTION_ALLOWED"
+    assert report["promotion_to_canonical_allowed"] is True
+    assert report["case_count"] == 84
+    assert report["execution_count"] == 756
     assert len(report["strata"]) == 3
     assert all(len(value["artifact_locks"]) == 4 for value in report["strata"])
+    assert all(value["git_dirty"] is False for value in report["strata"])
+    assert sum(value["deterministic_group_count"] for value in report["strata"]) == 252
 
     registry = yaml.safe_load((
         root / "config/level_02/benchmarks/registry.yaml"
     ).read_text(encoding="utf-8-sig"))
     entries = {value["benchmark_id"]: value for value in registry["benchmarks"]}
-    assert entries["level_02_generated_canonical_v1"]["governance_status"] == (
-        "canonical_active"
-    )
+    legacy = entries["level_02_generated_canonical_v1"]
+    assert legacy["kind"] == "superseded"
+    assert legacy["run_mode"] == "read_only"
+    assert legacy["governance_status"] == "superseded"
+    assert legacy["replacement_id"] == "level_02_generated_random_v2_candidate"
     for benchmark_id in (
         "level_02_generated_random_v2_candidate",
         "level_02_generated_stress_v2_candidate",
         "level_02_generated_prefix_v2_candidate",
     ):
-        assert entries[benchmark_id]["kind"] == "research"
-        assert entries[benchmark_id]["governance_status"] == (
-            "canonical_pending_clean_rerun"
+        assert entries[benchmark_id]["kind"] == "canonical"
+        assert entries[benchmark_id]["governance_status"].startswith(
+            "canonical_active"
         )
+    assert entries["level_02_generated_quick_v3"]["kind"] == "research"
+    assert entries["level_02_generated_quick_v3"]["governance_status"] == "smoke_only"
 
 
 def test_mes_level4_5_review_locks_its_declared_sources(root: Path) -> None:

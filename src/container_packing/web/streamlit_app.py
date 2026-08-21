@@ -1776,24 +1776,41 @@ def _render_level2_benchmark_catalog(
     catalog = load_benchmark_catalog(
         root / "config/level_02/benchmarks/registry.yaml", project_root=root,
     )
-    canonical = catalog.get("level_02_generated_canonical_v1")
-    corpus = load_benchmark_corpus(canonical.protocol_file, project_root=root)
-    scales = sorted({case.item_count for case in corpus.cases})
-    execution_count = sum(len(case.algorithms) for case in corpus.cases) * len(corpus.seeds) * corpus.repeats
+    canonical_entries = (
+        catalog.get("level_02_generated_random_v2_candidate"),
+        catalog.get("level_02_generated_stress_v2_candidate"),
+        catalog.get("level_02_generated_prefix_v2_candidate"),
+    )
+    canonical_corpora = tuple(
+        load_benchmark_corpus(entry.protocol_file, project_root=root)
+        for entry in canonical_entries
+    )
+    scales = sorted({
+        case.item_count for corpus in canonical_corpora for case in corpus.cases
+    })
+    case_count = sum(len(corpus.cases) for corpus in canonical_corpora)
+    execution_count = sum(
+        sum(len(case.algorithms) for case in corpus.cases)
+        * len(corpus.seeds) * corpus.repeats
+        for corpus in canonical_corpora
+    )
+    evidence_path = (
+        root / "docs/reports/manual/level_02_stratified_benchmark_v2_clean_20260820.json"
+    )
+    evidence = json.loads(evidence_path.read_text(encoding="utf-8"))
+    canonical_accepted = (
+        evidence.get("governance_decision") == "CANONICAL_PROMOTION_ALLOWED"
+        and evidence.get("functional_gate", {}).get("status") == "PASS"
+        and evidence.get("provenance_gate", {}).get("status") == "PASS"
+        and int(evidence.get("case_count", 0)) == 84
+        and int(evidence.get("execution_count", 0)) == 756
+    )
     saved_runs = discover_benchmark_runs(
         "level_02", root=root, limit=200,
         dataset_profile_id=active_data.profile_id,
         expected_raw_items_checksum=active_data.raw_items_checksum,
         expected_container_catalog_checksum=active_data.container_catalog_checksum,
     )
-    canonical_run = next((
-        run for run in saved_runs
-        if run.suite_id == corpus.corpus_id
-        and run.case_count == 24
-        and run.execution_count == 144
-        and run.successful_execution_count == 144
-        and run.status == "SUCCESS"
-    ), None)
     quick_entry = catalog.get("level_02_generated_quick_v3")
     quick_corpus = load_benchmark_corpus(quick_entry.protocol_file, project_root=root)
     quick_run = next((
@@ -1811,12 +1828,12 @@ def _render_level2_benchmark_catalog(
         cards = st.columns(4)
         cards[0].metric("Nguồn dữ liệu", "1.000 kiện / 500 container")
         cards[1].metric("Quy mô", ", ".join(str(value) for value in scales))
-        cards[2].metric("Số bài kiểm tra", len(corpus.cases))
+        cards[2].metric("Số bài kiểm tra", case_count)
         cards[3].metric("Tổng lượt chạy", execution_count)
         status_cards = st.columns(2)
         status_cards[0].metric(
-            "Benchmark chuẩn 144 lượt",
-            "Đã hoàn thành" if canonical_run else "Chưa chạy",
+            "Benchmark chuẩn V2",
+            "Đã nghiệm thu" if canonical_accepted else "Chưa đạt gate",
         )
         status_cards[1].metric(
             "Kiểm tra nhanh 18 lượt",
@@ -1827,11 +1844,26 @@ def _render_level2_benchmark_catalog(
         )
         st.markdown(
             "**Mốc đối chiếu:** Extreme Point Best Fit · **Repair:** tắt · "
-            "**Lặp lại:** 2 lần để kiểm tra tính xác định."
+            "**Lặp lại:** 3 lần để kiểm tra tính xác định."
         )
         st.caption(
-            "Giới hạn thời gian: 20/50 kiện — 30 giây; 100 — 60 giây; "
-            "200/300 — 90 giây; 500 — 120 giây cho mỗi lượt chạy."
+            "Random là tầng chính để kết luận thắng/hòa/thua. Stress và hồi quy "
+            "được báo riêng, không trộn vào phân phối random."
+        )
+        labels = (
+            ("Phân phối random", "Đánh giá tổng quát", 60, 540),
+            ("Tình huống khó", "Đánh giá sức chịu đựng", 18, 162),
+            ("Hồi quy theo nguồn", "Phát hiện thay đổi hành vi", 6, 54),
+        )
+        for label, purpose, expected_cases, expected_executions in labels:
+            columns = st.columns((2, 2, 1, 1))
+            columns[0].markdown(f"**{label}**")
+            columns[1].write(purpose)
+            columns[2].write(f"{expected_cases} bài")
+            columns[3].write(f"{expected_executions} lượt")
+        st.caption(
+            "Tổng cộng 84 bài và 756 lượt. Ba lần lặp chỉ đo nhiễu runtime và "
+            "tính xác định; không được tính thành ba bài độc lập."
         )
         quick = quick_entry
         source_matches = (
@@ -1855,60 +1887,9 @@ def _render_level2_benchmark_catalog(
             else:
                 st.warning("Kiểm tra nhanh đã hoàn tất nhưng có lượt thất bại hoặc không hợp lệ.")
         with st.expander("Chi tiết kỹ thuật", expanded=False):
-            st.write(f"Mã protocol: {corpus.corpus_id}")
-            st.write(f"Tệp cấu hình: {canonical.protocol_file.relative_to(root)}")
-            st.code(
-                ".\\.venv\\Scripts\\python.exe .\\scripts\\run_benchmark_corpus.py `\n"
-                "  --corpus config\\level_02\\benchmarks\\generated_1k_500_distribution_corpus.yaml",
-                language="powershell",
-            )
-
-    candidate_entries = (
-        catalog.get("level_02_generated_random_v2_candidate"),
-        catalog.get("level_02_generated_stress_v2_candidate"),
-        catalog.get("level_02_generated_prefix_v2_candidate"),
-    )
-    candidate_corpora = [
-        load_benchmark_corpus(entry.protocol_file, project_root=root)
-        for entry in candidate_entries
-    ]
-    with st.expander(
-        "Benchmark V2 đang đánh giá" if language == "vi" else "Benchmark V2 candidate",
-        expanded=False,
-    ):
-        st.write(
-            "V2 tăng độ phủ nhưng chưa thay benchmark chuẩn V1. Ba nhóm được chạy và "
-            "đánh giá riêng để stress case không làm lệch kết luận từ các mẫu random."
-            if language == "vi" else
-            "V2 expands coverage but does not replace V1 yet. Its three strata are evaluated separately."
-        )
-        labels = (
-            ("Phân phối random", "Đánh giá tổng quát", 60, 540),
-            ("Tình huống khó", "Đánh giá sức chịu đựng", 18, 162),
-            ("Hồi quy theo nguồn", "Phát hiện thay đổi hành vi", 6, 54),
-        )
-        for entry, candidate, (label, purpose, expected_cases, expected_executions) in zip(
-            candidate_entries, candidate_corpora, labels, strict=True,
-        ):
-            completed = next((
-                run for run in saved_runs
-                if run.suite_id == candidate.corpus_id
-                and run.case_count == expected_cases
-                and run.execution_count == expected_executions
-                and run.successful_execution_count == expected_executions
-                and run.status == "SUCCESS"
-            ), None)
-            columns = st.columns((2, 2, 1, 1))
-            columns[0].markdown(f"**{label}**")
-            columns[1].write(purpose)
-            columns[2].write(f"{expected_cases} bài")
-            columns[3].write("Đạt" if completed else "Chưa chạy")
-        st.caption(
-            "Tổng protocol: 84 bài, 756 lượt. Ba lần lặp chỉ đo nhiễu runtime và "
-            "tính xác định; không được tính thành ba bài độc lập."
-        )
-        with st.expander("Chi tiết kỹ thuật", expanded=False):
-            for entry in candidate_entries:
+            st.write(f"Evidence: {evidence_path.relative_to(root)}")
+            st.write("V1 (24 bài / 144 lượt): superseded, chỉ đọc lịch sử.")
+            for entry in canonical_entries:
                 relative = entry.protocol_file.relative_to(root)
                 st.write(entry.label_vi)
                 st.code(
