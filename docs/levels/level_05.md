@@ -2,6 +2,9 @@
 
 Trạng thái: **solver và inventory workflow đã qua gate prefix 20–500 kiện**.
 
+Inventory workflow cũng đã qua acceptance phân phối 84 bài/756 lượt và được
+expose trên Streamlit bằng ba constructor riêng lẻ: Best Fit, FFD và MES.
+
 Level 5 kế thừa toàn bộ Level 4 và bổ sung khả năng chịu tải của kiện cùng mô
 hình truyền tải trọng thẳng đứng đệ quy. Objective chính thức vẫn theo thứ tự:
 
@@ -34,6 +37,10 @@ load-transfer edge đều phát sinh từ một tiếp xúc support; closure có
 tập tối thiểu cần di chuyển nhưng không tách supporter khỏi dependent đang truyền
 tải qua nó.
 
+Repair Level 5 chưa có evidence UI riêng nên Streamlit không hiển thị control và
+luôn gửi `consolidation.enabled=false`. Constructor Portfolio V1 vẫn ở trạng
+thái `NOT_PROMOTED`, chỉ phục vụ evidence nghiên cứu và không xuất hiện trên UI.
+
 Hill Climbing và Simulated Annealing vẫn chạy ở chế độ catalog cố định. Khi bật
 inventory search, hai thuật toán này phải fail rõ ràng và không fallback ngầm.
 
@@ -51,6 +58,11 @@ fingerprint trong cùng case và deterministic qua hai repeat.
 Gate ngày 2026-08-14 đạt 24/24 lượt `VALID` và 12/12 nhóm
 case–algorithm deterministic. Đây là gate kỹ thuật trên các case prefix, không
 phải benchmark phân phối để kết luận một constructor tốt nhất cho mọi dữ liệu.
+
+Nguồn Streamlit mặc định là corpus qualified 1.000 kiện/500 physical container,
+với 100 kiện, bắt đầu 1, tối đa 30 container, deadline 180 giây và validation
+reserve 3 giây. Best Fit là lựa chọn mặc định an toàn; MES có thể tốt hơn hoặc
+kém hơn tùy bài và chỉ được mô tả là comparator hình học.
 
 ## Output và giới hạn
 

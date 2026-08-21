@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
 from ..algorithms.feasibility import ExactSupportFeasibilityPolicy, PlacementFeasibilityPolicy
 from ..algorithms.heuristics.extreme_point_best_fit import solve as solve_extreme_point_best_fit
@@ -24,6 +24,9 @@ from .stackability import (
     attributes_for_item,
     infer_parent_relations,
 )
+
+if TYPE_CHECKING:
+    from ..runtime.deadline_reliability import DeadlineReliabilityObserver
 
 
 _INVENTORY_SEARCH_ALGORITHMS = frozenset({
@@ -52,6 +55,7 @@ class LoadBearingFeasibilityPolicy:
     )
     load_bearing_rejected_candidates: int = 0
     load_bearing_valid_candidates: int = 0
+    deadline_observer: DeadlineReliabilityObserver | None = None
 
     def allows(
         self,
@@ -71,11 +75,19 @@ class LoadBearingFeasibilityPolicy:
         ):
             return False
         try:
-            evaluation = evaluate_load_transfer(
-                [*existing, candidate],
-                self.attributes,
-                epsilon_mm=self.epsilon_mm,
-            )
+            if self.deadline_observer is None:
+                evaluation = evaluate_load_transfer(
+                    [*existing, candidate],
+                    self.attributes,
+                    epsilon_mm=self.epsilon_mm,
+                )
+            else:
+                with self.deadline_observer.operation("load_transfer"):
+                    evaluation = evaluate_load_transfer(
+                        [*existing, candidate],
+                        self.attributes,
+                        epsilon_mm=self.epsilon_mm,
+                    )
         except LoadTransferError:
             self.load_bearing_rejected_candidates += 1
             return False

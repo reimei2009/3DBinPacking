@@ -23,6 +23,11 @@ from ..provenance import runtime_metadata, sha256_file
 from ..reporting import OUTPUT_SCHEMA_VERSION, write_json, write_text
 from ..runtime.project import find_project_root
 from ..runtime.performance import PeakMemorySampler
+from ..runtime.failure_evidence import (
+    ExperimentExecutionError,
+    canonical_termination_reason,
+    failure_metadata,
+)
 from ..runtime.run_context import create_benchmark_directory
 from ..runtime.structured_logging import append_event
 from .analysis import BenchmarkAnalysis, analyze_benchmark
@@ -148,8 +153,21 @@ def execute_experiment_case(request: ExperimentRequest, repeat_index: int) -> di
         if result.placements:
             signature = placement_signature(result.placements)
             bounding_volume, coordinate_compactness = packing_tiebreak_metrics(result.placements)
+    except ExperimentExecutionError as exc:
+        metadata = dict(exc.metadata)
+        validation_valid = False
+        status = "ERROR"
+        success = False
+        original = exc.original_exception
+        error = f"{type(original).__name__}: {original}"
     except Exception as exc:  # aggregate runners retain failed cells and continue
-        metadata = {}
+        metadata = failure_metadata(
+            {},
+            stage="benchmark_execution",
+            error=exc,
+            requested_item_count=request.item_count,
+            requested_container_count=request.container_count,
+        )
         validation_valid = False
         status = "ERROR"
         success = False
@@ -232,6 +250,15 @@ def execute_experiment_case(request: ExperimentRequest, repeat_index: int) -> di
         "experiment_run_id": metadata.get("run_id"),
         "experiment_run_dir": metadata.get("run_dir"),
         "error": error,
+        "error_type": metadata.get("error_type"),
+        "error_message": metadata.get("error_message"),
+        "failure_class": metadata.get("failure_class"),
+        "failure_stage": metadata.get("failure_stage"),
+        "computation_status_before_failure": metadata.get(
+            "computation_status_before_failure"
+        ),
+        "resolved_item_count": metadata.get("n_items"),
+        "resolved_container_inventory_count": metadata.get("n_containers"),
         "instance_id": metadata.get("instance_id"),
         "selected_item_ids_checksum": metadata.get("selected_item_ids_checksum"),
         "feasibility_policy": metadata.get("feasibility_policy"),
@@ -273,12 +300,51 @@ def execute_experiment_case(request: ExperimentRequest, repeat_index: int) -> di
         "validated_incumbent_candidates_considered": metadata.get(
             "validated_incumbent_candidates_considered"
         ),
-        "search_termination_reason": metadata.get(
-            "inventory_search_termination_reason",
-            metadata.get(
-                "container_consolidation_termination_reason",
-                metadata.get("construction_termination_reason"),
-            ),
+        "search_termination_reason": canonical_termination_reason(metadata),
+        "deadline_reliability_enabled": metadata.get(
+            "deadline_reliability_enabled"
+        ),
+        "deadline_reliability_classification": metadata.get(
+            "deadline_reliability_classification"
+        ),
+        "deadline_reliability_evidence_eligible": metadata.get(
+            "deadline_reliability_evidence_eligible"
+        ),
+        "deadline_reliability_deadline_overshoot_seconds": metadata.get(
+            "deadline_reliability_deadline_overshoot_seconds"
+        ),
+        "deadline_reliability_last_checkpoint": metadata.get(
+            "deadline_reliability_last_checkpoint"
+        ),
+        "deadline_reliability_last_operation": metadata.get(
+            "deadline_reliability_last_operation"
+        ),
+        "deadline_reliability_max_operation": metadata.get(
+            "deadline_reliability_max_operation"
+        ),
+        "deadline_reliability_max_operation_active_seconds": metadata.get(
+            "deadline_reliability_max_operation_active_seconds"
+        ),
+        "deadline_reliability_wall_elapsed_seconds": metadata.get(
+            "deadline_reliability_wall_elapsed_seconds"
+        ),
+        "deadline_reliability_monotonic_elapsed_seconds": metadata.get(
+            "deadline_reliability_monotonic_elapsed_seconds"
+        ),
+        "deadline_reliability_process_cpu_seconds": metadata.get(
+            "deadline_reliability_process_cpu_seconds"
+        ),
+        "deadline_reliability_active_elapsed_seconds": metadata.get(
+            "deadline_reliability_active_elapsed_seconds"
+        ),
+        "deadline_reliability_suspend_seconds": metadata.get(
+            "deadline_reliability_suspend_seconds"
+        ),
+        "deadline_reliability_checkpoint_count": metadata.get(
+            "deadline_reliability_checkpoint_count"
+        ),
+        "deadline_reliability_active_clock_source": metadata.get(
+            "deadline_reliability_active_clock_source"
         ),
     }
 

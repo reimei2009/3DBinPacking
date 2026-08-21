@@ -8,6 +8,9 @@ from container_packing.algorithms.search import (
     ValidatedIncumbentStore,
     calculate_secondary_search_score,
 )
+from container_packing.algorithms.search.configuration import (
+    SecondarySearchScoreConfiguration,
+)
 from container_packing.schemas import Container, Placement, SolveResult
 
 
@@ -76,3 +79,14 @@ def test_official_objective_always_dominates_secondary_score() -> None:
     assert not store.consider(_outcome(_placement("I1", "EXPENSIVE", x=0)))
     assert store.objective is not None
     assert store.objective.total_container_cost == 1
+
+
+def test_secondary_search_score_policy_version_and_default_are_locked() -> None:
+    disabled = SecondarySearchScoreConfiguration()
+    enabled = SecondarySearchScoreConfiguration(enabled=True)
+
+    assert disabled.enabled is False
+    assert disabled.metadata()["secondary_search_score_policy"] == "disabled"
+    assert enabled.metadata()["secondary_search_score_policy"] == (
+        "utilization_void_support_margin_v1"
+    )

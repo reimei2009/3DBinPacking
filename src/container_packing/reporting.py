@@ -15,6 +15,7 @@ import pandas as pd
 import yaml
 
 from .provenance import runtime_metadata, sha256_file
+from .runtime.failure_evidence import missing_failure_evidence_fields
 from .runtime.structured_logging import append_event
 from .schemas import Container, Placement, ValidationResult
 from .visualization.plotly_3d import write_html_views
@@ -106,6 +107,9 @@ def solver_payload(metadata: dict[str, Any]) -> dict[str, Any]:
         "n_items", "n_containers", "n_pairs", "n_variables", "n_constraints",
         "constraint_nnz", "big_m", "objective_priority_constant",
         "algorithm_kind", "algorithm_role", "failure_interpretation", "optimality_proven",
+        "failure_class", "failure_stage", "search_termination_reason",
+        "computation_status_before_failure", "error_type", "error_message",
+        "requested_item_count", "requested_container_count",
         "item_ordering", "point_ordering",
         "candidate_point_provider", "projected_ep_model",
         "projected_ep_points_generated", "projected_ep_duplicate_points_pruned",
@@ -136,6 +140,19 @@ def solver_payload(metadata: dict[str, Any]) -> dict[str, Any]:
         "candidate_subsets_evaluated", "packing_attempts", "extreme_points_evaluated",
         "construction_complete", "construction_termination_reason",
         "construction_failed_item_id", "best_partial_placement_count",
+        "deadline_reliability_enabled", "deadline_reliability_classification",
+        "deadline_reliability_evidence_eligible",
+        "deadline_reliability_deadline_overshoot_seconds",
+        "deadline_reliability_last_checkpoint", "deadline_reliability_last_operation",
+        "deadline_reliability_max_operation",
+        "deadline_reliability_max_operation_active_seconds",
+        "deadline_reliability_wall_elapsed_seconds",
+        "deadline_reliability_monotonic_elapsed_seconds",
+        "deadline_reliability_process_cpu_seconds",
+        "deadline_reliability_active_elapsed_seconds",
+        "deadline_reliability_suspend_seconds",
+        "deadline_reliability_checkpoint_count",
+        "deadline_reliability_active_clock_source",
         "unpacked_item_count", "unpacked_items", "construction_attempt_signature",
         "gap_fill_policy", "gap_detector", "gap_fill_lookahead_window_size",
         "gap_fill_max_constrained_points_per_step", "gap_fill_max_candidates_per_step",
@@ -470,6 +487,7 @@ def solver_payload(metadata: dict[str, Any]) -> dict[str, Any]:
 
 
 def metrics_payload(metadata: dict[str, Any], validation_valid: bool | None) -> dict[str, Any]:
+    missing_evidence = missing_failure_evidence_fields(metadata)
     return {
         "schema_version": OUTPUT_SCHEMA_VERSION,
         "level": metadata["level_id"],
@@ -489,9 +507,23 @@ def metrics_payload(metadata: dict[str, Any], validation_valid: bool | None) -> 
         "objective_reported": metadata.get("objective_reported", True),
         "container_count": metadata.get("container_count"),
         "total_container_cost": metadata.get("total_container_cost"),
-        "n_items": metadata["n_items"],
-        "n_containers_available": metadata["n_containers"],
+        "n_items": metadata.get("n_items"),
+        "n_containers_available": metadata.get("n_containers"),
+        "requested_item_count": metadata.get("requested_item_count"),
+        "requested_container_count": metadata.get("requested_container_count"),
+        "failure_evidence_complete": not missing_evidence,
+        "failure_evidence_missing_fields": missing_evidence,
+        "failure_class": metadata.get("failure_class"),
+        "failure_stage": metadata.get("failure_stage"),
+        "search_termination_reason": metadata.get("search_termination_reason"),
+        "error_type": metadata.get("error_type"),
+        "error_message": metadata.get("error_message"),
         "algorithm_runtime_seconds": metadata.get("algorithm_runtime_seconds"),
+        "deadline_reliability": {
+            key.removeprefix("deadline_reliability_"): value
+            for key, value in metadata.items()
+            if key.startswith("deadline_reliability_")
+        },
         "inventory_search_termination_reason": metadata.get(
             "inventory_search_termination_reason"
         ),

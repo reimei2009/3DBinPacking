@@ -1,9 +1,11 @@
 import json
 from pathlib import Path
 
+import pytest
 from streamlit.testing.v1 import AppTest
 from container_packing.web.i18n import text as t
 from container_packing.web.streamlit_app import (
+    _benchmark_inventory_supported,
     _benchmark_inventory_config_overrides,
     _benchmark_requires_confirmation,
     _benchmark_worst_case_runtime_seconds,
@@ -12,6 +14,9 @@ from container_packing.web.streamlit_app import (
     _effective_inventory_repair_budget,
     _level1_inventory_web_profiles,
     _inventory_repair_overrides,
+    _inventory_repair_ui_help,
+    _inventory_repair_ui_qualified,
+    _inventory_ui_qualified,
     _inventory_web_profiles,
     _inventory_search_overrides,
     _level8_profile_metadata,
@@ -27,6 +32,56 @@ def test_level2_default_source_is_solver_qualified_1000_500_and_large_is_gated(
     assert _default_inventory_profile_id(profiles) == "items_1000_fleet_500_t10"
     assert "default_catalog" in profiles
     assert "solver_research_i20000_f5000" not in profiles
+
+
+def test_level3_default_source_is_qualified_inventory_and_benchmark_capable(
+    root: Path,
+) -> None:
+    profiles = _inventory_web_profiles(root, "level_03")
+    assert _default_inventory_profile_id(profiles) == "items_1000_fleet_500_t10"
+    assert set(profiles) == {"default_catalog", "items_1000_fleet_500_t10"}
+    assert _inventory_repair_ui_qualified(
+        "level_03", profiles["items_1000_fleet_500_t10"],
+    )
+    assert not _inventory_repair_ui_qualified(
+        "level_03", profiles["default_catalog"],
+    )
+    assert _benchmark_inventory_supported(
+        "level_03",
+        ("extreme_point_best_fit", "extreme_point_ffd", "maximal_space_best_fit"),
+    )
+    assert not _benchmark_inventory_supported(
+        "level_03", ("extreme_point_best_fit", "milp_big_m"),
+    )
+
+
+@pytest.mark.parametrize("level_id", ["level_04", "level_05"])
+def test_level4_5_default_source_is_qualified_without_repair(
+    root: Path, level_id: str,
+) -> None:
+    profiles = _inventory_web_profiles(root, level_id)
+    qualified = profiles["items_1000_fleet_500_t10"]
+
+    assert _default_inventory_profile_id(profiles) == "items_1000_fleet_500_t10"
+    assert set(profiles) == {"default_catalog", "items_1000_fleet_500_t10"}
+    assert _inventory_ui_qualified(qualified)
+    assert not _inventory_ui_qualified(profiles["default_catalog"])
+    assert not _inventory_repair_ui_qualified(level_id, qualified)
+    assert _benchmark_inventory_supported(
+        level_id,
+        ("extreme_point_best_fit", "extreme_point_ffd", "maximal_space_best_fit"),
+    )
+
+
+def test_inventory_repair_ui_capability_is_shared_and_explicit() -> None:
+    assert _inventory_repair_ui_qualified("level_01", {})
+    assert _inventory_repair_ui_qualified("level_02", {})
+    assert not _inventory_repair_ui_qualified("level_03", {})
+    assert _inventory_repair_ui_qualified(
+        "level_03", {"repair_ui_qualified": True},
+    )
+    assert "6/18" in _inventory_repair_ui_help("level_03", "vi")
+    assert "44.1 seconds" in _inventory_repair_ui_help("level_03", "en")
 
 
 def test_unbounded_inventory_ui_is_guarded_on_deployment(monkeypatch) -> None:
@@ -366,12 +421,16 @@ def test_level2_benchmark_catalog_is_separated_for_nontechnical_users(root: Path
         "So sánh tùy chỉnh",
         "Benchmark học thuật MPV",
         "Đánh giá tác động của repair",
-        "Benchmark V2 đang đánh giá",
     }.issubset(expander_labels)
+    assert "Benchmark V2 đang đánh giá" not in expander_labels
     metric_labels = {value.label for value in page.metric}
     assert {"Nguồn dữ liệu", "Quy mô", "Số bài kiểm tra", "Tổng lượt chạy"}.issubset(
         metric_labels
     )
+    metrics = {value.label: value.value for value in page.metric}
+    assert metrics["Số bài kiểm tra"] == "84"
+    assert metrics["Tổng lượt chạy"] == "756"
+    assert metrics["Benchmark chuẩn V2"] == "Đã nghiệm thu"
 
 
 def test_multi_case_dashboard_explains_quality_and_hides_under_sampled_p95(
@@ -447,13 +506,17 @@ def test_streamlit_exposes_level4_constructive_algorithms_and_support_threshold(
     assert algorithm.options == [
         "Extreme Point — Best Fit Decreasing",
         "Extreme Point — First Fit Decreasing",
-        "Extreme Point — Hill Climbing",
-        "Extreme Point — Simulated Annealing",
         "Maximal Empty Spaces — Best Fit Decreasing",
     ]
     assert algorithm.value == "extreme_point_best_fit"
     assert any(value.key == "level_04_support_threshold" for value in page.number_input)
-    algorithm.set_value("extreme_point_simulated_annealing").run()
+    page = next(
+        value for value in page.selectbox
+        if value.key == "level_04_inventory_profile"
+    ).set_value("default_catalog").run()
+    page = next(
+        value for value in page.selectbox if value.key == "algorithm_id"
+    ).set_value("extreme_point_simulated_annealing").run()
     numbers = {value.key: value for value in page.number_input}
     assert numbers["max_iterations"].value == 200
     assert numbers["initial_temperature"].value == 0.05
@@ -475,15 +538,19 @@ def test_streamlit_exposes_level5_best_fit_and_support_threshold(root: Path):
     assert algorithm.options == [
         "Extreme Point — Best Fit Decreasing",
         "Extreme Point — First Fit Decreasing",
-        "Extreme Point — Hill Climbing",
-        "Extreme Point — Simulated Annealing",
         "Maximal Empty Spaces — Best Fit Decreasing",
     ]
     assert algorithm.value == "extreme_point_best_fit"
     assert any(
         value.key == "level_05_support_threshold" for value in page.number_input
     )
-    algorithm.set_value("extreme_point_simulated_annealing").run()
+    page = next(
+        value for value in page.selectbox
+        if value.key == "level_05_inventory_profile"
+    ).set_value("default_catalog").run()
+    page = next(
+        value for value in page.selectbox if value.key == "algorithm_id"
+    ).set_value("extreme_point_simulated_annealing").run()
     numbers = {value.key: value for value in page.number_input}
     assert numbers["max_iterations"].value == 200
     assert numbers["initial_temperature"].value == 0.05
@@ -557,6 +624,17 @@ def test_benchmark_runtime_guard_and_inventory_override_are_deterministic() -> N
     assert _benchmark_requires_confirmation(item_count=500, worst_case_runtime_seconds=120)
     assert _benchmark_requires_confirmation(item_count=20, worst_case_runtime_seconds=720)
     assert not _benchmark_requires_confirmation(item_count=20, worst_case_runtime_seconds=120)
+
+    repair_disabled = _benchmark_inventory_config_overrides(
+        base, enabled=True, initial_count=1, maximum_count=30,
+        automatically_increase=True, time_limit_seconds=180,
+        repair_enabled=False, repair_budget_seconds=10,
+    )["container_search"]
+    assert repair_disabled["validation_reserve_seconds"] == 2
+    assert repair_disabled["max_candidates_per_count"] == 77
+    assert repair_disabled["time_limit_seconds"] == 180
+    assert repair_disabled["consolidation"]["enabled"] is False
+    assert repair_disabled["consolidation"]["container_elimination"]["enabled"] is False
 
 
 def test_level2_generated_benchmark_controls_commit_500_items_and_max_50(root: Path) -> None:
@@ -795,18 +873,89 @@ def test_streamlit_exposes_level3_solvers_and_orientation_contract(root: Path):
     level.set_value("level_03").run()
 
     assert not page.exception
+    profile = next(
+        value for value in page.selectbox
+        if value.key == "level_03_inventory_profile"
+    )
+    assert profile.value == "items_1000_fleet_500_t10"
     algorithms = next(value for value in page.selectbox if value.key == "algorithm_id")
-    assert len(algorithms.options) == 6
+    assert len(algorithms.options) == 3
     assert algorithms.value == "extreme_point_ffd"
+    assert next(
+        value for value in page.checkbox
+        if value.key == "level_03_inventory_search_enabled"
+    ).value is True
+    numbers = {value.key: value for value in page.number_input}
+    assert numbers["item_count"].max == 1000
+    assert numbers["container_count"].max == 500
+    assert numbers["level_03_inventory_search_max_count"].value == 23
+    assert numbers["level_03_inventory_search_max_count"].max == 500
+    assert numbers["benchmark_item_count"].max == 1000
+    assert numbers["benchmark_initial_count"].max == 500
+    assert numbers["benchmark_maximum_count"].max == 500
+    single_repair = next(
+        value for value in page.checkbox
+        if value.key == "level_03_inventory_repair_enabled"
+    )
+    benchmark_repair = next(
+        value for value in page.checkbox
+        if value.key == "benchmark_repair_enabled"
+    )
+    assert single_repair.value is False
+    assert benchmark_repair.value is False
     threshold = next(value for value in page.number_input if value.key == "level_03_support_threshold")
     assert threshold.value == 0.8
     assert any(r"\sum_{o\in O_i}r_{io}=1" in value.value for value in page.latex)
+
+
+def test_streamlit_level3_profile_switch_resets_inventory_limits(root: Path) -> None:
+    app = root / "src/container_packing/web/streamlit_app.py"
+    page = AppTest.from_file(str(app), default_timeout=60).run()
+    next(value for value in page.selectbox if value.key == "level_id").set_value(
+        "level_03"
+    ).run()
+    profile = next(
+        value for value in page.selectbox
+        if value.key == "level_03_inventory_profile"
+    )
+    page = profile.set_value("default_catalog").run()
+
+    assert not page.exception
+    algorithms = next(value for value in page.selectbox if value.key == "algorithm_id")
+    assert len(algorithms.options) == 6
+    numbers = {value.key: value for value in page.number_input}
+    assert numbers["item_count"].max == 501
+    assert numbers["container_count"].max == 5
+    assert next(
+        value for value in page.checkbox
+        if value.key == "level_03_inventory_search_enabled"
+    ).value is False
+    assert not any(
+        value.key == "level_03_inventory_repair_enabled" for value in page.checkbox
+    )
+    assert not any(
+        value.key == "benchmark_repair_enabled" for value in page.checkbox
+    )
+
+    page = next(
+        value for value in page.selectbox
+        if value.key == "level_03_inventory_profile"
+    ).set_value("items_1000_fleet_500_t10").run()
+    numbers = {value.key: value for value in page.number_input}
+    assert not page.exception
+    assert numbers["item_count"].max == 1000
+    assert numbers["container_count"].max == 500
+    assert numbers["level_03_inventory_search_max_count"].value == 23
 
 
 def test_streamlit_blocks_oversized_level3_milp_before_execution(root: Path):
     app = root / "src/container_packing/web/streamlit_app.py"
     page = AppTest.from_file(str(app), default_timeout=30).run()
     next(value for value in page.selectbox if value.key == "level_id").set_value("level_03").run()
+    next(
+        value for value in page.selectbox
+        if value.key == "level_03_inventory_profile"
+    ).set_value("default_catalog").run()
     next(value for value in page.selectbox if value.key == "algorithm_id").set_value("milp_big_m").run()
     next(value for value in page.number_input if value.key == "item_count").set_value(10).run()
 
@@ -827,6 +976,92 @@ def test_streamlit_allows_level3_ffd_with_ten_items(root: Path):
     run_button = next(value for value in page.button if value.key == "run_experiment")
     assert not page.exception
     assert not run_button.disabled
+
+
+@pytest.mark.parametrize("level_id", ["level_04", "level_05"])
+def test_streamlit_exposes_qualified_level4_5_inventory_without_repair(
+    root: Path, level_id: str,
+) -> None:
+    app = root / "src/container_packing/web/streamlit_app.py"
+    page = AppTest.from_file(str(app), default_timeout=60).run()
+    page = next(
+        value for value in page.selectbox if value.key == "level_id"
+    ).set_value(level_id).run()
+
+    assert not page.exception
+    profile = next(
+        value for value in page.selectbox
+        if value.key == f"{level_id}_inventory_profile"
+    )
+    assert profile.value == "items_1000_fleet_500_t10"
+    algorithms = next(value for value in page.selectbox if value.key == "algorithm_id")
+    assert algorithms.value == "extreme_point_best_fit"
+    assert len(algorithms.options) == 3
+    assert not any("Portfolio" in str(value) for value in algorithms.options)
+    assert next(
+        value for value in page.checkbox
+        if value.key == f"{level_id}_inventory_search_enabled"
+    ).value is True
+
+    numbers = {value.key: value for value in page.number_input}
+    assert numbers["item_count"].value == 100
+    assert numbers["item_count"].max == 1000
+    assert numbers["container_count"].value == 1
+    assert numbers["container_count"].max == 500
+    assert numbers[f"{level_id}_inventory_search_max_count"].value == 30
+    assert numbers[f"{level_id}_inventory_search_max_count"].max == 500
+    assert numbers[f"{level_id}_inventory_runtime_custom_seconds"].value == 180
+    assert numbers["benchmark_item_count"].max == 1000
+    assert numbers["benchmark_initial_count"].max == 500
+    assert numbers["benchmark_maximum_count"].value == 30
+    assert numbers["benchmark_maximum_count"].max == 500
+    assert numbers["benchmark_custom_runtime"].value == 180.0
+    assert not any(
+        value.key == f"{level_id}_inventory_repair_enabled"
+        for value in page.checkbox
+    )
+    assert not any(
+        value.key == "benchmark_repair_enabled" for value in page.checkbox
+    )
+    captions = "\n".join(value.value for value in page.caption)
+    assert "repair" in captions.lower()
+
+
+@pytest.mark.parametrize("level_id", ["level_04", "level_05"])
+def test_streamlit_level4_5_small_catalog_resets_source_bounded_state(
+    root: Path, level_id: str,
+) -> None:
+    app = root / "src/container_packing/web/streamlit_app.py"
+    page = AppTest.from_file(str(app), default_timeout=60).run()
+    page = next(
+        value for value in page.selectbox if value.key == "level_id"
+    ).set_value(level_id).run()
+    page = next(
+        value for value in page.selectbox
+        if value.key == f"{level_id}_inventory_profile"
+    ).set_value("default_catalog").run()
+
+    assert not page.exception
+    algorithms = next(value for value in page.selectbox if value.key == "algorithm_id")
+    assert len(algorithms.options) == 5
+    numbers = {value.key: value for value in page.number_input}
+    assert numbers["item_count"].max == 501
+    assert numbers["container_count"].max == 5
+    assert next(
+        value for value in page.checkbox
+        if value.key == f"{level_id}_inventory_search_enabled"
+    ).value is False
+
+    page = next(
+        value for value in page.selectbox
+        if value.key == f"{level_id}_inventory_profile"
+    ).set_value("items_1000_fleet_500_t10").run()
+    assert not page.exception
+    numbers = {value.key: value for value in page.number_input}
+    assert numbers["item_count"].value == 100
+    assert numbers["item_count"].max == 1000
+    assert numbers["container_count"].value == 1
+    assert numbers[f"{level_id}_inventory_search_max_count"].value == 30
 
 
 def test_streamlit_exposes_dynamic_level7_balance_algorithms(root: Path):

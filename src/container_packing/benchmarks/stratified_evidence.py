@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from hashlib import sha256
 import json
 from pathlib import Path
 from typing import Any
@@ -32,66 +33,132 @@ _EXPECTED = {
 _ALGORITHMS = {
     "extreme_point_best_fit", "extreme_point_ffd", "maximal_space_best_fit",
 }
+_LOCKED_ARTIFACTS = {
+    "manifest": "manifest.json",
+    "results": "benchmark/results.csv",
+    "determinism": "benchmark/determinism_evidence.csv",
+    "pairwise": "benchmark/pairwise_outcomes.csv",
+}
+
+
+def _file_sha256(path: Path) -> str:
+    digest = sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _required_artifact_paths(run_dir: Path) -> dict[str, Path]:
+    paths = {key: run_dir / relative for key, relative in _LOCKED_ARTIFACTS.items()}
+    missing = [path.as_posix() for path in paths.values() if not path.is_file()]
+    if missing:
+        raise ValueError("Evidence bundle thiếu artifact bắt buộc: " + ", ".join(missing))
+    return paths
+
+
+def _portable_run_directory(run_dir: Path) -> str:
+    parts = run_dir.resolve().parts
+    if "outputs" in parts:
+        return Path(*parts[parts.index("outputs"):]).as_posix()
+    return run_dir.as_posix()
 
 
 def _read_run(
     run_dir: Path, stratum: str, expected: dict[str, Any], *, expected_algorithms: set[str], repeats: int,
 ) -> tuple[dict[str, Any], pd.DataFrame]:
-    manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
-    results = pd.read_csv(run_dir / "benchmark/results.csv")
-    errors: list[str] = []
+    artifact_paths = _required_artifact_paths(run_dir)
+    manifest = json.loads(artifact_paths["manifest"].read_text(encoding="utf-8"))
+    results = pd.read_csv(artifact_paths["results"])
+    published_determinism = pd.read_csv(artifact_paths["determinism"])
+    published_pairwise = pd.read_csv(artifact_paths["pairwise"])
+    functional_errors: list[str] = []
+    provenance_errors: list[str] = []
     if manifest.get("corpus_id") != expected["corpus_id"]:
-        errors.append("corpus_id không khớp")
+        functional_errors.append("corpus_id không khớp")
     if int(manifest.get("case_count", -1)) != expected["case_count"]:
-        errors.append("số bài kiểm tra không khớp")
+        functional_errors.append("số bài kiểm tra không khớp")
     if len(results) != expected["execution_count"]:
-        errors.append("số lượt chạy không khớp")
+        functional_errors.append("số lượt chạy không khớp")
     if set(results.get("benchmark_stratum", pd.Series(dtype=str)).dropna()) != {stratum}:
-        errors.append("tầng benchmark trong kết quả không khớp")
+        functional_errors.append("tầng benchmark trong kết quả không khớp")
     success = results["success"].fillna(False).astype(bool)
     if not success.all():
-        errors.append("có lượt chạy không thành công")
+        functional_errors.append("có lượt chạy không thành công")
     if "validation_valid" not in results or not results["validation_valid"].fillna(False).astype(bool).all():
-        errors.append("có lượt chạy chưa independently VALID")
-    failed_objective = (~success) & results.get(
-        "objective_value", pd.Series(index=results.index, dtype=float),
-    ).notna()
-    if failed_objective.any():
-        errors.append("lượt thất bại vẫn có objective")
+        functional_errors.append("có lượt chạy chưa independently VALID")
+    objective_columns = (
+        "official_objective", "objective_value", "used_container_count",
+        "total_container_cost",
+    )
+    if any(
+        ((~success) & results.get(column, pd.Series(index=results.index, dtype=float)).notna()).any()
+        for column in objective_columns
+    ):
+        functional_errors.append("lượt thất bại vẫn có objective")
     for _, group in results.groupby("case_id", sort=True):
         case_id = str(group["case_id"].iloc[0])
         if group["input_fingerprint"].nunique() != 1:
-            errors.append(f"case {case_id} có nhiều input fingerprint")
+            functional_errors.append(f"case {case_id} có nhiều input fingerprint")
             break
         if set(group["algorithm"].astype(str)) != expected_algorithms:
-            errors.append(f"case {case_id} không có đúng ba thuật toán")
+            functional_errors.append(f"case {case_id} không có đúng ba thuật toán")
             break
         if group.groupby("algorithm", sort=False).size().to_dict() != {
             algorithm: repeats for algorithm in group["algorithm"].drop_duplicates()
         }:
-            errors.append(f"case {case_id} không có đúng ba repeat cho mỗi thuật toán")
+            functional_errors.append(f"case {case_id} không có đúng ba repeat cho mỗi thuật toán")
             break
         if (
             "selected_item_ids_checksum" not in group
             or group["selected_item_ids_checksum"].nunique() != 1
         ):
-            errors.append(f"case {case_id} không dùng cùng tập item giữa các thuật toán")
+            functional_errors.append(f"case {case_id} không dùng cùng tập item giữa các thuật toán")
             break
     determinism = build_determinism_evidence(results)
     if len(determinism) != expected["case_count"] * 3:
-        errors.append("số nhóm deterministic không khớp")
+        functional_errors.append("số nhóm deterministic không khớp")
     elif not determinism["deterministic"].fillna(False).all():
-        errors.append("objective hoặc placement signature không deterministic")
+        functional_errors.append("objective hoặc placement signature không deterministic")
+    if len(published_determinism) != expected["case_count"] * len(expected_algorithms):
+        functional_errors.append("artifact deterministic có số nhóm không khớp")
+    elif "deterministic" not in published_determinism or not published_determinism[
+        "deterministic"
+    ].fillna(False).astype(bool).all():
+        functional_errors.append("artifact deterministic chứa nhóm không xác định")
+    if published_pairwise.empty:
+        functional_errors.append("artifact pairwise trống")
+
+    source_commit = str(manifest.get("git_commit") or "").strip()
+    if not source_commit:
+        provenance_errors.append("manifest thiếu source commit")
+    if manifest.get("git_dirty") is not False:
+        provenance_errors.append("source run có git_dirty=true hoặc không khai báo sạch")
+    artifact_locks = {
+        key: {
+            "path": _LOCKED_ARTIFACTS[key],
+            "sha256": _file_sha256(path),
+            "size_bytes": path.stat().st_size,
+        }
+        for key, path in artifact_paths.items()
+    }
     return {
         "stratum": stratum,
-        "run_dir": run_dir.as_posix(),
+        "run_dir": _portable_run_directory(run_dir),
         "corpus_id": manifest.get("corpus_id"),
         "case_count": int(results["case_id"].nunique()),
         "execution_count": len(results),
         "valid_execution_count": int(results["validation_valid"].fillna(False).sum()),
         "deterministic_group_count": int(determinism["deterministic"].fillna(False).sum()),
-        "errors": errors,
-        "passed": not errors,
+        "source_commit": source_commit or None,
+        "git_dirty": manifest.get("git_dirty"),
+        "artifact_locks": artifact_locks,
+        "functional_errors": functional_errors,
+        "provenance_errors": provenance_errors,
+        "errors": [*functional_errors, *provenance_errors],
+        "functional_passed": not functional_errors,
+        "provenance_passed": not provenance_errors,
+        "passed": not functional_errors,
     }, results
 
 
@@ -133,14 +200,47 @@ def build_stratified_evidence_for_protocol(
             "ties": outcomes.count("TIE"),
             "losses": outcomes.count("LOSS"),
         })
-    passed = all(value["passed"] for value in strata)
+    source_commits = sorted({
+        str(value["source_commit"]) for value in strata if value["source_commit"]
+    })
+    provenance_errors: list[str] = []
+    if len(source_commits) != 1:
+        provenance_errors.append("ba tầng không dùng cùng một source commit")
+    provenance_errors.extend(
+        f"{value['stratum']}: {error}"
+        for value in strata
+        for error in value["provenance_errors"]
+    )
+    functional_passed = all(value["functional_passed"] for value in strata)
+    provenance_passed = (
+        all(value["provenance_passed"] for value in strata)
+        and not provenance_errors
+    )
+    promotion_allowed = functional_passed and provenance_passed
     return {
-        "schema_version": "1.0",
+        "schema_version": "2.0",
         "report_id": report_id,
         "level_id": level_id,
         "created_at_utc": datetime.now(timezone.utc).isoformat(),
-        "status": "PASS" if passed else "FAIL",
-        "promotion_to_canonical_allowed": passed,
+        "status": "PASS" if functional_passed else "FAIL",
+        "functional_gate": {
+            "status": "PASS" if functional_passed else "FAIL",
+            "requirements": "84 bài, 756 lượt, VALID, fair fingerprint và deterministic",
+        },
+        "provenance_gate": {
+            "status": "PASS" if provenance_passed else "FAIL",
+            "source_commits": source_commits,
+            "errors": provenance_errors,
+            "requires_clean_source": True,
+        },
+        "governance_decision": (
+            "CANONICAL_PROMOTION_ALLOWED"
+            if promotion_allowed
+            else "CANONICAL_PENDING_CLEAN_RERUN"
+            if functional_passed
+            else "FUNCTIONAL_GATE_FAILED"
+        ),
+        "promotion_to_canonical_allowed": promotion_allowed,
         "case_count": sum(value["case_count"] for value in strata),
         "execution_count": sum(value["execution_count"] for value in strata),
         "strata": strata,
@@ -149,8 +249,42 @@ def build_stratified_evidence_for_protocol(
             "random_distribution": "Nguồn chính cho kết luận chất lượng tổng quát.",
             "stress": "Báo riêng; không trộn vào tỷ lệ thắng của random.",
             "prefix_regression": "Chỉ phát hiện hồi quy theo thứ tự nguồn.",
+            "provenance": "Functional PASS không đủ để promote khi source run còn git_dirty.",
+        },
+        "objective_governance": {
+            "official_objective": ["used_container_count", "total_container_cost"],
+            "secondary_tie_break_policy": "utilization_void_support_margin_v1",
+            "secondary_tie_break_default_enabled": False,
+            "secondary_tie_break_scope": "complete_independently_valid_official_ties_only",
+        },
+        "reference_semantics": {
+            "proven_optimal": "chỉ khi có bằng chứng exact",
+            "best_observed": "tốt nhất trên cùng input fingerprint",
+            "aggregate_lower_bound": "cận capacity sơ bộ, không phải nghiệm hoặc proof",
         },
     }
+
+
+def verify_stratified_evidence_checksums(
+    report: dict[str, Any], run_dirs: dict[str, Path],
+) -> tuple[str, ...]:
+    """Verify a published evidence bundle without rewriting source artifacts."""
+    errors: list[str] = []
+    report_strata = {str(value["stratum"]): value for value in report.get("strata", [])}
+    if set(report_strata) != set(run_dirs):
+        return ("tập run directory không khớp report",)
+    for stratum, run_dir in run_dirs.items():
+        locks = report_strata[stratum].get("artifact_locks", {})
+        for key, relative in _LOCKED_ARTIFACTS.items():
+            expected = locks.get(key, {}).get("sha256")
+            path = Path(run_dir) / relative
+            if not path.is_file():
+                errors.append(f"{stratum}/{key}: thiếu artifact")
+            elif not expected:
+                errors.append(f"{stratum}/{key}: report thiếu checksum")
+            elif _file_sha256(path) != expected:
+                errors.append(f"{stratum}/{key}: checksum mismatch")
+    return tuple(errors)
 
 
 def build_stratified_evidence(run_dirs: dict[str, Path]) -> dict[str, Any]:
@@ -175,7 +309,9 @@ def write_stratified_evidence(
     lines = [
         "# Benchmark Level 2 V2 phân tầng",
         "",
-        f"- Trạng thái: `{report['status']}`",
+        f"- Functional gate: `{report['functional_gate']['status']}`",
+        f"- Provenance gate: `{report['provenance_gate']['status']}`",
+        f"- Quyết định governance: `{report['governance_decision']}`",
         f"- Tổng số bài: {report['case_count']}",
         f"- Tổng lượt chạy: {report['execution_count']}",
         "",
@@ -186,14 +322,53 @@ def write_stratified_evidence(
     ]
     for value in report["strata"]:
         lines.append(
-            f"- `{value['stratum']}`: {'PASS' if value['passed'] else 'FAIL'} — "
-            f"{value['case_count']} bài, {value['execution_count']} lượt."
+            f"- `{value['stratum']}`: functional "
+            f"{'PASS' if value['functional_passed'] else 'FAIL'}, provenance "
+            f"{'PASS' if value['provenance_passed'] else 'FAIL'} — "
+            f"{value['case_count']} bài, {value['execution_count']} lượt, "
+            f"commit `{value['source_commit']}`, git_dirty=`{value['git_dirty']}`."
         )
+        for error in value["provenance_errors"]:
+            lines.append(f"  - {error}")
     lines.extend(["", "## So sánh trên phân phối random", ""])
     for value in report["random_distribution_pairwise_vs_best_fit"]:
         lines.append(
             f"- `{value['comparator']}`: {value['wins']} thắng / "
             f"{value['ties']} hòa / {value['losses']} thua so với Best Fit."
         )
+    lines.extend(["", "## Diễn giải governance", ""])
+    if report["promotion_to_canonical_allowed"]:
+        lines.extend([
+            "V2 đã đạt cả functional và provenance gate. Ba source run cùng commit, "
+            "đều `git_dirty=false`, và toàn bộ checksum gate đạt; V2 đủ điều kiện "
+            "canonical còn V1 chuyển sang evidence lịch sử `superseded`.",
+        ])
+    else:
+        lines.extend([
+            "V2 chưa thay V1 vì functional hoặc provenance gate chưa đạt. V1 tiếp tục "
+            "là canonical; V2 giữ vai trò research candidate cho đến khi clean rerun "
+            "và toàn bộ checksum gate đạt.",
+        ])
+    lines.extend([
+        "",
+        "`proven_optimal` chỉ dành cho exact proof; `best_observed` chỉ là nghiệm tốt nhất "
+        "trên cùng input fingerprint; aggregate lower bound chỉ là cận capacity sơ bộ.",
+    ])
+    if not report["promotion_to_canonical_allowed"]:
+        lines.extend([
+            "",
+            "## Clean rerun bắt buộc trước promotion",
+            "",
+            "```powershell",
+            ".\\.venv\\Scripts\\python.exe .\\scripts\\run_benchmark_corpus.py `",
+            "  --corpus config\\level_02\\benchmarks\\generated_1k_500_random_candidate.yaml",
+            "",
+            ".\\.venv\\Scripts\\python.exe .\\scripts\\run_benchmark_corpus.py `",
+            "  --corpus config\\level_02\\benchmarks\\generated_1k_500_stress_candidate.yaml",
+            "",
+            ".\\.venv\\Scripts\\python.exe .\\scripts\\run_benchmark_corpus.py `",
+            "  --corpus config\\level_02\\benchmarks\\generated_1k_500_prefix_regression.yaml",
+            "```",
+        ])
     markdown_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return json_path, markdown_path

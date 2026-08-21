@@ -196,3 +196,54 @@ def test_repair_comparison_uses_treatment_fingerprint_and_preserves_incumbent():
     assert comparison.iloc[0].incumbent_preserved
     assert comparison.iloc[0].containers_before == 4
     assert comparison.iloc[0].containers_after == 3
+
+
+def test_repair_comparison_keeps_algorithms_separate() -> None:
+    rows = []
+    for algorithm, before, after in (("best", 4, 3), ("ffd", 5, 5)):
+        for variant, containers in (
+            ("repair_disabled", before), ("repair_enabled", after),
+        ):
+            rows.append({
+                "level": "level_03", "case_id": variant,
+                "input_fingerprint": f"{algorithm}-{variant}",
+                "comparison_group": "same",
+                "comparison_input_fingerprint": "physical",
+                "benchmark_variant_id": variant, "algorithm": algorithm,
+                "success": True, "used_container_count": containers,
+                "total_container_cost": containers * 10,
+                "wall_runtime_seconds": 2.0, "item_count": 100,
+                "objective_value": float(containers),
+                "container_consolidation_runtime_seconds": 1.0,
+                "container_consolidation_termination_reason": (
+                    "disabled" if variant == "repair_disabled" else "valid_consolidated"
+                ),
+            })
+    comparison = build_repair_comparison(pd.DataFrame(rows))
+    assert list(comparison.algorithm) == ["best", "ffd"]
+    assert dict(zip(comparison.algorithm, comparison.outcome)) == {
+        "best": "IMPROVED", "ffd": "UNCHANGED",
+    }
+
+
+def test_repair_comparison_ignores_other_ab_treatments() -> None:
+    frame = pd.DataFrame([{
+        "level": "level_04", "case_id": "index_off",
+        "input_fingerprint": "off", "comparison_group": "contact",
+        "comparison_input_fingerprint": "physical",
+        "benchmark_variant_id": "contact_index_disabled",
+        "algorithm": "best", "success": True,
+        "used_container_count": 4, "total_container_cost": 40,
+        "objective_value": 4.0, "wall_runtime_seconds": 1.0,
+        "item_count": 100,
+    }, {
+        "level": "level_04", "case_id": "index_on",
+        "input_fingerprint": "on", "comparison_group": "contact",
+        "comparison_input_fingerprint": "physical",
+        "benchmark_variant_id": "contact_index_enabled",
+        "algorithm": "best", "success": True,
+        "used_container_count": 4, "total_container_cost": 40,
+        "objective_value": 4.0, "wall_runtime_seconds": 1.0,
+        "item_count": 100,
+    }])
+    assert build_repair_comparison(frame).empty

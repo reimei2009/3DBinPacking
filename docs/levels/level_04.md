@@ -4,7 +4,7 @@
 
 Level 4 đã có orientation ngang, exact support, stackability policy, independent
 validator và năm heuristic/metaheuristic. Shared inventory orchestration cho
-Best Fit, FFD và MES là promotion candidate cho đến khi gate 20–500 hoàn tất.
+Best Fit, FFD và MES đã qua acceptance phân phối và được expose trên Streamlit.
 
 ## Contract đang hoạt động
 
@@ -38,9 +38,10 @@ Chúng cùng gọi `InventoryLevelAdapter`, horizontal orientation provider,
 `ExactSupportStackabilityPolicy` và Level 4 validator. Thuật toán không tương
 thích phải fail rõ ràng, không fallback sang catalog prefix.
 
-Repair là tùy chọn. Support closure giữ supporter và toàn bộ dependent trong
-cùng cụm, nên stack parent/child không bị tách trong partial repack. Candidate
-chỉ trở thành incumbent khi complete, independently `VALID` và tốt hơn theo:
+Core có repair dùng support closure để giữ supporter và toàn bộ dependent trong
+cùng cụm. Tuy nhiên repair Level 4 chưa có gate UI riêng, vì vậy Streamlit luôn
+ẩn và tắt repair. Candidate chỉ trở thành incumbent khi complete, independently
+`VALID` và tốt hơn theo:
 
 ```text
 (used_container_count, total_container_cost)
@@ -82,6 +83,13 @@ Chạy thủ công sau khi targeted/full tests đạt:
 Gate gồm 20, 100, 300 và 500 item; Best Fit, FFD, MES; hai repeat. Mọi success
 phải `VALID`, cùng case phải có cùng fingerprint và hai repeat phải có cùng
 objective/placement signature.
+
+Acceptance phân phối ngày 2026-08-14 dùng 84 bài, 756 lượt và cùng nguồn
+1.000/500; toàn bộ lượt chạy thành công đều independently `VALID`. Trên
+Streamlit, nguồn này là mặc định với 100 kiện, bắt đầu 1, tối đa 30 container,
+deadline 180 giây và validation reserve 3 giây. Best Fit là mặc định; FFD và MES
+là comparator riêng lẻ. Constructor Portfolio V1 vẫn `NOT_PROMOTED` và không
+xuất hiện trên UI.
 
 ## Giới hạn
 

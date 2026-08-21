@@ -3,11 +3,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
 from ..feasibility import FixedOrientationFeasibilityPolicy, PlacementFeasibilityPolicy
 from ..orientation import fixed_orientation_provider
 from ...geometry.orientation import OrientedDimensions
 from ...schemas import Container, Item, Placement
+
+if TYPE_CHECKING:
+    from ...runtime.deadline_reliability import DeadlineReliabilityObserver
 
 
 @dataclass(frozen=True)
@@ -242,14 +246,21 @@ def place_item(
 def place_candidate(
     state: MaximalSpaceContainerState, placement: Placement,
     stats: MaximalSpaceStats, tolerance: float = 1e-6,
+    *, observer: DeadlineReliabilityObserver | None = None,
 ) -> Placement:
     """Commit one feasibility-checked maximal-space candidate."""
     state.placements.append(placement)
     state.loaded_weight_kg += placement.weight_kg
     state.loaded_volume_mm3 += placement.length_mm * placement.width_mm * placement.height_mm
-    state.empty_spaces, generated, pruned = update_maximal_spaces(
-        state.empty_spaces, placement, tolerance,
-    )
+    if observer is None:
+        state.empty_spaces, generated, pruned = update_maximal_spaces(
+            state.empty_spaces, placement, tolerance,
+        )
+    else:
+        with observer.operation("maximal_space_update_pruning"):
+            state.empty_spaces, generated, pruned = update_maximal_spaces(
+                state.empty_spaces, placement, tolerance,
+            )
     stats.empty_spaces_generated += generated
     stats.empty_spaces_pruned += pruned
     stats.maximum_active_spaces = max(stats.maximum_active_spaces, len(state.empty_spaces))
@@ -263,6 +274,7 @@ def initialized_maximal_space_states(
     tolerance: float,
     policy: PlacementFeasibilityPolicy,
     stats: MaximalSpaceStats,
+    observer: DeadlineReliabilityObserver | None = None,
 ) -> list[MaximalSpaceContainerState]:
     """Dựng lại MES state từ seed deterministic và kiểm tra seed fail-closed."""
 
@@ -298,7 +310,7 @@ def initialized_maximal_space_states(
                 f"{placement.item_id}"
             )
         seen_items.add(placement.item_id)
-        place_candidate(state, placement, stats, tolerance)
+        place_candidate(state, placement, stats, tolerance, observer=observer)
     return states
 
 

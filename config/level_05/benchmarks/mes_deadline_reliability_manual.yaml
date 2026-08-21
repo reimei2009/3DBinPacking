@@ -1,0 +1,28 @@
+schema_version: "1.1"
+corpus_id: level_05_mes_deadline_reliability_v1
+level_id: level_05
+environment: local
+seeds: [42]
+repeats: 3
+default_config: config/level_05/experiments/inventory_items_1000_fleet_500.yaml
+matrix:
+  case_prefix: mes_deadline
+  benchmark_stratum: diagnostic_only
+  group: mes_deadline_reliability
+  dataset_family: generated_1k_500_cross_level
+  expected_outcome: feasible
+  algorithms: [maximal_space_best_fit]
+  scales: [{item_count: 500, time_limit_seconds: 180, scale_bucket: scale}]
+  selections:
+    - {selection_id: random101, item_selection: stable_random, difficulty: representative_random, selection_seeds: [101]}
+    - {selection_id: random307, item_selection: stable_random, difficulty: representative_random, selection_seeds: [307]}
+    - {selection_id: payload_pressure, item_selection: payload_pressure, difficulty: payload_density_pressure}
+  container_limits: {maximum_multiplier: 2.0, maximum_extra: 4, maximum_cap: 30}
+  config_overrides:
+    deadline_reliability: {enabled: true, long_operation_seconds: 1.0}
+    container_search:
+      enabled: true
+      automatically_increase_container_count: true
+      validation_reserve_seconds: 3
+      secondary_search_score: {enabled: false}
+      consolidation: {enabled: false, container_elimination: {enabled: false}}

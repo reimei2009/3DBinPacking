@@ -77,33 +77,28 @@ trước khi xếp item còn lại. Candidate cuối vẫn qua independent valid
 ### Benchmark canonical
 
 Benchmark nội bộ chính thức dùng cùng nguồn 1.000 kiện / 500 physical container /
-10 loại C1–C10. Protocol constructor gồm 24 case ở các mức 20, 50, 100, 200,
-300 và 500 kiện; Best Fit là baseline, FFD và MES là comparator. Hai repeat tạo
-144 execution để kiểm tra deterministic. Repair tắt trong protocol này và được
-đánh giá bằng A/B riêng.
+10 loại C1–C10. Protocol V2 gồm 84 case ở các mức 20, 50, 100, 200, 300 và 500
+kiện; Best Fit là baseline, FFD và MES là comparator. Ba repeat tạo 756 execution
+để kiểm tra deterministic. Repair tắt trong protocol này và được đánh giá bằng A/B
+riêng.
 
 Chi tiết, artifact và lệnh chạy nằm tại
 [Benchmark canonical Level 2](../benchmarks/level_02_benchmark_v2.md). MPV tiếp tục
 là evidence học thuật riêng và không được gộp với generated canonical.
 
-Evidence canonical phát hành ngày 2026-08-13 nằm tại
-[report benchmark Level 2](../reports/manual/level_02_canonical_benchmark_20260813.md).
-Report xác nhận 24 bài, 144 lượt chạy và 144 nghiệm `VALID`; Best Fit vẫn chỉ là
-baseline đối chiếu, không phải optimum đã chứng minh.
+Benchmark V2 phân tầng là canonical hiện hành. Nó giữ nguyên sáu quy mô nhưng mở
+rộng thành 60 bài random, 18 bài stress và 6 bài prefix, mỗi bài chạy ba thuật toán
+qua ba repeat. Ba tầng không bị gộp thống kê: random dùng kết luận phân phối, stress
+dùng kiểm tra sức chịu đựng, prefix dùng phát hiện hồi quy.
 
-Benchmark V2 phân tầng đang ở trạng thái ứng viên nghiên cứu. Nó giữ nguyên sáu quy
-mô nhưng mở rộng thành 60 bài random, 18 bài stress và 6 bài prefix, mỗi bài chạy ba
-thuật toán qua ba repeat. Ba tầng không bị gộp thống kê: random dùng kết luận phân
-phối, stress dùng kiểm tra sức chịu đựng, prefix dùng phát hiện hồi quy. V1 tiếp tục
-là canonical cho đến khi V2 hoàn thành đủ 84 bài/756 lượt và qua promotion gate.
+Clean rerun ngày 2026-08-20 đạt đủ 84 bài, 756 lượt `VALID`, 252/252 nhóm
+deterministic và ba manifest `git_dirty=false`. Checksum của manifest, results,
+determinism và pairwise artifact đã được xác minh; functional/provenance gate cùng
+`PASS`. Evidence canonical nằm tại
+`docs/reports/manual/level_02_stratified_benchmark_v2_clean_20260820.{json,md}`.
+V1 ngày 2026-08-13 được giữ ở trạng thái `superseded` để đối chiếu lịch sử.
 
-Gate V2 ngày 2026-08-13 đã đạt đủ 84 bài, 756 lượt `VALID` và 252/252 nhóm
-deterministic. Tầng random có 3 thắng/57 hòa/0 thua của FFD và 6 thắng/53 hòa/1
-thua của MES khi so với Best Fit. Stress và prefix vẫn được báo riêng. Evidence nằm
-tại `docs/reports/manual/level_02_stratified_benchmark_v2_20260813.{json,md}`;
-việc đổi registry canonical là checkpoint quản trị riêng, không rewrite V1.
-
-Sau khi cả ba tầng V2 trả `PASS`, quy trình
+Sau khi cả ba tầng V2 đã trả `PASS`, quy trình
 [profiling runtime Level 2](../benchmarks/level_02_runtime_profiling.md) đo phase từ
 telemetry chính thức và dùng `cProfile` trên một tập chẩn đoán nhỏ. Run profiling
 không tham gia objective, WIN/TIE/LOSS hoặc evidence canonical.

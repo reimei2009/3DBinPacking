@@ -1,0 +1,37 @@
+{
+  "schema_version": "1.0",
+  "review_id": "level_04_05_mes_comparator_review_20260820",
+  "decision": "ACCEPTED_COMPARATOR_NOT_DEFAULT",
+  "default_algorithm": "extreme_point_best_fit",
+  "reviewed_algorithm": "maximal_space_best_fit",
+  "levels": ["level_04", "level_05"],
+  "random_distribution_results": {
+    "level_04": {"wins": 32, "ties": 28, "losses": 0},
+    "level_05": {"wins": 32, "ties": 28, "losses": 0}
+  },
+  "portfolio_v1": "NOT_PROMOTED",
+  "claims": {
+    "mes_is_optimal": false,
+    "mes_is_default": false,
+    "best_fit_is_proven_optimal": false
+  },
+  "source_evidence": [
+    {
+      "path": "docs/reports/manual/level_03_05_distribution_20260814/cross_level_distribution_report.json",
+      "sha256": "63a15a9fb2a7e523b4da17de26222659a78e6201a4f9376d9e6891d5e4547c20"
+    },
+    {
+      "path": "docs/reports/manual/level_03_05_distribution_20260814/cross_level_distribution_report.md",
+      "sha256": "dc3e81fc3e06c539294fa9daa8313a476d283c046cd4eb26169b81aea65cffca"
+    },
+    {
+      "path": "docs/reports/manual/level_03_05_distribution_20260814/cross_level_paired_overhead.csv",
+      "sha256": "6989d72fa9516a699550c15099f3f47620cd32ba682f22ca0cd829251a8f70b0"
+    },
+    {
+      "path": "config/common/capability_matrix.yaml",
+      "sha256": "3c0888134c718fbe86c67c3d47c6a2cd961bacb9400ddf1efbd6894973c6f1a4"
+    }
+  ],
+  "interpretation": "MES có evidence chất lượng trên phân phối random nhưng không chứng minh tốt hơn trên mọi case. Best Fit vẫn là mặc định; MES là comparator riêng lẻ."
+}

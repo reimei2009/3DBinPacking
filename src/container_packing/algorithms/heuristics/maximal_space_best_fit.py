@@ -16,7 +16,11 @@ from ..contracts import (
     ConstructionTerminationReason,
     UnpackedItemDiagnostic,
 )
-from ..feasibility import FixedOrientationFeasibilityPolicy, PlacementFeasibilityPolicy
+from ..feasibility import (
+    FixedOrientationFeasibilityPolicy,
+    PlacementFeasibilityPolicy,
+    bind_deadline_observer,
+)
 from ..orientation import OrientationProvider, fixed_orientation_provider
 from .constructive_common import candidate_subsets, container_orders
 from .container_subset_selection import ContainerSubsetSelectionPolicy
@@ -37,6 +41,10 @@ from .secondary_candidate_scoring import (
     configured_secondary_candidate_policy,
 )
 from ...schemas import Container, Item, Placement, SolveResult
+from ...runtime.deadline_reliability import (
+    DeadlineReliabilityObserver,
+    configured_deadline_observer,
+)
 
 
 @dataclass(frozen=True)
@@ -157,6 +165,7 @@ def pack_order(
     deadline_monotonic: float | None = None,
     monotonic_clock: Callable[[], float] = perf_counter,
     secondary_scoring_policy: SecondaryCandidateScoringPolicy | None = None,
+    deadline_observer: DeadlineReliabilityObserver | None = None,
 ) -> ConstructionAttemptResult:
     selected_orientation_provider = orientation_provider or fixed_orientation_provider()
     states = initialized_maximal_space_states(
@@ -165,6 +174,7 @@ def pack_order(
         tolerance=tolerance,
         policy=policy,
         stats=stats,
+        observer=deadline_observer,
     )
     stats.maximum_active_spaces = max(stats.maximum_active_spaces, 1 if states else 0)
     start_spaces = stats.empty_spaces_evaluated
@@ -199,16 +209,33 @@ def pack_order(
                         )
                     stats.empty_spaces_evaluated += 1
                     stats.orientation_candidates_evaluated += 1
+                    if deadline_observer is not None:
+                        deadline_observer.checkpoint("before_candidate")
                     placement = candidate_placement(state, item, space, dimensions)
-                    if not feasible_in_state(
+                    feasible = feasible_in_state(
                         state, item, space, tolerance, policy, dimensions,
-                    ):
+                    )
+                    if deadline_observer is not None:
+                        deadline_observer.checkpoint("after_feasibility")
+                    if not feasible:
                         continue
-                    score = candidate_score(state, placement, space, container_rank)
-                    if secondary_scoring_policy is not None:
-                        score = secondary_scoring_policy.score(
-                            state, placement, container_rank, score,
+                    if deadline_observer is None:
+                        score = candidate_score(
+                            state, placement, space, container_rank,
                         )
+                        if secondary_scoring_policy is not None:
+                            score = secondary_scoring_policy.score(
+                                state, placement, container_rank, score,
+                            )
+                    else:
+                        with deadline_observer.operation("candidate_scoring"):
+                            score = candidate_score(
+                                state, placement, space, container_rank,
+                            )
+                            if secondary_scoring_policy is not None:
+                                score = secondary_scoring_policy.score(
+                                    state, placement, container_rank, score,
+                                )
                     if selected is None or score < selected[0]:
                         selected = score, state, placement
         if selected is None:
@@ -218,7 +245,10 @@ def pack_order(
                 start_spaces=start_spaces, start_orientations=start_orientations,
                 stats=stats,
             )
-        place_candidate(selected[1], selected[2], stats, tolerance)
+        place_candidate(
+            selected[1], selected[2], stats, tolerance,
+            observer=deadline_observer,
+        )
     return _attempt(
         items=items, failed_index=None, containers=containers, states=states,
         reason=ConstructionTerminationReason.COMPLETE,
@@ -240,6 +270,7 @@ def search_container_subsets(
     deadline_monotonic: float | None = None,
     monotonic_clock: Callable[[], float] = perf_counter,
     secondary_scoring_policy: SecondaryCandidateScoringPolicy | None = None,
+    deadline_observer: DeadlineReliabilityObserver | None = None,
 ) -> MaximalSpaceSearchResult:
     stats = MaximalSpaceStats()
     total_weight = sum(value.weight_kg for value in ordered_items) + sum(
@@ -283,6 +314,7 @@ def search_container_subsets(
                 deadline_monotonic=deadline_monotonic,
                 monotonic_clock=monotonic_clock,
                 secondary_scoring_policy=secondary_scoring_policy,
+                deadline_observer=deadline_observer,
             )
             if (
                 not attempt.complete
@@ -352,6 +384,17 @@ def solve(
             policy_contract_metadata.get("feasibility_policy", "")
         ).endswith("exact_support"),
     )
+    shared_observer = settings.get("_deadline_reliability_observer")
+    if shared_observer is not None and not isinstance(
+        shared_observer, DeadlineReliabilityObserver,
+    ):
+        raise ValueError("_deadline_reliability_observer has an invalid type")
+    deadline_observer = shared_observer or configured_deadline_observer(
+        settings,
+        deadline_monotonic=None if deadline is None else float(deadline),
+        monotonic_clock=monotonic_clock,
+    )
+    bind_deadline_observer(selected_policy, deadline_observer)
     search = search_container_subsets(
         ordered_items,
         containers,
@@ -364,6 +407,7 @@ def solve(
         deadline_monotonic=None if deadline is None else float(deadline),
         monotonic_clock=monotonic_clock,
         secondary_scoring_policy=secondary_policy,
+        deadline_observer=deadline_observer,
     )
     selected_policy_metadata = selected_policy.metadata()
 
@@ -437,6 +481,7 @@ def solve(
                 {} if container_subset_policy is None
                 else container_subset_policy.metadata()
             ),
+            **deadline_observer.metadata(),
         },
     )
 

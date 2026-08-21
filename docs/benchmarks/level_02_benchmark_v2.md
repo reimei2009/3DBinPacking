@@ -26,15 +26,18 @@ checksum, exact-support rules, container limits và deadline.
 
 ## Protocol constructor
 
-File canonical:
+Benchmark canonical gồm ba protocol versioned:
 
 ```text
-config/level_02/benchmarks/generated_1k_500_distribution_corpus.yaml
+config/level_02/benchmarks/generated_1k_500_random_candidate.yaml
+config/level_02/benchmarks/generated_1k_500_stress_candidate.yaml
+config/level_02/benchmarks/generated_1k_500_prefix_regression.yaml
 ```
 
-Protocol có sáu quy mô `20, 50, 100, 200, 300, 500`. Mỗi quy mô gồm prefix và
-stable-random seed `101, 202, 303`. Ba thuật toán được chạy hai repeat, tổng cộng
-24 case và 144 execution. Repair bị tắt để so sánh constructor công bằng.
+Protocol có sáu quy mô `20, 50, 100, 200, 300, 500`. Ba thuật toán được chạy ba
+repeat, tổng cộng 84 case và 756 execution. Repair bị tắt để so sánh constructor
+công bằng. Hậu tố `candidate` trong corpus ID được giữ để bảo toàn định danh artifact;
+registry và clean evidence mới là nguồn quyết định maturity canonical.
 
 Số container bắt đầu tìm bằng cận dưới tổng hợp của đúng tập item. Giới hạn tối
 đa bằng `max(lower_bound + 2, ceil(1,6 × lower_bound))`, không vượt kho vật lý.
@@ -103,7 +106,7 @@ không được lấy trung bình kết quả 20 kiện với 100 kiện. Phân 
 Chi phí chỉ được diễn giải như tie-break khi số container bằng nhau. Best Fit là
 mốc đối chiếu, không phải optimum được chứng minh.
 
-## Evidence canonical ngày 2026-08-13
+## Evidence V1 lịch sử ngày 2026-08-13
 
 Report phát hành nằm tại:
 
@@ -133,11 +136,11 @@ cùng median và min–max tại một quy mô, UI hiển thị một điểm tr
 cả thuật toán trong tooltip. Runtime vẫn dùng đường xu hướng, với unified hover và
 style riêng để người dùng đối chiếu các thuật toán tại cùng số kiện.
 
-## Benchmark V2 phân tầng đang đánh giá
+## Benchmark V2 phân tầng canonical
 
-V1 ở trên vẫn là benchmark canonical đã phát hành. V2 hiện là ứng viên nghiên cứu,
-không được âm thầm thay thế hoặc viết lại evidence V1. V2 dùng cùng nguồn 1.000/500
-nhưng tăng độ phủ thành ba tầng độc lập:
+V2 là benchmark canonical hiện hành. Evidence V1 ở trên được giữ nguyên ở trạng thái
+`superseded`, không bị viết lại. V2 dùng cùng nguồn 1.000/500 nhưng tăng độ phủ thành
+ba tầng độc lập:
 
 | Tầng | Cách tạo bài | Số bài | Số lượt | Vai trò |
 |---|---|---:|---:|---|
@@ -174,8 +177,10 @@ Ba protocol chạy tuần tự:
 ```
 
 Sau khi cả ba hoàn thành, report promotion được tạo bằng một command với ba run
-directory cụ thể. Report chỉ trả `PASS` khi đủ 84 bài, 756 lượt, mọi success được
+directory cụ thể. Functional gate yêu cầu đủ 84 bài, 756 lượt, mọi success được
 validator độc lập xác nhận `VALID`, và 252 nhóm bài–thuật toán deterministic.
+Provenance gate còn yêu cầu cùng source commit, `git_dirty=false` và checksum khớp
+cho manifest, results, determinism và pairwise artifact.
 
 ```powershell
 .\.venv\Scripts\python.exe .\scripts\build_level2_stratified_benchmark_report.py `
@@ -186,8 +191,8 @@ validator độc lập xác nhận `VALID`, và 252 nhóm bài–thuật toán d
 ```
 
 Không tạo report tổng hợp khi mới có một hoặc hai tầng. V2 chỉ được đề nghị promote
-sau khi report trên trả `PASS`; việc promote và đánh dấu V1 `superseded` là một
-checkpoint riêng.
+khi **cả functional và provenance gate đều PASS**; việc promote và đánh dấu V1
+`superseded` là một checkpoint riêng.
 
 ### Recovery có kiểm soát
 
@@ -205,9 +210,15 @@ Runner chỉ giữ row independently `VALID`, xác minh request/provenance trùn
 chạy lại các row còn thiếu trong một run directory mới. Manifest recovery ghi rõ
 số execution được kế thừa, số execution chạy lại và checksum artifact nguồn.
 
-Gate ngày 2026-08-13 đã hoàn thành `84 bài / 756 lượt / 756 VALID`, với `252/252`
-nhóm case–algorithm deterministic. Report bất biến nằm tại
-`docs/reports/manual/level_02_stratified_benchmark_v2_20260813.{json,md}`.
+Clean rerun ngày 2026-08-20 hoàn thành `84 bài / 756 lượt / 756 VALID`, với
+`252/252` nhóm case–algorithm deterministic. Cả ba manifest cùng source commit,
+đều ghi `git_dirty=false`, và checksum của 12 artifact đã được xác minh. Functional
+và provenance gate cùng `PASS`; quyết định là `CANONICAL_PROMOTION_ALLOWED`.
+Evidence chính thức nằm tại
+`docs/reports/manual/level_02_stratified_benchmark_v2_clean_20260820.{json,md}`.
+
+Report ngày 2026-08-13 có functional `PASS` nhưng provenance `FAIL` được giữ làm
+evidence lịch sử; nó không tham gia trạng thái canonical hiện hành.
 
 ## Chạy thủ công
 
@@ -216,9 +227,9 @@ nhóm case–algorithm deterministic. Report bất biến nằm tại
   --corpus config\level_02\benchmarks\generated_1k_500_distribution_corpus.yaml
 ```
 
-UI chỉ chạy bản quick gồm 6 bài/18 lượt. Corpus canonical đầy đủ gồm 24 bài/144
-lượt chạy bằng CLI và UI đọc artifact để tránh khóa web worker. Hai trạng thái độc
-lập: quick hoàn thành không có nghĩa canonical đã hoàn thành.
+UI chỉ chạy bản quick gồm 6 bài/18 lượt. Benchmark canonical V2 đầy đủ gồm 84 bài/
+756 lượt, chạy bằng CLI và UI đọc evidence đã phát hành để tránh khóa web worker.
+Hai trạng thái độc lập: quick hoàn thành không có nghĩa canonical đã được chạy lại.
 
 ## Dọn evidence cũ
 

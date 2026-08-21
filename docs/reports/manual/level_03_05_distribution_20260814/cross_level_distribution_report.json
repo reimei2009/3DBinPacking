@@ -1,0 +1,339 @@
+{
+  "status": "PASS",
+  "levels": [
+    "level_03",
+    "level_04",
+    "level_05"
+  ],
+  "comparison_policy": "Paired descriptive constraint overhead only; it does not rank levels.",
+  "paired_case_algorithm_groups": 180,
+  "reports": {
+    "level_03": {
+      "schema_version": "1.0",
+      "report_id": "level_03_distribution_v2",
+      "level_id": "level_03",
+      "created_at_utc": "2026-08-14T10:49:04.828756+00:00",
+      "status": "PASS",
+      "promotion_to_canonical_allowed": true,
+      "case_count": 84,
+      "execution_count": 756,
+      "strata": [
+        {
+          "stratum": "random_distribution",
+          "run_dir": "outputs/level_03/runs/20260814T080308399777Z__level_03__benchmark_corpus__level_03_generated_1k_500_random_v2_candidate__seed42",
+          "corpus_id": "level_03_generated_1k_500_random_v2_candidate",
+          "case_count": 60,
+          "execution_count": 540,
+          "valid_execution_count": 540,
+          "deterministic_group_count": 180,
+          "errors": [],
+          "passed": true
+        },
+        {
+          "stratum": "stress",
+          "run_dir": "outputs/level_03/runs/20260814T082902848475Z__level_03__benchmark_corpus__level_03_generated_1k_500_stress_v2_candidate__seed42",
+          "corpus_id": "level_03_generated_1k_500_stress_v2_candidate",
+          "case_count": 18,
+          "execution_count": 162,
+          "valid_execution_count": 162,
+          "deterministic_group_count": 54,
+          "errors": [],
+          "passed": true
+        },
+        {
+          "stratum": "prefix_regression",
+          "run_dir": "outputs/level_03/runs/20260814T083359896062Z__level_03__benchmark_corpus__level_03_generated_1k_500_prefix_regression_v2__seed42",
+          "corpus_id": "level_03_generated_1k_500_prefix_regression_v2",
+          "case_count": 6,
+          "execution_count": 54,
+          "valid_execution_count": 54,
+          "deterministic_group_count": 18,
+          "errors": [],
+          "passed": true
+        }
+      ],
+      "random_distribution_pairwise_vs_best_fit": [
+        {
+          "comparator": "extreme_point_ffd",
+          "wins": 1,
+          "ties": 59,
+          "losses": 0
+        },
+        {
+          "comparator": "maximal_space_best_fit",
+          "wins": 18,
+          "ties": 38,
+          "losses": 4
+        }
+      ],
+      "interpretation": {
+        "random_distribution": "Nguồn chính cho kết luận chất lượng tổng quát.",
+        "stress": "Báo riêng; không trộn vào tỷ lệ thắng của random.",
+        "prefix_regression": "Chỉ phát hiện hồi quy theo thứ tự nguồn."
+      },
+      "recovery": {
+        "used": false,
+        "strata": [],
+        "reused_execution_count": 0,
+        "rerun_execution_count": 0
+      }
+    },
+    "level_04": {
+      "schema_version": "1.0",
+      "report_id": "level_04_distribution_v2",
+      "level_id": "level_04",
+      "created_at_utc": "2026-08-14T10:49:05.086483+00:00",
+      "status": "PASS",
+      "promotion_to_canonical_allowed": true,
+      "case_count": 84,
+      "execution_count": 756,
+      "strata": [
+        {
+          "stratum": "random_distribution",
+          "run_dir": "outputs/level_04/runs/20260814T094253684243Z__level_04__benchmark_corpus__level_04_generated_1k_500_random_v2_candidate__seed42",
+          "corpus_id": "level_04_generated_1k_500_random_v2_candidate",
+          "case_count": 60,
+          "execution_count": 540,
+          "valid_execution_count": 540,
+          "deterministic_group_count": 180,
+          "errors": [],
+          "passed": true
+        },
+        {
+          "stratum": "stress",
+          "run_dir": "outputs/level_04/runs/20260814T094322739352Z__level_04__benchmark_corpus__level_04_generated_1k_500_stress_v2_candidate__seed42",
+          "corpus_id": "level_04_generated_1k_500_stress_v2_candidate",
+          "case_count": 18,
+          "execution_count": 162,
+          "valid_execution_count": 162,
+          "deterministic_group_count": 54,
+          "errors": [],
+          "passed": true
+        },
+        {
+          "stratum": "prefix_regression",
+          "run_dir": "outputs/level_04/runs/20260814T094346306898Z__level_04__benchmark_corpus__level_04_generated_1k_500_prefix_regression_v2__seed42",
+          "corpus_id": "level_04_generated_1k_500_prefix_regression_v2",
+          "case_count": 6,
+          "execution_count": 54,
+          "valid_execution_count": 54,
+          "deterministic_group_count": 18,
+          "errors": [],
+          "passed": true
+        }
+      ],
+      "random_distribution_pairwise_vs_best_fit": [
+        {
+          "comparator": "extreme_point_ffd",
+          "wins": 1,
+          "ties": 57,
+          "losses": 2
+        },
+        {
+          "comparator": "maximal_space_best_fit",
+          "wins": 32,
+          "ties": 28,
+          "losses": 0
+        }
+      ],
+      "interpretation": {
+        "random_distribution": "Nguồn chính cho kết luận chất lượng tổng quát.",
+        "stress": "Báo riêng; không trộn vào tỷ lệ thắng của random.",
+        "prefix_regression": "Chỉ phát hiện hồi quy theo thứ tự nguồn."
+      },
+      "recovery": {
+        "used": true,
+        "strata": [
+          {
+            "stratum": "random_distribution",
+            "source_run_id": "20260814T083431850591Z__level_04__benchmark_corpus__level_04_generated_1k_500_random_v2_candidate__seed42",
+            "reused_execution_count": 535,
+            "rerun_execution_count": 5,
+            "deterministic": true
+          },
+          {
+            "stratum": "stress",
+            "source_run_id": "20260814T083638878118Z__level_04__benchmark_corpus__level_04_generated_1k_500_stress_v2_candidate__seed42",
+            "reused_execution_count": 159,
+            "rerun_execution_count": 3,
+            "deterministic": true
+          },
+          {
+            "stratum": "prefix_regression",
+            "source_run_id": "20260814T083653911138Z__level_04__benchmark_corpus__level_04_generated_1k_500_prefix_regression_v2__seed42",
+            "reused_execution_count": 53,
+            "rerun_execution_count": 1,
+            "deterministic": true
+          }
+        ],
+        "reused_execution_count": 747,
+        "rerun_execution_count": 9
+      }
+    },
+    "level_05": {
+      "schema_version": "1.0",
+      "report_id": "level_05_distribution_v2",
+      "level_id": "level_05",
+      "created_at_utc": "2026-08-14T10:49:05.346661+00:00",
+      "status": "PASS",
+      "promotion_to_canonical_allowed": true,
+      "case_count": 84,
+      "execution_count": 756,
+      "strata": [
+        {
+          "stratum": "random_distribution",
+          "run_dir": "outputs/level_05/runs/20260814T084722235547Z__level_05__benchmark_corpus__level_05_generated_1k_500_random_v2_candidate__seed42",
+          "corpus_id": "level_05_generated_1k_500_random_v2_candidate",
+          "case_count": 60,
+          "execution_count": 540,
+          "valid_execution_count": 540,
+          "deterministic_group_count": 180,
+          "errors": [],
+          "passed": true
+        },
+        {
+          "stratum": "stress",
+          "run_dir": "outputs/level_05/runs/20260814T094359815238Z__level_05__benchmark_corpus__level_05_generated_1k_500_stress_v2_candidate__seed42",
+          "corpus_id": "level_05_generated_1k_500_stress_v2_candidate",
+          "case_count": 18,
+          "execution_count": 162,
+          "valid_execution_count": 162,
+          "deterministic_group_count": 54,
+          "errors": [],
+          "passed": true
+        },
+        {
+          "stratum": "prefix_regression",
+          "run_dir": "outputs/level_05/runs/20260814T084053828906Z__level_05__benchmark_corpus__level_05_generated_1k_500_prefix_regression_v2__seed42",
+          "corpus_id": "level_05_generated_1k_500_prefix_regression_v2",
+          "case_count": 6,
+          "execution_count": 54,
+          "valid_execution_count": 54,
+          "deterministic_group_count": 18,
+          "errors": [],
+          "passed": true
+        }
+      ],
+      "random_distribution_pairwise_vs_best_fit": [
+        {
+          "comparator": "extreme_point_ffd",
+          "wins": 2,
+          "ties": 57,
+          "losses": 1
+        },
+        {
+          "comparator": "maximal_space_best_fit",
+          "wins": 32,
+          "ties": 28,
+          "losses": 0
+        }
+      ],
+      "interpretation": {
+        "random_distribution": "Nguồn chính cho kết luận chất lượng tổng quát.",
+        "stress": "Báo riêng; không trộn vào tỷ lệ thắng của random.",
+        "prefix_regression": "Chỉ phát hiện hồi quy theo thứ tự nguồn."
+      },
+      "recovery": {
+        "used": true,
+        "strata": [
+          {
+            "stratum": "stress",
+            "source_run_id": "20260814T092158494352Z__level_05__benchmark_corpus__level_05_generated_1k_500_stress_v2_candidate__seed42",
+            "reused_execution_count": 161,
+            "rerun_execution_count": 1,
+            "deterministic": true
+          }
+        ],
+        "reused_execution_count": 161,
+        "rerun_execution_count": 1
+      }
+    }
+  },
+  "runtime_ratio_medians": {
+    "level_04_vs_03": 1.0284771340805459,
+    "level_05_vs_04": 1.473447608964257
+  },
+  "profiling": {
+    "level_03": {
+      "run_dir": "outputs/level_03/runs/20260814T094439427158Z__level_03__benchmark_profile__seed42",
+      "run_id": "20260814T094439427158Z__level_03__benchmark_profile__seed42",
+      "status": "PASS",
+      "selected_case_count": 8,
+      "execution_count": 24,
+      "diagnostic_only": true,
+      "deadline_neutralized_for_profiler_overhead": false,
+      "decision_gate": {
+        "reporting_median_wall_share": 0.15476757789495071,
+        "construction_median_wall_share": 0.5961829130850864,
+        "physical_constraint_share_of_profiled_solver_self_time": 0.1869455206068088,
+        "profiled_solver_category_shares": {
+          "candidate_enumeration": 0.20400183558279686,
+          "exact_support": 0.041744849601811365,
+          "load_transfer": 0.0,
+          "overlap": 0.14520067100499742,
+          "stackability": 0.0
+        },
+        "support_overlap_share_of_profiled_solver_self_time": 0.1869455206068088,
+        "candidate_share_of_profiled_solver_self_time": 0.20400183558279686,
+        "priorities": [
+          "construction_requires_deeper_measurement"
+        ],
+        "note": "cProfile is diagnostic and adds overhead; official runtime remains the unprofiled source benchmark telemetry."
+      }
+    },
+    "level_04": {
+      "run_dir": "outputs/level_04/runs/20260814T101912582650Z__level_04__benchmark_profile__seed42",
+      "run_id": "20260814T101912582650Z__level_04__benchmark_profile__seed42",
+      "status": "PASS",
+      "selected_case_count": 8,
+      "execution_count": 24,
+      "diagnostic_only": true,
+      "deadline_neutralized_for_profiler_overhead": true,
+      "decision_gate": {
+        "reporting_median_wall_share": 0.11023278917729182,
+        "construction_median_wall_share": 0.7090234624329323,
+        "physical_constraint_share_of_profiled_solver_self_time": 0.5463515162113806,
+        "profiled_solver_category_shares": {
+          "candidate_enumeration": 0.1134535970424032,
+          "exact_support": 0.37939996243992535,
+          "load_transfer": 0.0,
+          "overlap": 0.0778469921508461,
+          "stackability": 0.08910456162060915
+        },
+        "support_overlap_share_of_profiled_solver_self_time": 0.45724695459077147,
+        "candidate_share_of_profiled_solver_self_time": 0.1134535970424032,
+        "priorities": [
+          "spatial_or_contact_index"
+        ],
+        "note": "cProfile is diagnostic and adds overhead; official runtime remains the unprofiled source benchmark telemetry."
+      }
+    },
+    "level_05": {
+      "run_dir": "outputs/level_05/runs/20260814T103020331996Z__level_05__benchmark_profile__seed42",
+      "run_id": "20260814T103020331996Z__level_05__benchmark_profile__seed42",
+      "status": "PASS",
+      "selected_case_count": 8,
+      "execution_count": 24,
+      "diagnostic_only": true,
+      "deadline_neutralized_for_profiler_overhead": true,
+      "decision_gate": {
+        "reporting_median_wall_share": 0.10083326241712612,
+        "construction_median_wall_share": 0.7162596865901156,
+        "physical_constraint_share_of_profiled_solver_self_time": 0.5867674018797945,
+        "profiled_solver_category_shares": {
+          "candidate_enumeration": 0.1022657864893157,
+          "exact_support": 0.3958384833277462,
+          "load_transfer": 0.028984760033371953,
+          "overlap": 0.07175156365373135,
+          "stackability": 0.09019259486494499
+        },
+        "support_overlap_share_of_profiled_solver_self_time": 0.46759004698147755,
+        "candidate_share_of_profiled_solver_self_time": 0.1022657864893157,
+        "priorities": [
+          "spatial_or_contact_index"
+        ],
+        "note": "cProfile is diagnostic and adds overhead; official runtime remains the unprofiled source benchmark telemetry."
+      }
+    }
+  }
+}

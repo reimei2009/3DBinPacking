@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Protocol
+from typing import Any, Protocol, TYPE_CHECKING
 
 from ..geometry.support import evaluate_support
 from ..schemas import Container, Placement
+
+if TYPE_CHECKING:
+    from ..runtime.deadline_reliability import DeadlineReliabilityObserver
 
 
 class PlacementFeasibilityPolicy(Protocol):
@@ -97,6 +100,7 @@ class ExactSupportFeasibilityPolicy:
     policy_id: str = "fixed_orientation_geometry_payload_exact_support"
     support_rejected_candidates: int = 0
     support_valid_candidates: int = 0
+    deadline_observer: DeadlineReliabilityObserver | None = None
 
     def __post_init__(self) -> None:
         if not 0 < self.threshold <= 1:
@@ -118,7 +122,13 @@ class ExactSupportFeasibilityPolicy:
             loaded_weight_kg=loaded_weight_kg, tolerance=tolerance,
         ):
             return False
-        support = evaluate_support(candidate, existing, epsilon_mm=self.epsilon_mm)
+        if self.deadline_observer is None:
+            support = evaluate_support(candidate, existing, epsilon_mm=self.epsilon_mm)
+        else:
+            with self.deadline_observer.operation("exact_support"):
+                support = evaluate_support(
+                    candidate, existing, epsilon_mm=self.epsilon_mm,
+                )
         valid = support.exact_support_ratio + 1e-12 >= self.threshold and support.center_supported
         if valid:
             self.support_valid_candidates += 1
@@ -135,3 +145,18 @@ class ExactSupportFeasibilityPolicy:
             "support_rejected_candidates": self.support_rejected_candidates,
             "support_valid_candidates": self.support_valid_candidates,
         }
+
+
+def bind_deadline_observer(
+    policy: PlacementFeasibilityPolicy,
+    observer: DeadlineReliabilityObserver,
+) -> None:
+    """Bind diagnostic telemetry recursively without changing policy semantics."""
+
+    current: object | None = policy
+    seen: set[int] = set()
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        if hasattr(current, "deadline_observer"):
+            setattr(current, "deadline_observer", observer)
+        current = getattr(current, "base", None)

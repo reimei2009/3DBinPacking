@@ -1,0 +1,40 @@
+{
+  "report_id": "mes_deadline_reliability_20260820",
+  "evidence_scope": "mes_deadline_reliability_level_04_05",
+  "source_commit": "ad0d23c7d5cc59ddb70bde38a5e75fc12e433e49",
+  "decision": "NO_COOPERATIVE_HARDENING_REQUIRED",
+  "evidence_eligible": true,
+  "operation_to_harden": null,
+  "execution_count": 18,
+  "contaminated_execution_count": 0,
+  "valid_execution_count": 18,
+  "deterministic_group_count": 6,
+  "maximum_clean_operation_seconds": 0.0109272000045166,
+  "maximum_clean_overshoot_seconds": 0.0,
+  "longest_operation": "exact_support",
+  "artifacts": [
+    {
+      "level": "level_04",
+      "corpus_id": "level_04_mes_deadline_reliability_v1",
+      "run_id": "20260820T082930434390Z__level_04__benchmark_corpus__level_04_mes_deadline_reliability_v1__seed42",
+      "run_directory": "outputs/level_04/runs/20260820T082930434390Z__level_04__benchmark_corpus__level_04_mes_deadline_reliability_v1__seed42",
+      "source_commit": "ad0d23c7d5cc59ddb70bde38a5e75fc12e433e49",
+      "git_dirty": false,
+      "manifest_sha256": "bdf3f25af56d4dee42bdf50f040dcfee0b41916930178537ab356a2fc1bc4952",
+      "results_sha256": "2f23a21146a077bdb066ee9208be44a88680b9bb6957e20124c7c7905b683676"
+    },
+    {
+      "level": "level_05",
+      "corpus_id": "level_05_mes_deadline_reliability_v1",
+      "run_id": "20260820T083332717084Z__level_05__benchmark_corpus__level_05_mes_deadline_reliability_v1__seed42",
+      "run_directory": "outputs/level_05/runs/20260820T083332717084Z__level_05__benchmark_corpus__level_05_mes_deadline_reliability_v1__seed42",
+      "source_commit": "ad0d23c7d5cc59ddb70bde38a5e75fc12e433e49",
+      "git_dirty": false,
+      "manifest_sha256": "1e63495087ef66a895ff53c9ab37db508f184606dda5e1484184b70d55d00931",
+      "results_sha256": "3a28cb69621000b36d083c12f5771af5817648d970049c41404f35f6659bc754"
+    }
+  ],
+  "portfolio_v1_status": "NOT_PROMOTED",
+  "mes_role": "research_comparator",
+  "level_06_status": "frozen"
+}

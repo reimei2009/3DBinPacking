@@ -276,8 +276,16 @@ def _function_category(filename: str, function: str) -> str:
     value = f"{filename}/{function}".lower().replace("\\", "/")
     if any(token in value for token in ("reporting", "visualization", "plotly", "write_html")):
         return "reporting_visualization"
-    if any(token in value for token in ("support", "overlap", "placements_overlap")):
-        return "support_overlap"
+    if any(token in value for token in ("load_transfer", "load-bearing", "load_bearing")):
+        return "load_transfer"
+    if any(token in value for token in ("stackability", "stackable", "stack_group", "maximum_layer")):
+        return "stackability"
+    if any(token in value for token in ("exact_support", "support_ratio", "support_closure")):
+        return "exact_support"
+    if any(token in value for token in ("overlap", "placements_overlap")):
+        return "overlap"
+    if "support" in value:
+        return "exact_support"
     if any(token in value for token in ("extreme_point", "maximal_space", "candidate")):
         return "candidate_enumeration"
     if "container_packing/algorithms" in value or "container_packing/levels" in value:
@@ -311,18 +319,23 @@ def _decision_gate(phase_profile: pd.DataFrame, function_profile: pd.DataFrame) 
     shares = phase_profile.groupby("phase", sort=True)["wall_time_share"].median().to_dict()
     reporting_share = float(shares.get("reporting", 0.0))
     construction_share = float(shares.get("construction", 0.0))
-    solver_functions = function_profile[function_profile["category"].isin({
-        "support_overlap", "candidate_enumeration", "other_solver",
-    })]
+    physical_categories = {"overlap", "exact_support", "stackability", "load_transfer"}
+    solver_functions = function_profile[function_profile["category"].isin(
+        physical_categories | {"candidate_enumeration", "other_solver"}
+    )]
     category_times = solver_functions.groupby("category")["self_time_seconds"].sum().to_dict()
     solver_self_time = float(sum(category_times.values()))
-    support_share = float(category_times.get("support_overlap", 0.0)) / max(solver_self_time, 1e-12)
+    category_shares = {
+        category: float(category_times.get(category, 0.0)) / max(solver_self_time, 1e-12)
+        for category in sorted(physical_categories | {"candidate_enumeration"})
+    }
+    physical_share = sum(category_shares[category] for category in physical_categories)
     candidate_share = float(category_times.get("candidate_enumeration", 0.0)) / max(solver_self_time, 1e-12)
     priorities: list[str] = []
     if reporting_share >= 0.30:
         priorities.append("reporting_pipeline")
     if construction_share >= 0.30:
-        if support_share >= 0.40:
+        if physical_share >= 0.40:
             priorities.append("spatial_or_contact_index")
         elif candidate_share >= 0.40:
             priorities.append("candidate_generation_and_pruning")
@@ -333,7 +346,12 @@ def _decision_gate(phase_profile: pd.DataFrame, function_profile: pd.DataFrame) 
     return {
         "reporting_median_wall_share": reporting_share,
         "construction_median_wall_share": construction_share,
-        "support_overlap_share_of_profiled_solver_self_time": support_share,
+        "physical_constraint_share_of_profiled_solver_self_time": physical_share,
+        "profiled_solver_category_shares": category_shares,
+        # Compatibility for already-authored Level 2 report consumers.
+        "support_overlap_share_of_profiled_solver_self_time": (
+            category_shares["overlap"] + category_shares["exact_support"]
+        ),
         "candidate_share_of_profiled_solver_self_time": candidate_share,
         "priorities": priorities,
         "note": (
@@ -413,6 +431,15 @@ def run_benchmark_profile(
     for case in cases:
         baseline_case = normal_results[normal_results["case_id"].astype(str).eq(case.case_id)]
         for algorithm in PROFILE_ALGORITHMS:
+            # cProfile adds enough overhead to trip the production wall-clock
+            # deadline on otherwise complete candidates. Neutralize only that
+            # deadline for diagnostic executions; bounded candidate/operator
+            # guards remain unchanged and the result must still match the
+            # unprofiled benchmark exactly.
+            profiling_overrides = merge_config(
+                case.config_overrides,
+                {"container_search": {"time_limit_seconds": None}},
+            )
             request = ExperimentRequest(
                 level_id=level_id, algorithm_id=algorithm,
                 config_path=case.config_path, item_count=case.item_count,
@@ -420,7 +447,7 @@ def run_benchmark_profile(
                 random_seed=42,
                 item_selection_strategy=case.item_selection_strategy,
                 item_selection_seed=case.item_selection_seed,
-                config_overrides=case.config_overrides,
+                config_overrides=profiling_overrides,
             )
             profiler = cProfile.Profile()
             profiler.enable()
@@ -478,6 +505,7 @@ def run_benchmark_profile(
         "created_at_utc": datetime.now(timezone.utc).isoformat(),
         "status": status,
         "diagnostic_only": True,
+        "deadline_neutralized_for_profiler_overhead": True,
         "eligible_for_benchmark_ranking": False,
         "selected_case_count": len(cases),
         "execution_count": len(profile_frame),
@@ -501,6 +529,10 @@ def run_benchmark_profile(
                 "item_selection_seed": case.item_selection_seed,
                 "config_file": str(case.config_path),
                 "config_overrides": case.config_overrides,
+                "profiling_config_overrides": merge_config(
+                    case.config_overrides,
+                    {"container_search": {"time_limit_seconds": None}},
+                ),
             }
             for case in cases
         ],

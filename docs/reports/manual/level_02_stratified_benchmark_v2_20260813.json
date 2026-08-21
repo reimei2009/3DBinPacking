@@ -1,9 +1,27 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "2.0",
   "report_id": "level_02_stratified_benchmark_v2_candidate",
-  "created_at_utc": "2026-08-13T09:34:43.870466+00:00",
+  "level_id": "level_02",
+  "created_at_utc": "2026-08-20T10:29:52.301924+00:00",
   "status": "PASS",
-  "promotion_to_canonical_allowed": true,
+  "functional_gate": {
+    "status": "PASS",
+    "requirements": "84 bài, 756 lượt, VALID, fair fingerprint và deterministic"
+  },
+  "provenance_gate": {
+    "status": "FAIL",
+    "source_commits": [
+      "86e36b4552dccbcee07f5b5a585795637c4f9645"
+    ],
+    "errors": [
+      "random_distribution: source run có git_dirty=true hoặc không khai báo sạch",
+      "stress: source run có git_dirty=true hoặc không khai báo sạch",
+      "prefix_regression: source run có git_dirty=true hoặc không khai báo sạch"
+    ],
+    "requires_clean_source": true
+  },
+  "governance_decision": "CANONICAL_PENDING_CLEAN_RERUN",
+  "promotion_to_canonical_allowed": false,
   "case_count": 84,
   "execution_count": 756,
   "strata": [
@@ -15,7 +33,39 @@
       "execution_count": 540,
       "valid_execution_count": 540,
       "deterministic_group_count": 180,
-      "errors": [],
+      "source_commit": "86e36b4552dccbcee07f5b5a585795637c4f9645",
+      "git_dirty": true,
+      "artifact_locks": {
+        "manifest": {
+          "path": "manifest.json",
+          "sha256": "5fa4519c8a998b6d69e51def3c105715bf79a2c895e1b1ec30fb5ee951433036",
+          "size_bytes": 59846
+        },
+        "results": {
+          "path": "benchmark/results.csv",
+          "sha256": "73f231d19db464a55332db244aededfcca4258b823f160b031f2ab0c18021558",
+          "size_bytes": 1141050
+        },
+        "determinism": {
+          "path": "benchmark/determinism_evidence.csv",
+          "sha256": "bf15434cef4fb644cb7e587af6e8fc54cade59b94b2ef75be9f81e809d2b42a7",
+          "size_bytes": 24673
+        },
+        "pairwise": {
+          "path": "benchmark/pairwise_outcomes.csv",
+          "sha256": "1706055595d306fc6daefe9bf29cf2209c9f984bc9334929ac7f7a550e5679ba",
+          "size_bytes": 47431
+        }
+      },
+      "functional_errors": [],
+      "provenance_errors": [
+        "source run có git_dirty=true hoặc không khai báo sạch"
+      ],
+      "errors": [
+        "source run có git_dirty=true hoặc không khai báo sạch"
+      ],
+      "functional_passed": true,
+      "provenance_passed": false,
       "passed": true
     },
     {
@@ -26,7 +76,39 @@
       "execution_count": 162,
       "valid_execution_count": 162,
       "deterministic_group_count": 54,
-      "errors": [],
+      "source_commit": "86e36b4552dccbcee07f5b5a585795637c4f9645",
+      "git_dirty": true,
+      "artifact_locks": {
+        "manifest": {
+          "path": "manifest.json",
+          "sha256": "e80dcdafca63062fab69005151d68e6327403b553568552fac29a445f350d75c",
+          "size_bytes": 20204
+        },
+        "results": {
+          "path": "benchmark/results.csv",
+          "sha256": "8b1c4120e89c228424af7c4fcda708e49c6aada3b2158dd703b1a5ea88d35753",
+          "size_bytes": 316606
+        },
+        "determinism": {
+          "path": "benchmark/determinism_evidence.csv",
+          "sha256": "6e0c69d6b04d322dcfef04490c28f2b1f062b2c0fe849724c7d3ee58a7e93300",
+          "size_bytes": 7609
+        },
+        "pairwise": {
+          "path": "benchmark/pairwise_outcomes.csv",
+          "sha256": "dd24ab17fd843df0bdf62aaa666d6618798796188612e33fed8ac5538fc72795",
+          "size_bytes": 13797
+        }
+      },
+      "functional_errors": [],
+      "provenance_errors": [
+        "source run có git_dirty=true hoặc không khai báo sạch"
+      ],
+      "errors": [
+        "source run có git_dirty=true hoặc không khai báo sạch"
+      ],
+      "functional_passed": true,
+      "provenance_passed": false,
       "passed": true
     },
     {
@@ -37,7 +119,39 @@
       "execution_count": 54,
       "valid_execution_count": 54,
       "deterministic_group_count": 18,
-      "errors": [],
+      "source_commit": "86e36b4552dccbcee07f5b5a585795637c4f9645",
+      "git_dirty": true,
+      "artifact_locks": {
+        "manifest": {
+          "path": "manifest.json",
+          "sha256": "a832f966d3175bb988292087766efe1b4570054192e1d6c02835aa1a07e364af",
+          "size_bytes": 8973
+        },
+        "results": {
+          "path": "benchmark/results.csv",
+          "sha256": "fb93d5ae00c3d3d07c96e2f54860a75709ffb1a638ac7607a998d3ba528e227b",
+          "size_bytes": 106176
+        },
+        "determinism": {
+          "path": "benchmark/determinism_evidence.csv",
+          "sha256": "ddb8ec4631f13663fac7254bf11db2965cc2c5b3d43b4fd5a33a4de096b1f73e",
+          "size_bytes": 2533
+        },
+        "pairwise": {
+          "path": "benchmark/pairwise_outcomes.csv",
+          "sha256": "6a7a938c39187810fbeab7a34722456a2a2bc376a534f37c849bb518e6f63c62",
+          "size_bytes": 4643
+        }
+      },
+      "functional_errors": [],
+      "provenance_errors": [
+        "source run có git_dirty=true hoặc không khai báo sạch"
+      ],
+      "errors": [
+        "source run có git_dirty=true hoặc không khai báo sạch"
+      ],
+      "functional_passed": true,
+      "provenance_passed": false,
       "passed": true
     }
   ],
@@ -58,6 +172,21 @@
   "interpretation": {
     "random_distribution": "Nguồn chính cho kết luận chất lượng tổng quát.",
     "stress": "Báo riêng; không trộn vào tỷ lệ thắng của random.",
-    "prefix_regression": "Chỉ phát hiện hồi quy theo thứ tự nguồn."
+    "prefix_regression": "Chỉ phát hiện hồi quy theo thứ tự nguồn.",
+    "provenance": "Functional PASS không đủ để promote khi source run còn git_dirty."
+  },
+  "objective_governance": {
+    "official_objective": [
+      "used_container_count",
+      "total_container_cost"
+    ],
+    "secondary_tie_break_policy": "utilization_void_support_margin_v1",
+    "secondary_tie_break_default_enabled": false,
+    "secondary_tie_break_scope": "complete_independently_valid_official_ties_only"
+  },
+  "reference_semantics": {
+    "proven_optimal": "chỉ khi có bằng chứng exact",
+    "best_observed": "tốt nhất trên cùng input fingerprint",
+    "aggregate_lower_bound": "cận capacity sơ bộ, không phải nghiệm hoặc proof"
   }
 }

@@ -5,6 +5,12 @@ nhiều container dị thể. Project tách biệt dữ liệu, cấu hình, out
 independent validator theo từng level; trạng thái `FEASIBLE` chỉ được chấp
 nhận khi validator tương ứng trả `VALID`.
 
+![Minh họa nghiệm 3D Container Packing với 500 kiện](docs/assets/container-packing-500-items.png)
+
+*Minh họa nghiệm đóng gói đa-container ở quy mô 500 kiện. Các container được đặt
+nối tiếp trên trục X để quan sát tổng thể; khoảng cách giữa chúng chỉ phục vụ
+trực quan hóa, không biểu diễn vị trí vật lý ngoài thực tế.*
+
 ## Trạng thái các level
 
 | Level | Phần bổ sung chính | Maturity |

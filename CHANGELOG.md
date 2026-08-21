@@ -1,6 +1,32 @@
 # Changelog
 
+- Promote Benchmark Level 2 V2 sau clean rerun: 84 bài, 756 lượt `VALID`, 252 nhóm
+  deterministic, ba manifest `git_dirty=false` và checksum gate đạt. Random là tầng
+  quality chính; stress/prefix là supporting evidence. V1 chuyển sang `superseded`.
+- Khóa governance objective/benchmark: official objective vẫn là số container rồi
+  chi phí; secondary policy `utilization_void_support_margin_v1` chỉ tie-break nghiệm
+  `VALID` cùng objective. Evidence V2 khóa SHA-256 và tách functional/provenance
+  gate; run dirty ngày 2026-08-13 được giữ làm evidence lịch sử.
+- Ghi nhận MES Level 4–5 là `ACCEPTED_COMPARATOR_NOT_DEFAULT`; Best Fit vẫn mặc định
+  và Constructor Portfolio V1 tiếp tục `NOT_PROMOTED`.
+
 ## Unreleased
+
+- Expose shared inventory workflows for Level 4–5 on Streamlit using the
+  qualified 1,000-item/500-container source and the individually accepted Best
+  Fit, FFD, and MES constructors. Repair remains hidden/off and Portfolio V1
+  remains `NOT_PROMOTED`.
+
+- Thêm observer chẩn đoán deadline MES bằng wall/performance/CPU/active clock, checkpoint
+  theo operation và suite diagnostic Level 4–5; không thay deadline, solver hay objective.
+- Đóng điều tra MES deadline reliability với 18/18 lượt hợp lệ, 6 nhóm deterministic,
+  không có overshoot hoặc nhiễu môi trường; không cần cooperative hardening/watchdog.
+  Portfolio V1 vẫn `NOT_PROMOTED` và MES tiếp tục là research comparator.
+
+- Bảo toàn quy mô input, lý do dừng và diagnostic của solver khi construction,
+  validation hoặc reporting thất bại; official objective của failure row luôn rỗng.
+- Phân biệt rõ lỗi xuất artifact với heuristic không tìm được nghiệm trong CLI,
+  benchmark và Streamlit.
 
 - Khôi phục corpus benchmark Level 1 có version, reference exact/best-known,
   quality gap và output cô lập; expose qua CLI, chưa bật Streamlit.
@@ -213,7 +239,7 @@
 - Added CLI-only Level 7 First-Fit balance A/B fixtures. The COG-aware variant
   retains the first feasible container and applies prospective COG ranking only
   to candidates inside that container; canonical FFD remains unchanged for
-  Levels 1â€“6 and for the Level 7 baseline comparator.
+  Levels 1–6 and for the Level 7 baseline comparator.
 
 - Recorded the Level 7 three-profile balance-scoring acceptance baseline:
   left-heavy discriminator, right-heavy direction check, and symmetric bias check.

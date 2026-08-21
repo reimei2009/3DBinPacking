@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+from hashlib import sha256
+import json
 import re
 from pathlib import Path
 
 import yaml
 
-from container_packing.algorithms.registry import get_algorithm
-from container_packing.levels.registry import list_levels
+from container_packing.algorithms.registry import get_algorithm, list_algorithms
+from container_packing.levels.registry import get_level, list_levels
 
 
 _EXECUTION_CLASSES = {
@@ -26,6 +28,7 @@ _MOJIBAKE_MARKERS = (
     "\u00e1\u00ba",
     "\u00e1\u00bb",
 )
+_USER_FACING_SUFFIXES = {".py", ".md", ".yaml", ".yml", ".tex"}
 
 
 def _capability_matrix(root: Path) -> dict:
@@ -85,14 +88,115 @@ def test_important_markdown_links_resolve(root: Path) -> None:
 
 def test_user_facing_source_and_docs_do_not_contain_mojibake(root: Path) -> None:
     offenders: list[str] = []
-    for base in (root / "src", root / "docs"):
+    for base in (root / "src", root / "config", root / "docs"):
         for path in base.rglob("*"):
-            if not path.is_file() or path.suffix.lower() not in {".py", ".md"}:
+            if not path.is_file() or path.suffix.lower() not in _USER_FACING_SUFFIXES:
                 continue
             text = path.read_text(encoding="utf-8-sig")
             if any(marker in text for marker in _MOJIBAKE_MARKERS):
                 offenders.append(str(path.relative_to(root)))
+    for path in (root / "README.md", root / "CHANGELOG.md"):
+        text = path.read_text(encoding="utf-8-sig")
+        if any(marker in text for marker in _MOJIBAKE_MARKERS):
+            offenders.append(str(path.relative_to(root)))
     assert offenders == []
+
+
+def _listed_benchmark_algorithms(value: object) -> set[str]:
+    algorithms: set[str] = set()
+    if isinstance(value, dict):
+        for key, nested in value.items():
+            if key == "algorithms" and isinstance(nested, list):
+                algorithms.update(item for item in nested if isinstance(item, str))
+            algorithms.update(_listed_benchmark_algorithms(nested))
+    elif isinstance(value, list):
+        for nested in value:
+            algorithms.update(_listed_benchmark_algorithms(nested))
+    return algorithms
+
+
+def test_benchmark_protocols_only_reference_registered_level_algorithms(root: Path) -> None:
+    offenders: list[str] = []
+    for level in list_levels():
+        benchmark_root = root / "config" / level.level_id / "benchmarks"
+        if not benchmark_root.is_dir():
+            continue
+        supported = set(level.supported_algorithms)
+        for path in sorted(benchmark_root.glob("*.yaml")):
+            payload = yaml.safe_load(path.read_text(encoding="utf-8-sig"))
+            unknown = sorted(_listed_benchmark_algorithms(payload) - supported)
+            if unknown:
+                offenders.append(f"{path.relative_to(root)}: {', '.join(unknown)}")
+    assert offenders == []
+
+
+def test_research_and_web_algorithm_governance_is_consistent() -> None:
+    level1_algorithms = {value.algorithm_id: value for value in list_algorithms(level_id="level_01")}
+    for algorithm_id in (
+        "extreme_point_best_fit_projected_ep",
+        "extreme_point_ffd_projected_ep",
+    ):
+        assert algorithm_id in level1_algorithms
+        assert level1_algorithms[algorithm_id].web_visible is False
+
+    level5 = get_level("level_05")
+    mes = get_algorithm("maximal_space_best_fit")
+    assert "maximal_space_best_fit" in level5.supported_algorithms
+    assert "level_05" in mes.supported_levels
+    assert mes.web_visible is True
+
+    registered = {value.algorithm_id for value in list_algorithms()}
+    assert "validated_best_fit_mes_portfolio" not in registered
+
+
+def test_level2_v2_clean_evidence_is_canonical_and_v1_is_superseded(root: Path) -> None:
+    report = json.loads((
+        root / "docs/reports/manual/level_02_stratified_benchmark_v2_clean_20260820.json"
+    ).read_text(encoding="utf-8"))
+    assert report["functional_gate"]["status"] == "PASS"
+    assert report["provenance_gate"]["status"] == "PASS"
+    assert report["governance_decision"] == "CANONICAL_PROMOTION_ALLOWED"
+    assert report["promotion_to_canonical_allowed"] is True
+    assert report["case_count"] == 84
+    assert report["execution_count"] == 756
+    assert len(report["strata"]) == 3
+    assert all(len(value["artifact_locks"]) == 4 for value in report["strata"])
+    assert all(value["git_dirty"] is False for value in report["strata"])
+    assert sum(value["deterministic_group_count"] for value in report["strata"]) == 252
+
+    registry = yaml.safe_load((
+        root / "config/level_02/benchmarks/registry.yaml"
+    ).read_text(encoding="utf-8-sig"))
+    entries = {value["benchmark_id"]: value for value in registry["benchmarks"]}
+    legacy = entries["level_02_generated_canonical_v1"]
+    assert legacy["kind"] == "superseded"
+    assert legacy["run_mode"] == "read_only"
+    assert legacy["governance_status"] == "superseded"
+    assert legacy["replacement_id"] == "level_02_generated_random_v2_candidate"
+    for benchmark_id in (
+        "level_02_generated_random_v2_candidate",
+        "level_02_generated_stress_v2_candidate",
+        "level_02_generated_prefix_v2_candidate",
+    ):
+        assert entries[benchmark_id]["kind"] == "canonical"
+        assert entries[benchmark_id]["governance_status"].startswith(
+            "canonical_active"
+        )
+    assert entries["level_02_generated_quick_v3"]["kind"] == "research"
+    assert entries["level_02_generated_quick_v3"]["governance_status"] == "smoke_only"
+
+
+def test_mes_level4_5_review_locks_its_declared_sources(root: Path) -> None:
+    report = json.loads((
+        root / "docs/reports/manual/level_04_05_mes_comparator_review_20260820.json"
+    ).read_text(encoding="utf-8"))
+    assert report["decision"] == "ACCEPTED_COMPARATOR_NOT_DEFAULT"
+    assert report["default_algorithm"] == "extreme_point_best_fit"
+    assert report["portfolio_v1"] == "NOT_PROMOTED"
+    for source in report["source_evidence"]:
+        path = root / source["path"]
+        assert path.is_file()
+        assert sha256(path.read_bytes()).hexdigest() == source["sha256"]
 
 
 def test_level3_documents_do_not_claim_runtime_is_unregistered(root: Path) -> None:

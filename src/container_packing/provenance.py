@@ -13,6 +13,7 @@ import sys
 
 
 SOURCE_PATTERNS = ("src/**/*.py", "scripts/*.py", "config/**/*.yaml", "tests/**/*.py")
+GIT_METADATA_TIMEOUT_SECONDS = 15
 
 
 def sha256_file(path: Path) -> str:
@@ -27,7 +28,7 @@ def git_commit(root: Path) -> str:
     try:
         result = subprocess.run(
             ["git", "rev-parse", "HEAD"], cwd=root, check=True,
-            capture_output=True, text=True, timeout=5,
+            capture_output=True, text=True, timeout=GIT_METADATA_TIMEOUT_SECONDS,
         )
         return result.stdout.strip()
     except (OSError, subprocess.SubprocessError):
@@ -39,7 +40,7 @@ def git_dirty(root: Path) -> bool | None:
     try:
         result = subprocess.run(
             ["git", "status", "--porcelain"], cwd=root, check=True,
-            capture_output=True, text=True, timeout=5,
+            capture_output=True, text=True, timeout=GIT_METADATA_TIMEOUT_SECONDS,
         )
         return bool(result.stdout.strip())
     except (OSError, subprocess.SubprocessError):

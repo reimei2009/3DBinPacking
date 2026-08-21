@@ -64,6 +64,9 @@ _RUNTIME_UNSET = object()
 _INVENTORY_BENCHMARK_ALGORITHMS = frozenset({
     "extreme_point_best_fit", "extreme_point_ffd", "maximal_space_best_fit",
 })
+_INVENTORY_WEB_LEVELS = frozenset({
+    "level_01", "level_02", "level_03", "level_04", "level_05",
+})
 _BENCHMARK_RUNTIME_PRESETS: dict[str, float | None | object] = {
     "30 giây": 30.0,
     "60 giây": 60.0,
@@ -75,7 +78,7 @@ _BENCHMARK_RUNTIME_PRESETS: dict[str, float | None | object] = {
 
 
 def _benchmark_inventory_supported(level_id: str, algorithms: list[str] | tuple[str, ...]) -> bool:
-    return level_id in {"level_01", "level_02"} and bool(algorithms) and all(
+    return level_id in _INVENTORY_WEB_LEVELS and bool(algorithms) and all(
         value in _INVENTORY_BENCHMARK_ALGORITHMS for value in algorithms
     )
 
@@ -219,6 +222,48 @@ def _default_inventory_profile_id(profiles: dict[str, dict[str, Any]]) -> str:
     if len(declared) > 1:
         raise ValueError("Inventory web profiles may declare at most one default")
     return declared[0] if declared else next(iter(profiles))
+
+
+def _inventory_repair_ui_qualified(
+    level_id: str, profile: dict[str, Any] | None,
+) -> bool:
+    """Return the single repair-exposure gate shared by every UI workflow."""
+    default = level_id in {"level_01", "level_02"}
+    if profile is None:
+        return default
+    return bool(profile.get("repair_ui_qualified", default))
+
+
+def _inventory_ui_qualified(profile: dict[str, Any] | None) -> bool:
+    """Return whether one source may expose shared inventory orchestration."""
+    return bool(profile and profile.get("inventory_ui_qualified", False))
+
+
+def _inventory_repair_ui_help(level_id: str, language: str) -> str:
+    """Explain the optional quality/runtime trade-off without exposing internals."""
+    if language == "vi":
+        base = (
+            "Repair có thể giảm số container hoặc chi phí nhưng không bảo đảm; "
+            "timeout vẫn giữ nghiệm hợp lệ ban đầu."
+        )
+        if level_id == "level_03":
+            return (
+                base
+                + " A/B Level 3 cải thiện 6/18 cặp, nhưng thời gian toàn quy trình "
+                "tăng trung vị khoảng 44,1 giây; vì vậy tùy chọn này mặc định tắt."
+            )
+        return base
+    base = (
+        "Repair may reduce container count or cost but is not guaranteed; "
+        "a timeout preserves the original validated solution."
+    )
+    if level_id == "level_03":
+        return (
+            base
+            + " The Level 3 A/B improved 6/18 pairs, while median wall time "
+            "increased by about 44.1 seconds, so this option is off by default."
+        )
+    return base
 
 
 def _level1_inventory_web_profiles(root: Path) -> dict[str, dict[str, Any]]:
@@ -1264,7 +1309,9 @@ def _render_benchmark_dashboard(
         st.error(t("benchmark_no_valid_solution", language))
         diagnostic_columns = [
             column for column in (
-                "algorithm", "status", "search_termination_reason", "best_partial_placement_count",
+                "algorithm", "status", "failure_class", "failure_stage",
+                "search_termination_reason", "resolved_item_count",
+                "resolved_container_inventory_count", "best_partial_placement_count",
                 "aggregate_lower_bound", "candidate_subsets_evaluated", "error",
             ) if column in results.columns
         ]
@@ -1292,7 +1339,11 @@ def _render_benchmark_dashboard(
                 diagnostics = diagnostics.rename(columns={
                     "algorithm": "Thuật toán",
                     "status": "Kết quả",
+                    "failure_class": "Nhóm sự cố",
+                    "failure_stage": "Giai đoạn dừng",
                     "search_termination_reason": "Lý do dừng",
+                    "resolved_item_count": "Số kiện đầu vào đã xác nhận",
+                    "resolved_container_inventory_count": "Số container trong kho đã xác nhận",
                     "best_partial_placement_count": "Số kiện đã xếp tốt nhất",
                     "aggregate_lower_bound": "Cận dưới container",
                     "candidate_subsets_evaluated": "Số phương án container đã thử",
@@ -1725,24 +1776,41 @@ def _render_level2_benchmark_catalog(
     catalog = load_benchmark_catalog(
         root / "config/level_02/benchmarks/registry.yaml", project_root=root,
     )
-    canonical = catalog.get("level_02_generated_canonical_v1")
-    corpus = load_benchmark_corpus(canonical.protocol_file, project_root=root)
-    scales = sorted({case.item_count for case in corpus.cases})
-    execution_count = sum(len(case.algorithms) for case in corpus.cases) * len(corpus.seeds) * corpus.repeats
+    canonical_entries = (
+        catalog.get("level_02_generated_random_v2_candidate"),
+        catalog.get("level_02_generated_stress_v2_candidate"),
+        catalog.get("level_02_generated_prefix_v2_candidate"),
+    )
+    canonical_corpora = tuple(
+        load_benchmark_corpus(entry.protocol_file, project_root=root)
+        for entry in canonical_entries
+    )
+    scales = sorted({
+        case.item_count for corpus in canonical_corpora for case in corpus.cases
+    })
+    case_count = sum(len(corpus.cases) for corpus in canonical_corpora)
+    execution_count = sum(
+        sum(len(case.algorithms) for case in corpus.cases)
+        * len(corpus.seeds) * corpus.repeats
+        for corpus in canonical_corpora
+    )
+    evidence_path = (
+        root / "docs/reports/manual/level_02_stratified_benchmark_v2_clean_20260820.json"
+    )
+    evidence = json.loads(evidence_path.read_text(encoding="utf-8"))
+    canonical_accepted = (
+        evidence.get("governance_decision") == "CANONICAL_PROMOTION_ALLOWED"
+        and evidence.get("functional_gate", {}).get("status") == "PASS"
+        and evidence.get("provenance_gate", {}).get("status") == "PASS"
+        and int(evidence.get("case_count", 0)) == 84
+        and int(evidence.get("execution_count", 0)) == 756
+    )
     saved_runs = discover_benchmark_runs(
         "level_02", root=root, limit=200,
         dataset_profile_id=active_data.profile_id,
         expected_raw_items_checksum=active_data.raw_items_checksum,
         expected_container_catalog_checksum=active_data.container_catalog_checksum,
     )
-    canonical_run = next((
-        run for run in saved_runs
-        if run.suite_id == corpus.corpus_id
-        and run.case_count == 24
-        and run.execution_count == 144
-        and run.successful_execution_count == 144
-        and run.status == "SUCCESS"
-    ), None)
     quick_entry = catalog.get("level_02_generated_quick_v3")
     quick_corpus = load_benchmark_corpus(quick_entry.protocol_file, project_root=root)
     quick_run = next((
@@ -1760,12 +1828,12 @@ def _render_level2_benchmark_catalog(
         cards = st.columns(4)
         cards[0].metric("Nguồn dữ liệu", "1.000 kiện / 500 container")
         cards[1].metric("Quy mô", ", ".join(str(value) for value in scales))
-        cards[2].metric("Số bài kiểm tra", len(corpus.cases))
+        cards[2].metric("Số bài kiểm tra", case_count)
         cards[3].metric("Tổng lượt chạy", execution_count)
         status_cards = st.columns(2)
         status_cards[0].metric(
-            "Benchmark chuẩn 144 lượt",
-            "Đã hoàn thành" if canonical_run else "Chưa chạy",
+            "Benchmark chuẩn V2",
+            "Đã nghiệm thu" if canonical_accepted else "Chưa đạt gate",
         )
         status_cards[1].metric(
             "Kiểm tra nhanh 18 lượt",
@@ -1776,11 +1844,26 @@ def _render_level2_benchmark_catalog(
         )
         st.markdown(
             "**Mốc đối chiếu:** Extreme Point Best Fit · **Repair:** tắt · "
-            "**Lặp lại:** 2 lần để kiểm tra tính xác định."
+            "**Lặp lại:** 3 lần để kiểm tra tính xác định."
         )
         st.caption(
-            "Giới hạn thời gian: 20/50 kiện — 30 giây; 100 — 60 giây; "
-            "200/300 — 90 giây; 500 — 120 giây cho mỗi lượt chạy."
+            "Random là tầng chính để kết luận thắng/hòa/thua. Stress và hồi quy "
+            "được báo riêng, không trộn vào phân phối random."
+        )
+        labels = (
+            ("Phân phối random", "Đánh giá tổng quát", 60, 540),
+            ("Tình huống khó", "Đánh giá sức chịu đựng", 18, 162),
+            ("Hồi quy theo nguồn", "Phát hiện thay đổi hành vi", 6, 54),
+        )
+        for label, purpose, expected_cases, expected_executions in labels:
+            columns = st.columns((2, 2, 1, 1))
+            columns[0].markdown(f"**{label}**")
+            columns[1].write(purpose)
+            columns[2].write(f"{expected_cases} bài")
+            columns[3].write(f"{expected_executions} lượt")
+        st.caption(
+            "Tổng cộng 84 bài và 756 lượt. Ba lần lặp chỉ đo nhiễu runtime và "
+            "tính xác định; không được tính thành ba bài độc lập."
         )
         quick = quick_entry
         source_matches = (
@@ -1804,60 +1887,9 @@ def _render_level2_benchmark_catalog(
             else:
                 st.warning("Kiểm tra nhanh đã hoàn tất nhưng có lượt thất bại hoặc không hợp lệ.")
         with st.expander("Chi tiết kỹ thuật", expanded=False):
-            st.write(f"Mã protocol: {corpus.corpus_id}")
-            st.write(f"Tệp cấu hình: {canonical.protocol_file.relative_to(root)}")
-            st.code(
-                ".\\.venv\\Scripts\\python.exe .\\scripts\\run_benchmark_corpus.py `\n"
-                "  --corpus config\\level_02\\benchmarks\\generated_1k_500_distribution_corpus.yaml",
-                language="powershell",
-            )
-
-    candidate_entries = (
-        catalog.get("level_02_generated_random_v2_candidate"),
-        catalog.get("level_02_generated_stress_v2_candidate"),
-        catalog.get("level_02_generated_prefix_v2_candidate"),
-    )
-    candidate_corpora = [
-        load_benchmark_corpus(entry.protocol_file, project_root=root)
-        for entry in candidate_entries
-    ]
-    with st.expander(
-        "Benchmark V2 đang đánh giá" if language == "vi" else "Benchmark V2 candidate",
-        expanded=False,
-    ):
-        st.write(
-            "V2 tăng độ phủ nhưng chưa thay benchmark chuẩn V1. Ba nhóm được chạy và "
-            "đánh giá riêng để stress case không làm lệch kết luận từ các mẫu random."
-            if language == "vi" else
-            "V2 expands coverage but does not replace V1 yet. Its three strata are evaluated separately."
-        )
-        labels = (
-            ("Phân phối random", "Đánh giá tổng quát", 60, 540),
-            ("Tình huống khó", "Đánh giá sức chịu đựng", 18, 162),
-            ("Hồi quy theo nguồn", "Phát hiện thay đổi hành vi", 6, 54),
-        )
-        for entry, candidate, (label, purpose, expected_cases, expected_executions) in zip(
-            candidate_entries, candidate_corpora, labels, strict=True,
-        ):
-            completed = next((
-                run for run in saved_runs
-                if run.suite_id == candidate.corpus_id
-                and run.case_count == expected_cases
-                and run.execution_count == expected_executions
-                and run.successful_execution_count == expected_executions
-                and run.status == "SUCCESS"
-            ), None)
-            columns = st.columns((2, 2, 1, 1))
-            columns[0].markdown(f"**{label}**")
-            columns[1].write(purpose)
-            columns[2].write(f"{expected_cases} bài")
-            columns[3].write("Đạt" if completed else "Chưa chạy")
-        st.caption(
-            "Tổng protocol: 84 bài, 756 lượt. Ba lần lặp chỉ đo nhiễu runtime và "
-            "tính xác định; không được tính thành ba bài độc lập."
-        )
-        with st.expander("Chi tiết kỹ thuật", expanded=False):
-            for entry in candidate_entries:
+            st.write(f"Evidence: {evidence_path.relative_to(root)}")
+            st.write("V1 (24 bài / 144 lượt): superseded, chỉ đọc lịch sử.")
+            for entry in canonical_entries:
                 relative = entry.protocol_file.relative_to(root)
                 st.write(entry.label_vi)
                 st.code(
@@ -1902,6 +1934,7 @@ def _render_benchmark_controls(
     available_item_count: int,
     physical_container_count: int,
     inventory_search_enabled: bool,
+    repair_ui_qualified: bool,
     active_data: ActiveDataContext,
 ) -> None:
     """Render and execute one immutable, source-bound benchmark request."""
@@ -2001,22 +2034,44 @@ def _render_benchmark_controls(
             runtime_options = list(_BENCHMARK_RUNTIME_PRESETS)
             if not _unbounded_inventory_search_allowed():
                 runtime_options.remove("Không giới hạn — local")
+            inherited_runtime_mode = next(
+                (
+                    label for label, value in _BENCHMARK_RUNTIME_PRESETS.items()
+                    if value == inherited_runtime
+                ),
+                "Không giới hạn — local"
+                if inherited_runtime is None and "Không giới hạn — local" in runtime_options
+                else "Tùy chỉnh",
+            )
             runtime_mode = st.selectbox(
                 "Thời gian tối đa cho mỗi thuật toán" if language == "vi" else "Runtime limit per algorithm",
-                runtime_options, index=min(3, len(runtime_options) - 1),
+                runtime_options, index=runtime_options.index(inherited_runtime_mode),
                 key="benchmark_runtime_mode",
             )
             custom_runtime = float(st.number_input(
                 "Thời gian tùy chỉnh (giây)" if language == "vi" else "Custom runtime (seconds)",
-                min_value=1.0, value=120.0, step=1.0, key="benchmark_custom_runtime",
+                min_value=1.0,
+                value=float(inherited_runtime if inherited_runtime is not None else 120.0),
+                step=1.0, key="benchmark_custom_runtime",
             ))
             selected_runtime = _BENCHMARK_RUNTIME_PRESETS[runtime_mode]
             runtime_limit = custom_runtime if selected_runtime is _RUNTIME_UNSET else selected_runtime
-            repair_enabled = st.checkbox(
-                "Thử giảm thêm số container sau khi có nghiệm" if language == "vi" else
-                "Improve solution after construction",
-                value=inherited_repair_enabled, key="benchmark_repair_enabled",
-            )
+            if repair_ui_qualified:
+                repair_enabled = st.checkbox(
+                    "Thử giảm thêm số container sau khi có nghiệm" if language == "vi" else
+                    "Improve solution after construction",
+                    value=inherited_repair_enabled, key="benchmark_repair_enabled",
+                    help=_inventory_repair_ui_help(level_id, language),
+                )
+            else:
+                repair_enabled = False
+                st.caption(
+                    "Cải thiện nghiệm chưa được nghiệm thu cho nguồn này; "
+                    "benchmark luôn tắt repair."
+                    if language == "vi" else
+                    "Solution improvement is not qualified for this source; "
+                    "benchmark repair remains disabled."
+                )
             repair_budget = inherited_repair_budget
             st.caption(
                 f"Dành riêng {validation_reserve:g} giây để kiểm tra nghiệm. Kho có "
@@ -2068,7 +2123,7 @@ def _render_benchmark_controls(
                 disabled=selection_strategy != "stable_random",
                 key="benchmark_selection_seed",
             ))
-            if inventory_capable:
+            if inventory_capable and repair_ui_qualified:
                 repair_budget = float(st.number_input(
                     "Ngân sách cải thiện (giây)" if language == "vi" else "Repair budget (seconds)",
                     min_value=1.0, value=max(inherited_repair_budget, 1.0), step=1.0,
@@ -2296,9 +2351,10 @@ def _render_benchmark_comparison(
     available_item_count: int,
     physical_container_count: int,
     inventory_search_enabled: bool,
+    repair_ui_qualified: bool,
     active_data: ActiveDataContext,
+    level_algorithms: list[str],
 ) -> None:
-    level_algorithms = [value.algorithm_id for value in list_algorithms(level_id=level_id)]
     default_algorithms = [
         value for value in ("extreme_point_ffd", "extreme_point_best_fit", "maximal_space_best_fit")
         if value in level_algorithms
@@ -2332,6 +2388,7 @@ def _render_benchmark_comparison(
             available_item_count=available_item_count,
             physical_container_count=physical_container_count,
             inventory_search_enabled=inventory_search_enabled,
+            repair_ui_qualified=repair_ui_qualified,
             active_data=active_data,
         )
     if not submitted_now:
@@ -2606,7 +2663,7 @@ def main() -> None:
         )
         level8_profile = profiles[level8_profile_id]
         selected_config = Path(str(level8_profile["config_file"]))
-    elif level_id in {"level_01", "level_02"}:
+    elif level_id in _INVENTORY_WEB_LEVELS:
         profiles = _inventory_web_profiles(root, level_id)
         profile_ids = tuple(profiles)
         default_profile_id = _default_inventory_profile_id(profiles)
@@ -2622,10 +2679,19 @@ def main() -> None:
         inventory_profile = profiles[inventory_profile_id]
         selected_config = Path(str(inventory_profile["config_file"]))
 
+    repair_ui_qualified = _inventory_repair_ui_qualified(
+        level_id, inventory_profile,
+    )
     algorithm_ids = [
         value.algorithm_id for value in list_algorithms(level_id=level_id)
         if value.web_visible
     ]
+    qualified_inventory_source = _inventory_ui_qualified(inventory_profile)
+    if qualified_inventory_source:
+        algorithm_ids = [
+            value for value in algorithm_ids
+            if value in _INVENTORY_BENCHMARK_ALGORITHMS
+        ]
     configured_algorithm = str(base_config.get("project", {}).get("algorithm_id", algorithm_ids[0]))
     if configured_algorithm not in algorithm_ids:
         raise ValueError(f"Configured algorithm {configured_algorithm!r} is not compatible with {level_id}")
@@ -2641,6 +2707,37 @@ def main() -> None:
     )
     algorithm = get_algorithm(algorithm_id)
     st.sidebar.caption(f"{algorithm_family(algorithm.family, language)}: {algorithm.description_for(language)}")
+    if qualified_inventory_source:
+        if level_id == "level_03":
+            contract_message_vi = (
+                "Level 3 cho phép xoay ngang XYZ/YXZ và kiểm tra độc lập hình học, "
+                "tải trọng cùng vùng đỡ."
+            )
+            contract_message_en = (
+                "Level 3 permits horizontal XYZ/YXZ rotations and independently "
+                "checks geometry, payload, and support."
+            )
+        elif level_id == "level_04":
+            contract_message_vi = (
+                "Level 4 cho phép xoay ngang XYZ/YXZ, yêu cầu vùng đỡ chính xác và "
+                "kiểm tra độc lập quy tắc xếp chồng."
+            )
+            contract_message_en = (
+                "Level 4 permits horizontal XYZ/YXZ rotations, requires exact support, "
+                "and independently checks stackability rules."
+            )
+        else:
+            contract_message_vi = (
+                "Level 5 bổ sung truyền tải trọng tĩnh trên vùng đỡ. Dữ liệu khả năng "
+                "chịu tải là profile nghiên cứu synthetic, không phải chứng nhận an toàn cơ học."
+            )
+            contract_message_en = (
+                "Level 5 adds static load transfer over support contacts. Load-bearing "
+                "data is synthetic research evidence, not a mechanical safety certificate."
+            )
+        st.sidebar.info(
+            contract_message_vi if language == "vi" else contract_message_en
+        )
     if level_id == "level_08":
         st.sidebar.warning(
             "Level 8 đang ở mức thực nghiệm: LIFO dùng mô hình đường tháo thẳng tĩnh; chưa mô phỏng thiết bị, vùng chứa tạm hoặc chuỗi dỡ vật lý chính xác."
@@ -2780,7 +2877,7 @@ def main() -> None:
         else max(limits.configured_containers, 1)
     )
     inventory_search_supported = (
-        level_id in {"level_01", "level_02"}
+        level_id in _INVENTORY_WEB_LEVELS
         and algorithm_id in _INVENTORY_BENCHMARK_ALGORITHMS
     )
     inventory_search_config = dict(config.get("container_search", {}))
@@ -2820,7 +2917,7 @@ def main() -> None:
         min_value=1,
         max_value=(
             limits.configured_containers
-            if inventory_search_enabled or level_id in {"level_01", "level_02"}
+            if inventory_search_enabled or level_id in _INVENTORY_WEB_LEVELS
             else container_max if level_id == "level_08" else None
         ),
         step=1, key="container_count",
@@ -2857,6 +2954,16 @@ def main() -> None:
                     if language == "vi" else
                     "Best Fit is recommended when solution quality is the priority; "
                     "FFD is a fast comparator and may use more containers."
+                )
+            )
+        elif algorithm_id == "maximal_space_best_fit" and level_id in {"level_04", "level_05"}:
+            st.sidebar.info(
+                (
+                    "MES là comparator hình học: có thể tốt hơn hoặc kém hơn tùy trường hợp. "
+                    "Best Fit vẫn là lựa chọn mặc định đã được khuyến nghị."
+                    if language == "vi" else
+                    "MES is a geometric comparator and may be better or worse depending "
+                    "on the case. Best Fit remains the recommended default."
                 )
             )
         st.sidebar.caption(
@@ -2975,20 +3082,24 @@ def main() -> None:
             st.session_state[repair_enabled_key] = bool(
                 repair_config.get("enabled", False)
             )
-        inventory_repair_enabled = st.sidebar.checkbox(
-            (
-                "Cải thiện nghiệm sau construction"
-                if language == "vi" else "Improve the solution after construction"
-            ),
-            key=repair_enabled_key,
-            help=(
-                "Repair có thể giảm số container hoặc chi phí nhưng không bảo đảm; "
-                "timeout vẫn giữ nghiệm hợp lệ ban đầu."
+        if not repair_ui_qualified:
+            inventory_repair_enabled = False
+            st.sidebar.caption(
+                "Cải thiện nghiệm chưa được nghiệm thu cho nguồn này; "
+                "mọi luồng UI đều giữ repair ở trạng thái tắt."
                 if language == "vi" else
-                "Repair may reduce container count or cost but is not guaranteed; "
-                "a timeout preserves the original validated solution."
-            ),
-        )
+                "Solution improvement is not qualified for this source; repair "
+                "remains disabled in every UI workflow."
+            )
+        else:
+            inventory_repair_enabled = st.sidebar.checkbox(
+                (
+                    "Cải thiện nghiệm sau construction"
+                    if language == "vi" else "Improve the solution after construction"
+                ),
+                key=repair_enabled_key,
+                help=_inventory_repair_ui_help(level_id, language),
+            )
         repair_modes = {
             "Nhanh — 3 giây": 3.0,
             "Cân bằng — 10 giây": 10.0,
@@ -3011,14 +3122,20 @@ def main() -> None:
             or st.session_state[repair_mode_key] not in repair_modes
         ):
             st.session_state[repair_mode_key] = default_repair_mode
-        repair_mode = st.sidebar.selectbox(
-            "Ngân sách cải thiện" if language == "vi" else "Improvement budget",
-            tuple(repair_modes),
-            key=repair_mode_key,
-            disabled=not inventory_repair_enabled,
+        repair_mode = (
+            default_repair_mode
+            if not repair_ui_qualified
+            else st.sidebar.selectbox(
+                "Ngân sách cải thiện" if language == "vi" else "Improvement budget",
+                tuple(repair_modes),
+                key=repair_mode_key,
+                disabled=not inventory_repair_enabled,
+            )
         )
-        requested_repair = repair_modes[repair_mode]
-        if requested_repair == "custom":
+        requested_repair = (
+            configured_repair if not repair_ui_qualified else repair_modes[repair_mode]
+        )
+        if requested_repair == "custom" and repair_ui_qualified:
             repair_custom_key = f"{level_id}_inventory_repair_custom_seconds"
             if repair_custom_key not in st.session_state:
                 st.session_state[repair_custom_key] = int(configured_repair)
@@ -3455,7 +3572,9 @@ def main() -> None:
                 if inventory_summary is not None else limits.configured_containers
             ),
             inventory_search_enabled=inventory_search_enabled,
+            repair_ui_qualified=repair_ui_qualified,
             active_data=active_data,
+            level_algorithms=algorithm_ids,
         )
     with history_tab:
         runs = discover_runs(level_id, root=root, limit=100)

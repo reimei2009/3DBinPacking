@@ -42,6 +42,7 @@ levels:
     evidence:
       - docs/levels/level_03.md
       - docs/reports/manual/level_03_heuristic_acceptance.md
+      - docs/reports/manual/level_03_05_distribution_20260814/cross_level_distribution_report.md
     algorithms:
       milp_big_m: {execution_class: exact_reference, maturity: accepted, role: bounded_exact_reference, exposure: [cli, benchmark, streamlit]}
       extreme_point_ffd: {execution_class: packing_solver, maturity: accepted, role: constructive_baseline, exposure: [cli, benchmark, streamlit]}
@@ -55,6 +56,7 @@ levels:
     evidence:
       - docs/levels/level_04.md
       - docs/reports/manual/level_04_best_fit_acceptance.md
+      - docs/reports/manual/level_03_05_distribution_20260814/cross_level_distribution_report.md
     algorithms:
       extreme_point_ffd: {execution_class: packing_solver, maturity: accepted, role: constructive_comparator, exposure: [cli, benchmark, streamlit]}
       extreme_point_best_fit: {execution_class: packing_solver, maturity: accepted, role: practical_default, exposure: [cli, benchmark, streamlit]}
@@ -68,6 +70,7 @@ levels:
       - docs/levels/level_05.md
       - docs/reports/manual/level_05_portfolio_baseline_20260724.md
       - docs/reports/manual/level_05_inventory_promotion_20260814.md
+      - docs/reports/manual/level_03_05_distribution_20260814/cross_level_distribution_report.md
     algorithms:
       extreme_point_best_fit: {execution_class: packing_solver, maturity: accepted, role: practical_default, exposure: [cli, benchmark, streamlit]}
       extreme_point_ffd: {execution_class: packing_solver, maturity: accepted, role: constructive_comparator, exposure: [cli, benchmark, streamlit]}

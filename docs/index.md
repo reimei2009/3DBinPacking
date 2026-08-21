@@ -4,6 +4,9 @@
 khả năng thực thi; `config/common/capability_matrix.yaml` quyết định cách phân
 loại maturity, vai trò và exposure.
 
+Tài liệu trình bày tổng hợp hiện tại:
+[WIP 4 tuần — Tech doc và kịch bản demo](reports/manual/wip_04_technical_demo_20260815.md).
+
 ## Contract theo level
 
 | Level | Contract canonical | Trạng thái |
@@ -25,12 +28,21 @@ loại maturity, vai trò và exposure.
 - [Thiết kế benchmark](design/benchmark_design.md)
 - [Benchmark chuẩn Level 2](benchmarks/level_02_benchmark_v2.md)
 - [Profiling runtime Benchmark V2 Level 2](benchmarks/level_02_runtime_profiling.md)
-- [Evidence canonical Level 2 ngày 2026-08-13](reports/manual/level_02_canonical_benchmark_20260813.md)
+- [A/B repair UI Level 3](benchmarks/level_03_repair_ui_ab.md)
+- [Evidence repair UI Level 3 ngày 2026-08-17](reports/manual/level_03_repair_ui_acceptance_20260817.md)
+- [Evidence canonical Level 2 V2 ngày 2026-08-20](reports/manual/level_02_stratified_benchmark_v2_clean_20260820.md)
+- [Evidence Level 2 V1 ngày 2026-08-13 — lịch sử](reports/manual/level_02_canonical_benchmark_20260813.md)
 - [Corpus nghiên cứu Level 1](benchmarks/level1_research_corpus.md)
 - [Corpus MPV fixed-orientation Level 2](datasets/mpv_fixed_orientation_level2.md)
 - [Parameter sweep](design/parameter_sweep_design.md)
 - [Kiến trúc Streamlit/Plotly](design/visualization_web_architecture.md)
 - [Git workflow](design/git_workflow.md)
+- [ADR-0047 — Bảo toàn evidence khi pipeline thất bại](decisions/ADR-0047-bao-toan-evidence-khi-pipeline-that-bai.md)
+- [Chẩn đoán deadline MES Level 4–5](benchmarks/mes_deadline_reliability.md)
+- [ADR-0049 — Evidence độ tin cậy deadline MES](decisions/ADR-0049-mes-deadline-reliability-evidence.md)
+- [Evidence MES deadline reliability ngày 2026-08-20](reports/manual/mes_deadline_reliability_20260820.md)
+- [ADR-0050 — Governance objective và benchmark canonical](decisions/ADR-0050-objective-va-benchmark-governance.md)
+- [Review MES Level 4–5 ngày 2026-08-20](reports/manual/level_04_05_mes_comparator_review_20260820.md)
 
 ## Hướng dẫn vận hành
 
